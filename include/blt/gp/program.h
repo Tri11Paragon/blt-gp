@@ -30,11 +30,11 @@ namespace blt::gp
     {
     };
     
-    template<typename Return, typename Args>
+    template<typename Return, typename... Args>
     class operation
     {
         public:
-            using function_t = std::function<Return(blt::span<Args>)>;
+            using function_t = std::function<Return(Args...)>;
             
             operation(const operation& copy) = default;
             
@@ -48,17 +48,33 @@ namespace blt::gp
                     func = functor;
                 } else
                 {
-                    func = [&functor](blt::span<Args> args) {
-                        return functor(args);
+                    func = [&functor](Args... args) {
+                        return functor(args...);
                     };
                 }
             }
             
             explicit operation(function_t&& functor): func(std::move(functor))
             {}
+            
+            inline Return operator()(Args... args)
+            {
+                return func(args...);
+            }
+            
+            inline Return operator()(blt::span<void*> args)
+            {
+                
+            }
         
         private:
             function_t func;
+    };
+    
+    template<typename Return, typename Args>
+    class operations
+    {
+    
     };
     
     
