@@ -16,8 +16,23 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <iostream>
+#include <blt/gp/program.h>
 
 int main()
 {
+    blt::gp::operation<float, float, int, bool> silly([](float f, int i, bool b) -> float {
+        return static_cast<float>(b);
+    });
+    
+    float f = 10.5;
+    int i = 412;
+    bool b = true;
+    
+    std::array<void*, 3> arr{reinterpret_cast<void*>(&f), reinterpret_cast<void*>(&i), reinterpret_cast<void*>(&b)};
+    
+    blt::span<void*, 3> spv{arr};
+    
+    std::cout << silly.operator()(spv) << std::endl;
+    
     std::cout << "Hello World!" << std::endl;
 }

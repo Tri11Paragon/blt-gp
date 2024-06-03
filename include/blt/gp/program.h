@@ -22,12 +22,106 @@
 #include <blt/gp/fwdecl.h>
 #include <functional>
 #include <blt/std/ranges.h>
+#include <blt/std/types.h>
+#include <blt/std/utility.h>
 #include <type_traits>
+#include <string_view>
+#include <string>
+#include <utility>
 
 namespace blt::gp
 {
     class identifier
     {
+    };
+    
+    class type
+    {
+        public:
+            template<typename T>
+            static type make_type(blt::size_t id)
+            {
+                return type(sizeof(T), id, blt::type_string<T>());
+            }
+            
+            [[nodiscard]] blt::size_t size() const
+            {
+                return size_;
+            }
+            
+            [[nodiscard]] blt::size_t id() const
+            {
+                return id_;
+            }
+            
+            [[nodiscard]] std::string_view name() const
+            {
+                return name_;
+            }
+        
+        private:
+            type(size_t size, size_t id, std::string_view name): size_(size), id_(id), name_(name)
+            {}
+            
+            blt::size_t size_;
+            blt::size_t id_;
+            std::string name_;
+    };
+    
+    class type_system
+    {
+        public:
+            type_system() = default;
+            
+            template<typename T>
+            inline type register_type()
+            {
+                types.push_back(type::make_type<T>(types.size()));
+                return types.back();
+            }
+        
+        private:
+            std::vector<type> types;
+    };
+    
+    class stack_allocator
+    {
+            constexpr static blt::size_t BLOCK_SIZE = 4096;
+        public:
+        
+        private:
+            template<typename T>
+            static inline auto to_block(T* p)
+            {
+                return reinterpret_cast<block*>(reinterpret_cast<std::uintptr_t>(p) & static_cast<std::uintptr_t>(~(BLOCK_SIZE - 1)));
+            }
+            
+            struct block
+            {
+                struct block_metadata_t
+                {
+                    block* next = nullptr;
+                    block* prev = nullptr;
+                    blt::u8* offset = nullptr;
+                } metadata;
+                blt::u8 buffer[BLOCK_SIZE - sizeof(block_metadata_t)]{};
+                
+                block()
+                {
+                    metadata.offset = buffer;
+                }
+                
+                // remaining space inside the block after accounting for the metadata
+                static constexpr blt::size_t BLOCK_REMAINDER = BLOCK_SIZE - sizeof(typename block::block_metadata_t);
+            };
+            
+            static block* allocate_block()
+            {
+                return reinterpret_cast<block*>(std::aligned_alloc(BLOCK_SIZE, BLOCK_SIZE));
+            }
+        
+        private:
+            block* head = nullptr;
     };
     
     template<typename Return, typename... Args>
@@ -40,18 +134,16 @@ namespace blt::gp
             
             operation(operation&& move) = default;
             
-            template<typename T>
+            template<typename T, std::enable_if_t<std::is_same_v<T, function_t>, void>>
+            explicit operation(const T& functor): func(functor)
+            {}
+            
+            template<typename T, std::enable_if_t<!std::is_same_v<T, function_t>, void>>
             explicit operation(const T& functor)
             {
-                if constexpr (std::is_same_v<T, function_t>)
-                {
-                    func = functor;
-                } else
-                {
-                    func = [&functor](Args... args) {
-                        return functor(args...);
-                    };
-                }
+                func = [&functor](Args... args) {
+                    return functor(args...);
+                };
             }
             
             explicit operation(function_t&& functor): func(std::move(functor))
@@ -62,19 +154,33 @@ namespace blt::gp
                 return func(args...);
             }
             
-            inline Return operator()(blt::span<void*> args)
+            Return operator()(blt::span<void*> args)
             {
-                
+                auto pack_sequence = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
+                return function_evaluator(args, pack_sequence);
+            }
+            
+            std::function<Return(blt::span<void*>)> to_functor()
+            {
+                return [this](blt::span<void*> args) {
+                    return this->operator()(args);
+                };
             }
         
         private:
+            template<typename T, blt::size_t index>
+            static inline T& access_pack_index(blt::span<void*> args)
+            {
+                return *reinterpret_cast<T*>(args[index]);
+            }
+            
+            template<typename T, T... indexes>
+            Return function_evaluator(blt::span<void*> args, std::integer_sequence<T, indexes...>)
+            {
+                return func(access_pack_index<Args, indexes>(args)...);
+            }
+            
             function_t func;
-    };
-    
-    template<typename Return, typename Args>
-    class operations
-    {
-    
     };
     
     

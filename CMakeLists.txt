@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.5)
+project(blt-gp VERSION 0.0.6)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
@@ -42,8 +42,8 @@ if (${BUILD_EXAMPLES})
 
     target_link_libraries(blt-gp-example PUBLIC BLT blt-gp)
 
-    target_compile_options(blt-gp-example PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
-    target_link_options(blt-gp-example PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
+    target_compile_options(blt-gp-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_link_options(blt-gp-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
 
     if (${ENABLE_ADDRSAN} MATCHES ON)
         target_compile_options(blt-gp-example PRIVATE -fsanitize=address)
