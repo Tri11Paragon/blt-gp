@@ -16,6 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <cstddef>
 #ifndef BLT_GP_PROGRAM_H
 #define BLT_GP_PROGRAM_H
 
@@ -86,38 +87,50 @@ namespace blt::gp
     
     class stack_allocator
     {
-            constexpr static blt::size_t BLOCK_SIZE = 4096;
+            constexpr static blt::size_t PAGE_SIZE = 0x1000;
         public:
         
         private:
-            template<typename T>
-            static inline auto to_block(T* p)
-            {
-                return reinterpret_cast<block*>(reinterpret_cast<std::uintptr_t>(p) & static_cast<std::uintptr_t>(~(BLOCK_SIZE - 1)));
-            }
-            
             struct block
             {
                 struct block_metadata_t
                 {
+                    blt::size_t size = 0;
                     block* next = nullptr;
                     block* prev = nullptr;
                     blt::u8* offset = nullptr;
                 } metadata;
-                blt::u8 buffer[BLOCK_SIZE - sizeof(block_metadata_t)]{};
+                blt::u8 buffer[8]{};
                 
-                block()
+                explicit block(blt::size_t size)
                 {
+                    metadata.size = size;
                     metadata.offset = buffer;
                 }
                 
-                // remaining space inside the block after accounting for the metadata
-                static constexpr blt::size_t BLOCK_REMAINDER = BLOCK_SIZE - sizeof(typename block::block_metadata_t);
+                [[nodiscard]] blt::size_t remainder_after_meta() const
+                {
+                    return metadata.size - sizeof(typename block::block_metadata_t);
+                }
+                
+                [[nodiscard]] blt::ptrdiff_t remaining_bytes() const
+                {
+                    return static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
+                }
             };
             
-            static block* allocate_block()
+            static size_t to_nearest_page_size(blt::size_t bytes)
             {
-                return reinterpret_cast<block*>(std::aligned_alloc(BLOCK_SIZE, BLOCK_SIZE));
+                constexpr static blt::size_t MASK = ~(PAGE_SIZE - 1);
+                return (bytes & MASK) + PAGE_SIZE;
+            }
+            
+            static block* allocate_block(blt::size_t bytes)
+            {
+                auto size = to_nearest_page_size(bytes);
+                auto* data = std::aligned_alloc(PAGE_SIZE, size);
+                new(data) block{size};
+                return reinterpret_cast<block*>(data);
             }
         
         private:
