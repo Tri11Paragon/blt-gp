@@ -271,9 +271,20 @@ void test()
     
 }
 
+struct silly
+{
+    long nyah;
+    int bruh;
+};
+
 int main()
 {
     test();
+    std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
+    
+    blt::size_t remaining_bytes = 4096;
+    //auto* pointer = static_cast<void*>(head->metadata.offset);
+    //return std::align(alignment, bytes, pointer, remaining_bytes);
     
     blt::gp::operation<float, float, int, bool> silly([](float f, int i, bool b) -> float {
         return static_cast<float>(f);

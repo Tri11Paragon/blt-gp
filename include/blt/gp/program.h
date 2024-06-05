@@ -88,6 +88,7 @@ namespace blt::gp
     class stack_allocator
     {
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
+            constexpr static blt::size_t MAX_ALIGNMENT = 8;
         public:
             /**
              * Pushes an instance of an object on to the stack
