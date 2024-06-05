@@ -277,10 +277,23 @@ struct silly
     int bruh;
 };
 
+blt::gp::stack_allocator alloc;
+
 int main()
 {
     test();
     std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
+    std::cout << alignof(void*) << " " << sizeof(void*) << std::endl;
+    std::cout << blt::type_string<decltype(&"SillString")>() << std::endl;
+    
+    alloc.push(50);
+    alloc.push(550.0f);
+    alloc.push(20.1230345);
+    alloc.push(std::string("SillyString"));
+    alloc.push(&"SillyString");
+    
+    std::cout << std::endl << std::endl;
+    std::cout << alloc.pop<decltype(&"SillString")>() << std::endl;
     
     blt::size_t remaining_bytes = 4096;
     //auto* pointer = static_cast<void*>(head->metadata.offset);

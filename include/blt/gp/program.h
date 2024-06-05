@@ -99,19 +99,20 @@ namespace blt::gp
             void push(T&& value)
             {
                 auto ptr = allocate_bytes<T>();
-                head->metadata.offset = ptr + sizeof(T);
+                head->metadata.offset = static_cast<blt::u8*>(ptr) + sizeof(T);
                 new(ptr) T(std::forward<T>(value));
             }
             
             template<typename T>
             T pop()
             {
+                constexpr auto offset = std::max(sizeof(T), MAX_ALIGNMENT);
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
-                if (head->remaining_bytes_in_block() - head->storage_size() < sizeof(T))
+                if (head->remaining_bytes_in_block() - head->storage_size() < static_cast<blt::ptrdiff_t>(sizeof(T)))
                     throw std::runtime_error("Mismatched Types!");
-                T t = *reinterpret_cast<T*>(head->metadata.offset - sizeof(T));
-                head->metadata.offset -= sizeof(T);
+                T t = *reinterpret_cast<T*>(head->metadata.offset - offset);
+                head->metadata.offset -= offset;
                 if (head->used_bytes_in_block() == static_cast<blt::ptrdiff_t>(head->storage_size()))
                 {
                     auto ptr = head;
@@ -124,6 +125,7 @@ namespace blt::gp
             template<typename T>
             T& from(blt::size_t bytes)
             {
+                constexpr auto offset = std::max(sizeof(T), MAX_ALIGNMENT);
                 auto remaining_bytes = static_cast<blt::i64>(bytes);
                 blt::i64 bytes_into_block = 0;
                 block* blk = head;
@@ -142,7 +144,7 @@ namespace blt::gp
                 }
                 if (blk == nullptr)
                     throw std::runtime_error("Some nonsense is going on. This function already smells");
-                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - sizeof(T));
+                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - offset);
             }
             
             [[nodiscard]] bool empty() const
@@ -221,22 +223,22 @@ namespace blt::gp
             template<typename T>
             void* allocate_bytes()
             {
-                auto ptr = get_aligned_pointer(sizeof(T), alignof(T));
+                auto ptr = get_aligned_pointer(sizeof(T));
                 if (ptr == nullptr)
                     push_block_for<T>();
-                ptr = get_aligned_pointer(sizeof(T), alignof(T));
+                ptr = get_aligned_pointer(sizeof(T));
                 if (ptr == nullptr)
                     throw std::bad_alloc();
                 return ptr;
             }
             
-            void* get_aligned_pointer(blt::size_t bytes, blt::size_t alignment)
+            void* get_aligned_pointer(blt::size_t bytes)
             {
                 if (head == nullptr)
                     return nullptr;
                 blt::size_t remaining_bytes = head->remaining_bytes_in_block();
                 auto* pointer = static_cast<void*>(head->metadata.offset);
-                return std::align(alignment, bytes, pointer, remaining_bytes);
+                return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
             }
             
             template<typename T>
