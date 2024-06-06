@@ -371,6 +371,8 @@ int main()
     blt::gp::operation<float, float, int, bool> silly_op(nyah);
     
     std::cout << silly_op(alloc) << std::endl;
+    
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
 
 //    std::cout << std::endl;
 //

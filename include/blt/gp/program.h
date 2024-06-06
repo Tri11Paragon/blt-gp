@@ -115,8 +115,7 @@ namespace blt::gp
             template<typename CurrentArgument, blt::u64 index>
             inline CurrentArgument& getArgument(stack_allocator& allocator) const
             {
-                auto bytes = getByteOffset<index>();
-                return allocator.from<CurrentArgument>(bytes);
+                return allocator.from<CurrentArgument>(getByteOffset<index>());
             }
             
             template<blt::u64... indices>
@@ -128,7 +127,10 @@ namespace blt::gp
             [[nodiscard]] inline Return operator()(stack_allocator& allocator) const
             {
                 auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                return sequence_to_indices(allocator, seq);
+                Return ret = sequence_to_indices(allocator, seq);
+                constexpr auto total_bytes = (stack_allocator::aligned_size<Args>() + ...);
+                allocator.pop_bytes(total_bytes);
+                return ret;
             }
         
         private:
