@@ -273,8 +273,24 @@ void test()
 
 struct silly
 {
-    long nyah;
-    int bruh;
+    long nyah = 50;
+    int bruh = 10;
+    
+    friend std::ostream& operator<<(std::ostream& stream, const silly& silly)
+    {
+        stream << "[" << silly.nyah << " " << silly.bruh << "]";
+        return stream;
+    }
+};
+
+struct large
+{
+    unsigned char data[2048];
+};
+
+struct super_large
+{
+    unsigned char data[9582];
 };
 
 blt::gp::stack_allocator alloc;
@@ -283,17 +299,37 @@ int main()
 {
     test();
     std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
+    std::cout << alignof(super_large) << " " << sizeof(super_large) << std::endl;
     std::cout << alignof(void*) << " " << sizeof(void*) << std::endl;
     std::cout << blt::type_string<decltype(&"SillString")>() << std::endl;
     
     alloc.push(50);
-    alloc.push(550.0f);
+    alloc.push(550.3f);
     alloc.push(20.1230345);
     alloc.push(std::string("SillyString"));
     alloc.push(&"SillyString");
     
-    std::cout << std::endl << std::endl;
-    std::cout << alloc.pop<decltype(&"SillString")>() << std::endl;
+    std::cout << std::endl;
+    std::cout << *alloc.pop<decltype(&"SillString")>() << std::endl;
+    std::cout << alloc.pop<std::string>() << std::endl;
+    std::cout << alloc.pop<double>() << std::endl;
+    std::cout << alloc.pop<float>() << std::endl;
+    std::cout << alloc.pop<int>() << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Is empty? " << alloc.empty() << std::endl << std::endl;
+    alloc.push(silly{});
+    alloc.push(large{});
+    alloc.push(super_large{});
+    alloc.push(silly{25, 24});
+    alloc.push(large{});
+    
+    std::cout << std::endl;
+    alloc.pop<large>();
+    std::cout << alloc.pop<silly>() << std::endl;
+    alloc.pop<super_large>();
+    alloc.pop<large>();
+    std::cout << alloc.pop<silly>() << std::endl;
     
     blt::size_t remaining_bytes = 4096;
     //auto* pointer = static_cast<void*>(head->metadata.offset);

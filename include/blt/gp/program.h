@@ -109,15 +109,15 @@ namespace blt::gp
                 constexpr auto offset = std::max(sizeof(T), MAX_ALIGNMENT);
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
-                if (head->remaining_bytes_in_block() - head->storage_size() < static_cast<blt::ptrdiff_t>(sizeof(T)))
-                    throw std::runtime_error("Mismatched Types!");
+                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(sizeof(T)))
+                    throw std::runtime_error("Mismatched Types! Not enough space left in block!");
                 T t = *reinterpret_cast<T*>(head->metadata.offset - offset);
                 head->metadata.offset -= offset;
                 if (head->used_bytes_in_block() == static_cast<blt::ptrdiff_t>(head->storage_size()))
                 {
                     auto ptr = head;
                     head = head->metadata.prev;
-                    delete ptr;
+                    std::free(ptr);
                 }
                 return t;
             }
@@ -182,7 +182,7 @@ namespace blt::gp
                 {
                     block* ptr = current;
                     current = current->metadata.prev;
-                    delete ptr;
+                    std::free(ptr);
                 }
             }
         
@@ -209,14 +209,14 @@ namespace blt::gp
                     return static_cast<blt::ptrdiff_t>(metadata.size - sizeof(typename block::block_metadata_t));
                 }
                 
-                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const
-                {
-                    return storage_size() - static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
-                }
-                
                 [[nodiscard]] blt::ptrdiff_t used_bytes_in_block() const
                 {
                     return static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
+                }
+                
+                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const
+                {
+                    return storage_size() - used_bytes_in_block();
                 }
             };
             
