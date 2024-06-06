@@ -112,24 +112,18 @@ namespace blt::gp
                 return offset;
             }
             
-            template<typename CurrentArgument, blt::u64 index>
-            inline CurrentArgument& getArgument(stack_allocator& allocator) const
-            {
-                return allocator.from<CurrentArgument>(getByteOffset<index>());
-            }
-            
             template<blt::u64... indices>
             inline Return sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
             {
-                return func(getArgument<Args, indices>(allocator)...);
+                // expands Args and indices, providing each argument with its index calculating the current argument byte offset
+                return func(allocator.from<Args>(getByteOffset<indices>())...);
             }
             
             [[nodiscard]] inline Return operator()(stack_allocator& allocator) const
             {
                 auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
                 Return ret = sequence_to_indices(allocator, seq);
-                constexpr auto total_bytes = (stack_allocator::aligned_size<Args>() + ...);
-                allocator.pop_bytes(total_bytes);
+                allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
                 return ret;
             }
         
