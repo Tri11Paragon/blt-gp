@@ -19,6 +19,7 @@
 #ifndef BLT_GP_PROGRAM_H
 #define BLT_GP_PROGRAM_H
 
+#include <blt/gp/stack.h>
 #include <cstddef>
 #include <blt/gp/fwdecl.h>
 #include <functional>
@@ -96,292 +97,54 @@ namespace blt::gp
             
             operation(operation&& move) = default;
             
-            template<typename T, std::enable_if_t<std::is_same_v<T, function_t>, void>>
-            explicit operation(const T& functor): func(functor)
+            explicit operation(const function_t& functor): func(functor)
             {}
-            
-            template<typename T, std::enable_if_t<!std::is_same_v<T, function_t>, void>>
-            explicit operation(const T& functor)
-            {
-                func = [&functor](Args... args) {
-                    return functor(args...);
-                };
-            }
             
             explicit operation(function_t&& functor): func(std::move(functor))
             {}
             
-            [[nodiscard]] inline Return operator()(Args... args) const
-            {
-                return func(args...);
-            }
-            
-            Return operator()(blt::span<void*> args)
-            {
-                auto pack_sequence = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                return function_evaluator(args, pack_sequence);
-            }
-            
-            std::function<Return(blt::span<void*>)> to_functor()
-            {
-                return [this](blt::span<void*> args) {
-                    return this->operator()(args);
-                };
-            }
-        
-        private:
-            template<typename T, blt::size_t index>
-            static inline T& access_pack_index(blt::span<void*> args)
-            {
-                return *reinterpret_cast<T*>(args[index]);
-            }
-            
-            template<typename T, T... indexes>
-            Return function_evaluator(blt::span<void*> args, std::integer_sequence<T, indexes...>)
-            {
-                return func(access_pack_index<Args, indexes>(args)...);
-            }
-            
-            function_t func;
-    };
-    
-    class stack_allocator
-    {
-            constexpr static blt::size_t PAGE_SIZE = 0x1000;
-            constexpr static blt::size_t MAX_ALIGNMENT = 8;
-        public:
-            /**
-             * Pushes an instance of an object on to the stack
-             * @tparam T type to push
-             * @param value universal reference to the object to push
-             */
-            template<typename T>
-            void push(T&& value)
-            {
-                auto ptr = allocate_bytes<T>();
-                head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<T>();
-                new(ptr) T(std::forward<T>(value));
-            }
-            
-            template<typename T>
-            T pop()
-            {
-                constexpr static auto TYPE_SIZE = aligned_size<T>();
-                if (head == nullptr)
-                    throw std::runtime_error("Silly boi the stack is empty!");
-                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
-                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
-                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
-                T t = *reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE);
-                head->metadata.offset -= TYPE_SIZE;
-                if (head->used_bytes_in_block() == 0)
-                {
-                    auto ptr = head;
-                    head = head->metadata.prev;
-                    std::free(ptr);
-                }
-                return t;
-            }
-            
-            template<typename T>
-            T& from(blt::size_t bytes)
-            {
-                constexpr static auto TYPE_SIZE = aligned_size<T>();
-                auto remaining_bytes = static_cast<blt::i64>(bytes);
-                blt::i64 bytes_into_block = 0;
-                block* blk = head;
-                while (remaining_bytes > 0)
-                {
-                    if (blk == nullptr)
-                        throw std::runtime_error("Requested size is beyond the scope of this stack!");
-                    auto bytes_available = blk->used_bytes_in_block() - remaining_bytes;
-                    bytes_into_block = remaining_bytes;
-                    if (bytes_available < 0)
-                    {
-                        remaining_bytes = -bytes_available;
-                        blk = head->metadata.prev;
-                    } else
-                        break;
-                }
-                if (blk == nullptr)
-                    throw std::runtime_error("Some nonsense is going on. This function already smells");
-                if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
-                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
-                            blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
-                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - TYPE_SIZE);
-            }
-            
-            template<blt::u64 index, typename... Args>
-            blt::size_t getByteOffset()
+            template<blt::u64 index>
+            inline constexpr blt::size_t getByteOffset() const
             {
                 blt::size_t offset = 0;
                 blt::size_t current_index = 0;
-                ((offset += (current_index++ > index ? aligned_size<Args>() : 0)), ...);
+                ((offset += (current_index++ > index ? stack_allocator::aligned_size<Args>() : 0)), ...);
                 return offset;
             }
             
-            template<typename CurrentArgument, blt::u64 index, typename... Args>
-            CurrentArgument& getArgument()
+            template<typename CurrentArgument, blt::u64 index>
+            inline CurrentArgument& getArgument(stack_allocator& allocator) const
             {
-                auto bytes = getByteOffset<index, Args...>();
-                return from<CurrentArgument>(bytes);
+                auto bytes = getByteOffset<index>();
+                return allocator.from<CurrentArgument>(bytes);
             }
             
-            template<typename Return, typename... Args, blt::u64... indices>
-            Return sequence_to_indices(const operation<Return, Args...>& function, std::integer_sequence<blt::u64, indices...>)
+            template<blt::u64... indices>
+            inline Return sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
             {
-                return function(getArgument<Args, indices, Args...>()...);
+                return func(getArgument<Args, indices>(allocator)...);
             }
             
-            template<typename Return, typename... Args>
-            Return run(const operation<Return, Args...>& function)
+            [[nodiscard]] inline Return operator()(stack_allocator& allocator) const
             {
                 auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                return sequence_to_indices(function, seq);
-            }
-            
-            [[nodiscard]] bool empty() const
-            {
-                if (head == nullptr)
-                    return true;
-                if (head->metadata.prev != nullptr)
-                    return false;
-                return head->used_bytes_in_block() == 0;
-            }
-            
-            [[nodiscard]] blt::ptrdiff_t bytes_in_head() const
-            {
-                if (head == nullptr)
-                    return 0;
-                return head->used_bytes_in_block();
-            }
-            
-            stack_allocator() = default;
-            
-            stack_allocator(const stack_allocator& copy) = delete;
-            
-            stack_allocator& operator=(const stack_allocator& copy) = delete;
-            
-            stack_allocator(stack_allocator&& move) noexcept
-            {
-                head = move.head;
-                move.head = nullptr;
-            }
-            
-            stack_allocator& operator=(stack_allocator&& move) noexcept
-            {
-                head = move.head;
-                move.head = nullptr;
-                return *this;
-            }
-            
-            ~stack_allocator()
-            {
-                block* current = head;
-                while (current != nullptr)
-                {
-                    block* ptr = current;
-                    current = current->metadata.prev;
-                    std::free(ptr);
-                }
+                return sequence_to_indices(allocator, seq);
             }
         
         private:
-            struct block
-            {
-                struct block_metadata_t
-                {
-                    blt::size_t size = 0;
-                    block* next = nullptr;
-                    block* prev = nullptr;
-                    blt::u8* offset = nullptr;
-                } metadata;
-                blt::u8 buffer[8]{};
-                
-                explicit block(blt::size_t size)
-                {
-                    metadata.size = size;
-                    metadata.offset = buffer;
-                }
-                
-                [[nodiscard]] blt::ptrdiff_t storage_size() const
-                {
-                    return static_cast<blt::ptrdiff_t>(metadata.size - sizeof(typename block::block_metadata_t));
-                }
-                
-                [[nodiscard]] blt::ptrdiff_t used_bytes_in_block() const
-                {
-                    return static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
-                }
-                
-                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const
-                {
-                    return storage_size() - used_bytes_in_block();
-                }
-            };
+//            template<typename T, blt::size_t index>
+//            static inline T& access_pack_index(blt::span<void*> args)
+//            {
+//                return *reinterpret_cast<T*>(args[index]);
+//            }
+//
+//            template<typename T, T... indexes>
+//            Return function_evaluator(blt::span<void*> args, std::integer_sequence<T, indexes...>)
+//            {
+//                return func(access_pack_index<Args, indexes>(args)...);
+//            }
             
-            template<typename T>
-            void* allocate_bytes()
-            {
-                auto ptr = get_aligned_pointer(sizeof(T));
-                if (ptr == nullptr)
-                    push_block_for<T>();
-                ptr = get_aligned_pointer(sizeof(T));
-                if (ptr == nullptr)
-                    throw std::bad_alloc();
-                return ptr;
-            }
-            
-            void* get_aligned_pointer(blt::size_t bytes)
-            {
-                if (head == nullptr)
-                    return nullptr;
-                blt::size_t remaining_bytes = head->remaining_bytes_in_block();
-                auto* pointer = static_cast<void*>(head->metadata.offset);
-                return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
-            }
-            
-            template<typename T>
-            void push_block_for()
-            {
-                push_block(std::max(PAGE_SIZE, to_nearest_page_size(sizeof(T))));
-            }
-            
-            void push_block(blt::size_t size)
-            {
-                auto blk = allocate_block(size);
-                if (head == nullptr)
-                {
-                    head = blk;
-                    return;
-                }
-                head->metadata.next = blk;
-                blk->metadata.prev = head;
-                head = blk;
-            }
-            
-            static size_t to_nearest_page_size(blt::size_t bytes)
-            {
-                constexpr static blt::size_t MASK = ~(PAGE_SIZE - 1);
-                return (bytes & MASK) + PAGE_SIZE;
-            }
-            
-            static block* allocate_block(blt::size_t bytes)
-            {
-                auto size = to_nearest_page_size(bytes);
-                auto* data = std::aligned_alloc(PAGE_SIZE, size);
-                new(data) block{size};
-                return reinterpret_cast<block*>(data);
-            }
-            
-            template<typename T>
-            static inline constexpr blt::size_t aligned_size() noexcept
-            {
-                return (sizeof(T) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
-            }
-        
-        private:
-            block* head = nullptr;
+            function_t func;
     };
     
     
