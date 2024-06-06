@@ -106,14 +106,15 @@ namespace blt::gp
             template<typename T>
             T pop()
             {
-                constexpr auto offset = std::max(sizeof(T), MAX_ALIGNMENT);
+                constexpr auto TYPE_SIZE = aligned_size<T>();
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(sizeof(T)))
-                    throw std::runtime_error("Mismatched Types! Not enough space left in block!");
-                T t = *reinterpret_cast<T*>(head->metadata.offset - offset);
-                head->metadata.offset -= offset;
-                if (head->used_bytes_in_block() == static_cast<blt::ptrdiff_t>(head->storage_size()))
+                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
+                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
+                T t = *reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE);
+                head->metadata.offset -= TYPE_SIZE;
+                if (head->used_bytes_in_block() == 0)
                 {
                     auto ptr = head;
                     head = head->metadata.prev;
@@ -125,7 +126,7 @@ namespace blt::gp
             template<typename T>
             T& from(blt::size_t bytes)
             {
-                constexpr auto offset = std::max(sizeof(T), MAX_ALIGNMENT);
+                constexpr auto TYPE_SIZE = aligned_size<T>();
                 auto remaining_bytes = static_cast<blt::i64>(bytes);
                 blt::i64 bytes_into_block = 0;
                 block* blk = head;
@@ -144,7 +145,7 @@ namespace blt::gp
                 }
                 if (blk == nullptr)
                     throw std::runtime_error("Some nonsense is going on. This function already smells");
-                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - offset);
+                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - TYPE_SIZE);
             }
             
             [[nodiscard]] bool empty() const
@@ -153,7 +154,7 @@ namespace blt::gp
                     return true;
                 if (head->metadata.prev != nullptr)
                     return false;
-                return head->used_bytes_in_block() == static_cast<blt::ptrdiff_t>(head->storage_size());
+                return head->used_bytes_in_block() == 0;
             }
             
             stack_allocator() = default;
@@ -272,6 +273,12 @@ namespace blt::gp
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 new(data) block{size};
                 return reinterpret_cast<block*>(data);
+            }
+            
+            template<typename T>
+            static inline constexpr blt::size_t aligned_size() noexcept
+            {
+                return (sizeof(T) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT-1);
             }
         
         private:

@@ -297,9 +297,15 @@ blt::gp::stack_allocator alloc;
 
 int main()
 {
+    constexpr blt::size_t MAX_ALIGNMENT = 8;
     test();
     std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
-    std::cout << alignof(super_large) << " " << sizeof(super_large) << std::endl;
+    std::cout << alignof(super_large) << " " << sizeof(super_large) << " " << ((sizeof(super_large) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
+              << std::endl;
+    std::cout << ((sizeof(char) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " "
+              << ((sizeof(short) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << std::endl;
+    std::cout << ((sizeof(int) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " " << ((sizeof(long) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
+              << std::endl;
     std::cout << alignof(void*) << " " << sizeof(void*) << std::endl;
     std::cout << blt::type_string<decltype(&"SillString")>() << std::endl;
     
@@ -317,7 +323,7 @@ int main()
     std::cout << alloc.pop<int>() << std::endl;
     std::cout << std::endl;
     
-    std::cout << "Is empty? " << alloc.empty() << std::endl << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     alloc.push(silly{});
     alloc.push(large{});
     alloc.push(super_large{});
