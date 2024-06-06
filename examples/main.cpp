@@ -312,12 +312,16 @@ int main()
     alloc.push(50);
     alloc.push(550.3f);
     alloc.push(20.1230345);
+    alloc.push(true);
+    alloc.push(false);
     alloc.push(std::string("SillyString"));
     alloc.push(&"SillyString");
     
     std::cout << std::endl;
     std::cout << *alloc.pop<decltype(&"SillString")>() << std::endl;
     std::cout << alloc.pop<std::string>() << std::endl;
+    std::cout << alloc.pop<bool>() << std::endl;
+    std::cout << alloc.pop<bool>() << std::endl;
     std::cout << alloc.pop<double>() << std::endl;
     std::cout << alloc.pop<float>() << std::endl;
     std::cout << alloc.pop<int>() << std::endl;
@@ -331,19 +335,45 @@ int main()
     alloc.push(large{});
     
     std::cout << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     alloc.pop<large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     std::cout << alloc.pop<silly>() << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     alloc.pop<super_large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     alloc.pop<large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
     std::cout << alloc.pop<silly>() << std::endl;
+    std::cout << std::endl;
     
-    blt::size_t remaining_bytes = 4096;
+    std::cout << "Is empty? " << alloc.empty() << " bytes left: " << alloc.bytes_in_head() << std::endl;
+    std::cout << std::endl;
+    
+    alloc.push(silly{2, 5});
+    alloc.push(large{});
+    alloc.push(super_large{});
+    alloc.push(silly{80, 10});
+    alloc.push(large{});
+    alloc.push(50);
+    alloc.push(550.3f);
+    alloc.push(20.1230345);
+    alloc.push(std::string("SillyString"));
+    alloc.push(33.22f);
+    alloc.push(120);
+    alloc.push(true);
+
+    blt::gp::operation<float, float, int, bool> silly_op([](float f, int i, bool b) -> float {
+        std::cout << "We found values: " << f << " " << i << " " << b << std::endl;
+        return f + static_cast<float>(i * b);
+    });
+    
+    std::cout << alloc.run(silly_op) << std::endl;
+    
+    std::cout << std::endl;
+    
     //auto* pointer = static_cast<void*>(head->metadata.offset);
     //return std::align(alignment, bytes, pointer, remaining_bytes);
-    
-    blt::gp::operation<float, float, int, bool> silly([](float f, int i, bool b) -> float {
-        return static_cast<float>(f);
-    });
     
     float f = 10.5;
     int i = 412;
@@ -353,7 +383,7 @@ int main()
     
     blt::span<void*, 3> spv{arr};
     
-    std::cout << silly.operator()(spv) << std::endl;
+    std::cout << silly_op.operator()(spv) << std::endl;
     
     std::cout << "Hello World!" << std::endl;
 }
