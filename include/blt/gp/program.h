@@ -104,7 +104,7 @@ namespace blt::gp
             {}
             
             template<blt::u64 index>
-            inline constexpr blt::size_t getByteOffset() const
+            [[nodiscard]] inline constexpr blt::size_t getByteOffset() const
             {
                 blt::size_t offset = 0;
                 blt::size_t current_index = 0;
