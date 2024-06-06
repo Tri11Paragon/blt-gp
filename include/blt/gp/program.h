@@ -87,20 +87,21 @@ namespace blt::gp
             std::vector<type> types;
     };
     
+    template<typename Signature>
+    class operation;
+    
     template<typename Return, typename... Args>
-    class operation
+    class operation<Return(Args...)>
     {
         public:
             using function_t = std::function<Return(Args...)>;
             
-            operation(const operation& copy) = default;
+            constexpr operation(const operation& copy) = default;
             
-            operation(operation&& move) = default;
+            constexpr operation(operation&& move) = default;
             
-            explicit operation(const function_t& functor): func(functor)
-            {}
-            
-            explicit operation(function_t&& functor): func(std::move(functor))
+            template<typename Functor>
+            constexpr explicit operation(const Functor& functor): func(functor)
             {}
             
             template<blt::u64 index>
@@ -113,15 +114,15 @@ namespace blt::gp
             }
             
             template<blt::u64... indices>
-            inline Return sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
+            inline constexpr Return sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
             {
                 // expands Args and indices, providing each argument with its index calculating the current argument byte offset
                 return func(allocator.from<Args>(getByteOffset<indices>())...);
             }
             
-            [[nodiscard]] inline Return operator()(stack_allocator& allocator) const
+            [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
             {
-                auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
+                constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
                 Return ret = sequence_to_indices(allocator, seq);
                 allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
                 return ret;
@@ -142,6 +143,15 @@ namespace blt::gp
             
             function_t func;
     };
+    
+    template<typename Return, typename... Args>
+    operation(Return (*)(Args...)) -> operation<Return(Args...)>;
+//
+//    template<typename Sig>
+//    operation(std::function<Sig>) -> operation<Sig>;
+//
+//    template<typename Return, typename... Args>
+//    operation(std::function<Return(Args...)>)  -> operation<Return(Args...)>;
     
     
 }

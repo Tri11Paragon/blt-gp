@@ -368,9 +368,12 @@ int main()
     alloc.push(120);
     alloc.push(true);
     
-    blt::gp::operation<float, float, int, bool> silly_op(nyah);
+    blt::gp::operation<float(float, int, bool)> silly_op(nyah);
+    blt::gp::operation<float(float,float)> silly_op_2([](float f, float g) {
+        return f + g;
+    });
     
-    std::cout << silly_op(alloc) << std::endl;
+    std::cout << silly_op_2(alloc) << std::endl;
     
     std::cout << "Is empty? " << alloc.empty() << std::endl;
 
