@@ -54,7 +54,10 @@ namespace blt::gp
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
+                // make copy
                 T t = *reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE);
+                // call destructor
+                reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE)->~T();
                 head->metadata.offset -= TYPE_SIZE;
                 if (head->used_bytes_in_block() == 0)
                 {
