@@ -112,6 +112,13 @@ namespace blt::gp
                 }
             }
             
+            template<typename... Args>
+            void call_destructors()
+            {
+                blt::size_t offset = 0;
+                ((from<Args>(offset).~Args(), offset += stack_allocator::aligned_size<Args>()), ...);
+            }
+            
             [[nodiscard]] bool empty() const
             {
                 if (head == nullptr)

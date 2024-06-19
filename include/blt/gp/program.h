@@ -24,6 +24,7 @@
 #include <blt/gp/fwdecl.h>
 #include <functional>
 #include <blt/std/ranges.h>
+#include <blt/std/hashmap.h>
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
 #include <type_traits>
@@ -34,9 +35,6 @@
 
 namespace blt::gp
 {
-    class identifier
-    {
-    };
     
     class type
     {
@@ -79,33 +77,39 @@ namespace blt::gp
             template<typename T>
             inline type register_type()
             {
-                types.push_back(type::make_type<T>(types.size()));
-                return types.back();
+                types[blt::type_string_raw<T>()](type::make_type<T>(types.size()));
+                return types[blt::type_string_raw<T>()];
+            }
+            
+            template<typename T>
+            inline type get_type()
+            {
+                return types[blt::type_string_raw<T>()];
             }
         
         private:
-            std::vector<type> types;
+            blt::hashmap_t<std::string, type> types;
     };
     
     template<typename Signature>
-    class operation;
+    class operation_t;
     
     template<typename Return, typename... Args>
-    class operation<Return(Args...)>
+    class operation_t<Return(Args...)>
     {
         public:
             using function_t = std::function<Return(Args...)>;
             
-            constexpr operation(const operation& copy) = default;
+            constexpr operation_t(const operation_t& copy) = default;
             
-            constexpr operation(operation&& move) = default;
+            constexpr operation_t(operation_t&& move) = default;
             
             template<typename Functor>
-            constexpr explicit operation(const Functor& functor): func(functor)
+            constexpr explicit operation_t(const Functor& functor): func(functor)
             {}
             
             template<blt::u64 index>
-            [[nodiscard]] inline constexpr blt::size_t getByteOffset() const
+            [[nodiscard]] inline constexpr static blt::size_t getByteOffset()
             {
                 blt::size_t offset = 0;
                 blt::size_t current_index = 0;
@@ -114,7 +118,7 @@ namespace blt::gp
             }
             
             template<blt::u64... indices>
-            inline constexpr Return sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
+            inline constexpr Return exec_sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
             {
                 // expands Args and indices, providing each argument with its index calculating the current argument byte offset
                 return func(allocator.from<Args>(getByteOffset<indices>())...);
@@ -123,29 +127,30 @@ namespace blt::gp
             [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
             {
                 constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                Return ret = sequence_to_indices(allocator, seq);
+                Return ret = exec_sequence_to_indices(allocator, seq);
+                allocator.call_destructors<Args...>();
                 allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
                 return ret;
             }
+            
+            [[nodiscard]] std::function<void(stack_allocator&)> make_callable() const
+            {
+                return [this](stack_allocator& values) {
+                    values.push(this->operator()(values));
+                };
+            }
+            
+            [[nodiscard]] blt::size_t get_argc() const
+            {
+                return sizeof...(Args);
+            }
         
         private:
-//            template<typename T, blt::size_t index>
-//            static inline T& access_pack_index(blt::span<void*> args)
-//            {
-//                return *reinterpret_cast<T*>(args[index]);
-//            }
-//
-//            template<typename T, T... indexes>
-//            Return function_evaluator(blt::span<void*> args, std::integer_sequence<T, indexes...>)
-//            {
-//                return func(access_pack_index<Args, indexes>(args)...);
-//            }
-            
             function_t func;
     };
     
     template<typename Return, typename... Args>
-    operation(Return (*)(Args...)) -> operation<Return(Args...)>;
+    operation_t(Return (*)(Args...)) -> operation_t<Return(Args...)>;
 //
 //    template<typename Sig>
 //    operation(std::function<Sig>) -> operation<Sig>;
@@ -153,6 +158,37 @@ namespace blt::gp
 //    template<typename Return, typename... Args>
 //    operation(std::function<Return(Args...)>)  -> operation<Return(Args...)>;
     
+    class gp_program
+    {
+        public:
+            explicit gp_program(type_system system): system(std::move(system))
+            {}
+            
+            template<typename Return, typename... Args>
+            void add_operator(const operation_t<Return(Args...)>& op)
+            {
+                if (op.get_argc() == 0)
+                    terminals.push_back(operators.size());
+                else
+                    non_terminals.push_back(operators.size());
+                
+                operators.push_back(op.make_callable());
+                
+                std::vector<type> types;
+                (types.push_back(system.get_type<Args>()), ...);
+                arg_types.push_back(std::move(types));
+                
+                return_types.push_back(system.get_type<Return>());
+            }
+        
+        private:
+            type_system system;
+            std::vector<std::function<void(stack_allocator&)>> operators;
+            std::vector<blt::size_t> terminals;
+            std::vector<blt::size_t> non_terminals;
+            std::vector<type> return_types;
+            std::vector<std::vector<type>> arg_types;
+    };
     
 }
 

@@ -21,7 +21,7 @@
 
 namespace blt::gp
 {
-    class identifier;
+
 }
 
 #endif //BLT_GP_FWDECL_H
