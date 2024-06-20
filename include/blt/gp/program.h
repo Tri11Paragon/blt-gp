@@ -188,9 +188,21 @@ namespace blt::gp
     
     template<typename Return, typename... Args>
     operation_t(Return (*)(Args...)) -> operation_t<Return(Args...)>;
-//
-//    template<typename Sig>
-//    operation(std::function<Sig>) -> operation<Sig>;
+    
+    template<typename Return, typename Class, typename... Args>
+    operation_t(Return (Class::*)(Args...) const) -> operation_t<Return(Args...)>;
+    
+    template<typename Return, typename Class, typename... Args>
+    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)
+    {
+        // https://ventspace.wordpress.com/2022/04/11/quick-snippet-c-type-trait-templates-for-lambda-details/
+    }
+    
+    template<typename Lambda>
+    operation_t<decltype(&Lambda::operator())> make_operator(Lambda&& lambda)
+    {
+        return operation_t<decltype(&Lambda::operator())>(std::forward(lambda));
+    }
 //
 //    template<typename Return, typename... Args>
 //    operation(std::function<Return(Args...)>)  -> operation<Return(Args...)>;

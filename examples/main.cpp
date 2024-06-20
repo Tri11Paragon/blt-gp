@@ -296,7 +296,7 @@ void test()
 blt::gp::type_system type_system;
 blt::gp::gp_program program(type_system);
 
-blt::gp::operation_t<float(float, float)> add([](float a, float b) { return a + b; });
+blt::gp::operation_t add = blt::gp::make_operator([](float a, float b) { return a + b; });
 blt::gp::operation_t<float(float, float)> sub([](float a, float b) { return a - b; });
 blt::gp::operation_t<float(float, float)> mul([](float a, float b) { return a * b; });
 blt::gp::operation_t<float(float, float)> pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
