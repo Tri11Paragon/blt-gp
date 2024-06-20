@@ -19,28 +19,58 @@
 #ifndef BLT_GP_PROGRAM_H
 #define BLT_GP_PROGRAM_H
 
-#include <blt/gp/stack.h>
+
 #include <cstddef>
-#include <blt/gp/fwdecl.h>
 #include <functional>
-#include <blt/std/ranges.h>
-#include <blt/std/hashmap.h>
-#include <blt/std/types.h>
-#include <blt/std/utility.h>
 #include <type_traits>
 #include <string_view>
 #include <string>
 #include <utility>
 #include <iostream>
+#include <random>
+#include <blt/std/ranges.h>
+#include <blt/std/hashmap.h>
+#include <blt/std/types.h>
+#include <blt/std/utility.h>
+#include <blt/std/memory.h>
+#include <blt/gp/fwdecl.h>
+#include <blt/gp/stack.h>
 
 namespace blt::gp
 {
+    template<typename T>
+    struct integer_type
+    {
+        T id;
+        
+        integer_type() = default;
+        
+        integer_type(T id): id(id) // NOLINT
+        {}
+        
+        inline operator T() const // NOLINT
+        {
+            return id;
+        }
+    };
+    
+    struct operator_id : integer_type<blt::size_t>
+    {
+        using integer_type<blt::size_t>::integer_type;
+    };
+    
+    struct type_id : integer_type<blt::size_t>
+    {
+        using integer_type<blt::size_t>::integer_type;
+    };
     
     class type
     {
         public:
+            type() = default;
+            
             template<typename T>
-            static type make_type(blt::size_t id)
+            static type make_type(type_id id)
             {
                 return type(sizeof(T), id, blt::type_string<T>());
             }
@@ -50,7 +80,7 @@ namespace blt::gp
                 return size_;
             }
             
-            [[nodiscard]] blt::size_t id() const
+            [[nodiscard]] type_id id() const
             {
                 return id_;
             }
@@ -61,12 +91,19 @@ namespace blt::gp
             }
         
         private:
-            type(size_t size, size_t id, std::string_view name): size_(size), id_(id), name_(name)
+            type(size_t size, type_id id, std::string_view name): size_(size), id_(id), name_(name)
             {}
             
-            blt::size_t size_;
-            blt::size_t id_;
-            std::string name_;
+            blt::size_t size_{};
+            type_id id_{};
+            std::string name_{};
+    };
+    
+    class allowed_types_t
+    {
+        public:
+        
+        private:
     };
     
     class type_system
@@ -77,7 +114,7 @@ namespace blt::gp
             template<typename T>
             inline type register_type()
             {
-                types[blt::type_string_raw<T>()](type::make_type<T>(types.size()));
+                types.insert({blt::type_string_raw<T>(), type::make_type<T>(types.size())});
                 return types[blt::type_string_raw<T>()];
             }
             
@@ -167,27 +204,24 @@ namespace blt::gp
             template<typename Return, typename... Args>
             void add_operator(const operation_t<Return(Args...)>& op)
             {
-                if (op.get_argc() == 0)
-                    terminals.push_back(operators.size());
-                else
-                    non_terminals.push_back(operators.size());
+                auto return_type_id = system.get_type<Return>().id();
+                auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
+                operator_list[return_type_id].push_back(operators.size());
                 
+                auto operator_index = operators.size();
+                (argument_types[operator_index].push_back(system.get_type<Args>()), ...);
                 operators.push_back(op.make_callable());
-                
-                std::vector<type> types;
-                (types.push_back(system.get_type<Args>()), ...);
-                arg_types.push_back(std::move(types));
-                
-                return_types.push_back(system.get_type<Return>());
             }
         
         private:
             type_system system;
+            blt::gp::stack_allocator alloc;
+            // indexed from return TYPE ID, returns index of operator
+            blt::expanding_buffer<std::vector<blt::size_t>> terminals;
+            blt::expanding_buffer<std::vector<blt::size_t>> non_terminals;
+            // indexed from OPERATOR NUMBER
+            blt::expanding_buffer<std::vector<type>> argument_types;
             std::vector<std::function<void(stack_allocator&)>> operators;
-            std::vector<blt::size_t> terminals;
-            std::vector<blt::size_t> non_terminals;
-            std::vector<type> return_types;
-            std::vector<std::vector<type>> arg_types;
     };
     
 }

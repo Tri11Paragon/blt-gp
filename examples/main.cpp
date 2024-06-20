@@ -78,39 +78,39 @@ void test()
 {
     std::vector<op> operations;
     std::vector<float> values;
-
+    
     std::stack<op> tree_generator;
     tree_generator.push(generate_op());
-
+    
     while (!tree_generator.empty())
     {
         auto opn = tree_generator.top();
         tree_generator.pop();
-
+        
         operations.push_back(opn);
         if (opn == op::LIT)
         {
             values.push_back(random_value());
             continue;
         }
-
+        
         // child 1
         if (choice())
             tree_generator.push(generate_op());
         else
             tree_generator.push(op::LIT);
-
+        
         // child 2
         if (choice())
             tree_generator.push(generate_op());
         else
             tree_generator.push(op::LIT);
     }
-
+    
     for (const auto& v : operations)
         std::cout << to_string(v) << " ";
     std::cout << std::endl;
-
+    
     {
         std::stack<blt::size_t> process;
         for (const auto& v : operations)
@@ -160,11 +160,11 @@ void test()
         }
         std::cout << std::endl;
     }
-
+    
     for (const auto& v : values)
         std::cout << v << " ";
     std::cout << std::endl;
-
+    
     {
         std::stack<blt::size_t> process;
         blt::size_t index = 0;
@@ -184,7 +184,7 @@ void test()
                     std::cout << values[index++];
                     break;
             }
-
+            
             while (!process.empty())
             {
                 auto top = process.top();
@@ -217,13 +217,13 @@ void test()
         }
         std::cout << std::endl;
     }
-
+    
     std::stack<float> process;
     std::stack<op> operators;
-
+    
     for (const auto& v : operations)
         operators.push(v);
-
+    
     while (!operators.empty())
     {
         auto oper = operators.top();
@@ -265,10 +265,10 @@ void test()
             std::cout << "\tresult: " << values.back() << std::endl;
         }
     }
-
+    
     std::cout << process.size() << std::endl;
     std::cout << process.top() << std::endl;
-
+    
 }
 //
 //struct silly
@@ -293,15 +293,21 @@ void test()
 //    unsigned char data[9582];
 //};
 
-blt::gp::stack_allocator alloc;
+blt::gp::type_system type_system;
+blt::gp::gp_program program(type_system);
 
-float nyah(float f, int i, bool b)
-{
-    return f + static_cast<float>(i * b);
-}
+blt::gp::operation_t<float(float, float)> add([](float a, float b) { return a + b; });
+blt::gp::operation_t<float(float, float)> sub([](float a, float b) { return a - b; });
+blt::gp::operation_t<float(float, float)> mul([](float a, float b) { return a * b; });
+blt::gp::operation_t<float(float, float)> pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
+blt::gp::operation_t<float()> lit([]() {return 0.0f;});
+
 
 int main()
 {
+    type_system.register_type<float>();
+    type_system.register_type<bool>();
+
 //    constexpr blt::size_t MAX_ALIGNMENT = 8;
 //    test();
 //    std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
@@ -364,18 +370,18 @@ int main()
 //    alloc.push(550.3f);
 //    alloc.push(20.1230345);
 //    alloc.push(std::string("SillyString"));
-    alloc.push(33.22f);
-    alloc.push(120);
-    alloc.push(true);
-    
-    blt::gp::operation_t<float(float, int, bool)> silly_op(nyah);
-    blt::gp::operation_t<float(float, float)> silly_op_2([](float f, float g) {
-        return f + g;
-    });
-    
-    std::cout << silly_op(alloc) << std::endl;
-    
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
+//    alloc.push(33.22f);
+//    alloc.push(120);
+//    alloc.push(true);
+//
+//    blt::gp::operation_t<float(float, int, bool)> silly_op(nyah);
+//    blt::gp::operation_t<float(float, float)> silly_op_2([](float f, float g) {
+//        return f + g;
+//    });
+
+//    std::cout << silly_op(alloc) << std::endl;
+//
+//    std::cout << "Is empty? " << alloc.empty() << std::endl;
 
 //    std::cout << std::endl;
 //
