@@ -296,17 +296,23 @@ void test()
 blt::gp::type_system type_system;
 blt::gp::gp_program program(type_system);
 
-blt::gp::operation_t add = blt::gp::make_operator([](float a, float b) { return a + b; });
-blt::gp::operation_t<float(float, float)> sub([](float a, float b) { return a - b; });
-blt::gp::operation_t<float(float, float)> mul([](float a, float b) { return a * b; });
-blt::gp::operation_t<float(float, float)> pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
-blt::gp::operation_t<float()> lit([]() {return 0.0f;});
+blt::gp::operation_t add([](float a, float b) { return a + b; });
+blt::gp::operation_t sub([](float a, float b) { return a - b; });
+blt::gp::operation_t mul([](float a, float b) { return a * b; });
+blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
+blt::gp::operation_t lit([]() { return 0.0f; });
 
 
 int main()
 {
     type_system.register_type<float>();
     type_system.register_type<bool>();
+    
+    program.add_operator(add);
+    program.add_operator(sub);
+    program.add_operator(mul);
+    program.add_operator(pro_div);
+    program.add_operator(lit);
 
 //    constexpr blt::size_t MAX_ALIGNMENT = 8;
 //    test();

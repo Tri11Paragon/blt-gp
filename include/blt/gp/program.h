@@ -99,13 +99,6 @@ namespace blt::gp
             std::string name_{};
     };
     
-    class allowed_types_t
-    {
-        public:
-        
-        private:
-    };
-    
     class type_system
     {
         public:
@@ -163,6 +156,8 @@ namespace blt::gp
             
             [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
             {
+                if constexpr (sizeof...(Args) == 0)
+                    return func();
                 constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
                 Return ret = exec_sequence_to_indices(allocator, seq);
                 allocator.call_destructors<Args...>();
@@ -186,23 +181,30 @@ namespace blt::gp
             function_t func;
     };
     
+    template<typename Return, typename Class, typename... Args>
+    class operation_t<Return (Class::*)(Args...) const> : public operation_t<Return(Args...)>
+    {
+        public:
+            using operation_t<Return(Args...)>::operation_t;
+    };
+    
+    template<typename Lambda>
+    operation_t(Lambda) -> operation_t<decltype(&Lambda::operator())>;
+    
     template<typename Return, typename... Args>
     operation_t(Return (*)(Args...)) -> operation_t<Return(Args...)>;
     
-    template<typename Return, typename Class, typename... Args>
-    operation_t(Return (Class::*)(Args...) const) -> operation_t<Return(Args...)>;
-    
-    template<typename Return, typename Class, typename... Args>
-    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)
-    {
-        // https://ventspace.wordpress.com/2022/04/11/quick-snippet-c-type-trait-templates-for-lambda-details/
-    }
-    
-    template<typename Lambda>
-    operation_t<decltype(&Lambda::operator())> make_operator(Lambda&& lambda)
-    {
-        return operation_t<decltype(&Lambda::operator())>(std::forward(lambda));
-    }
+//    templat\e<typename Return, typename Class, typename... Args>
+//    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)
+//    {
+//        // https://ventspace.wordpress.com/2022/04/11/quick-snippet-c-type-trait-templates-for-lambda-details/
+//    }
+//
+//    template<typename Lambda>
+//    operation_t<decltype(&Lambda::operator())> make_operator(Lambda&& lambda)
+//    {
+//        return operation_t<decltype(&Lambda::operator())>(std::forward(lambda));
+//    }
 //
 //    template<typename Return, typename... Args>
 //    operation(std::function<Return(Args...)>)  -> operation<Return(Args...)>;
