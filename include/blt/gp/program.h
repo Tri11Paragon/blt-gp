@@ -28,187 +28,20 @@
 #include <utility>
 #include <iostream>
 #include <random>
+
 #include <blt/std/ranges.h>
 #include <blt/std/hashmap.h>
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
 #include <blt/std/memory.h>
 #include <blt/gp/fwdecl.h>
+#include <blt/gp/typesystem.h>
+#include <blt/gp/operations.h>
+#include <blt/gp/tree.h>
 #include <blt/gp/stack.h>
 
 namespace blt::gp
 {
-    template<typename T>
-    struct integer_type
-    {
-        T id;
-        
-        integer_type() = default;
-        
-        integer_type(T id): id(id) // NOLINT
-        {}
-        
-        inline operator T() const // NOLINT
-        {
-            return id;
-        }
-    };
-    
-    struct operator_id : integer_type<blt::size_t>
-    {
-        using integer_type<blt::size_t>::integer_type;
-    };
-    
-    struct type_id : integer_type<blt::size_t>
-    {
-        using integer_type<blt::size_t>::integer_type;
-    };
-    
-    class type
-    {
-        public:
-            type() = default;
-            
-            template<typename T>
-            static type make_type(type_id id)
-            {
-                return type(sizeof(T), id, blt::type_string<T>());
-            }
-            
-            [[nodiscard]] blt::size_t size() const
-            {
-                return size_;
-            }
-            
-            [[nodiscard]] type_id id() const
-            {
-                return id_;
-            }
-            
-            [[nodiscard]] std::string_view name() const
-            {
-                return name_;
-            }
-        
-        private:
-            type(size_t size, type_id id, std::string_view name): size_(size), id_(id), name_(name)
-            {}
-            
-            blt::size_t size_{};
-            type_id id_{};
-            std::string name_{};
-    };
-    
-    class type_system
-    {
-        public:
-            type_system() = default;
-            
-            template<typename T>
-            inline type register_type()
-            {
-                types.insert({blt::type_string_raw<T>(), type::make_type<T>(types.size())});
-                return types[blt::type_string_raw<T>()];
-            }
-            
-            template<typename T>
-            inline type get_type()
-            {
-                return types[blt::type_string_raw<T>()];
-            }
-        
-        private:
-            blt::hashmap_t<std::string, type> types;
-    };
-    
-    template<typename Signature>
-    class operation_t;
-    
-    template<typename Return, typename... Args>
-    class operation_t<Return(Args...)>
-    {
-        public:
-            using function_t = std::function<Return(Args...)>;
-            
-            constexpr operation_t(const operation_t& copy) = default;
-            
-            constexpr operation_t(operation_t&& move) = default;
-            
-            template<typename Functor>
-            constexpr explicit operation_t(const Functor& functor): func(functor)
-            {}
-            
-            template<blt::u64 index>
-            [[nodiscard]] inline constexpr static blt::size_t getByteOffset()
-            {
-                blt::size_t offset = 0;
-                blt::size_t current_index = 0;
-                ((offset += (current_index++ > index ? stack_allocator::aligned_size<Args>() : 0)), ...);
-                return offset;
-            }
-            
-            template<blt::u64... indices>
-            inline constexpr Return exec_sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
-            {
-                // expands Args and indices, providing each argument with its index calculating the current argument byte offset
-                return func(allocator.from<Args>(getByteOffset<indices>())...);
-            }
-            
-            [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
-            {
-                if constexpr (sizeof...(Args) == 0)
-                    return func();
-                constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                Return ret = exec_sequence_to_indices(allocator, seq);
-                allocator.call_destructors<Args...>();
-                allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
-                return ret;
-            }
-            
-            [[nodiscard]] std::function<void(stack_allocator&)> make_callable() const
-            {
-                return [this](stack_allocator& values) {
-                    values.push(this->operator()(values));
-                };
-            }
-            
-            [[nodiscard]] blt::size_t get_argc() const
-            {
-                return sizeof...(Args);
-            }
-        
-        private:
-            function_t func;
-    };
-    
-    template<typename Return, typename Class, typename... Args>
-    class operation_t<Return (Class::*)(Args...) const> : public operation_t<Return(Args...)>
-    {
-        public:
-            using operation_t<Return(Args...)>::operation_t;
-    };
-    
-    template<typename Lambda>
-    operation_t(Lambda) -> operation_t<decltype(&Lambda::operator())>;
-    
-    template<typename Return, typename... Args>
-    operation_t(Return (*)(Args...)) -> operation_t<Return(Args...)>;
-    
-//    templat\e<typename Return, typename Class, typename... Args>
-//    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)
-//    {
-//        // https://ventspace.wordpress.com/2022/04/11/quick-snippet-c-type-trait-templates-for-lambda-details/
-//    }
-//
-//    template<typename Lambda>
-//    operation_t<decltype(&Lambda::operator())> make_operator(Lambda&& lambda)
-//    {
-//        return operation_t<decltype(&Lambda::operator())>(std::forward(lambda));
-//    }
-//
-//    template<typename Return, typename... Args>
-//    operation(std::function<Return(Args...)>)  -> operation<Return(Args...)>;
-    
     class gp_program
     {
         public:
@@ -226,14 +59,38 @@ namespace blt::gp
                 (argument_types[operator_index].push_back(system.get_type<Args>()), ...);
                 operators.push_back(op.make_callable());
             }
+            
+            [[nodiscard]] inline type_system& get_typesystem()
+            {
+                return system;
+            }
+            
+            void generate_tree();
+            
+            inline operator_id select_terminal(type_id id, std::mt19937_64& engine)
+            {
+                std::uniform_int_distribution<blt::size_t> dist(0, terminals[id].size() - 1);
+                return terminals[id][dist(engine)];
+            }
+            
+            inline operator_id select_non_terminal(type_id id, std::mt19937_64& engine)
+            {
+                std::uniform_int_distribution<blt::size_t> dist(0, non_terminals[id].size() - 1);
+                return non_terminals[id][dist(engine)];
+            }
+            
+            inline std::vector<type>& get_argument_types(operator_id id)
+            {
+                return argument_types[id];
+            }
         
         private:
             type_system system;
             blt::gp::stack_allocator alloc;
             // indexed from return TYPE ID, returns index of operator
-            blt::expanding_buffer<std::vector<blt::size_t>> terminals;
-            blt::expanding_buffer<std::vector<blt::size_t>> non_terminals;
-            // indexed from OPERATOR NUMBER
+            blt::expanding_buffer<std::vector<operator_id>> terminals;
+            blt::expanding_buffer<std::vector<operator_id>> non_terminals;
+            // indexed from OPERATOR ID (operator number)
             blt::expanding_buffer<std::vector<type>> argument_types;
             std::vector<std::function<void(stack_allocator&)>> operators;
     };

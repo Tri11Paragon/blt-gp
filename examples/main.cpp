@@ -107,6 +107,7 @@ void test()
             tree_generator.push(op::LIT);
     }
     
+    // print out the tree / operators
     for (const auto& v : operations)
         std::cout << to_string(v) << " ";
     std::cout << std::endl;
@@ -270,37 +271,20 @@ void test()
     std::cout << process.top() << std::endl;
     
 }
-//
-//struct silly
-//{
-//    long nyah = 50;
-//    int bruh = 10;
-//
-//    friend std::ostream& operator<<(std::ostream& stream, const silly& silly)
-//    {
-//        stream << "[" << silly.nyah << " " << silly.bruh << "]";
-//        return stream;
-//    }
-//};
-//
-//struct large
-//{
-//    unsigned char data[2048];
-//};
-//
-//struct super_large
-//{
-//    unsigned char data[9582];
-//};
 
 blt::gp::type_system type_system;
 blt::gp::gp_program program(type_system);
+std::random_device dev;
+std::mt19937_64 engine{dev()};
 
 blt::gp::operation_t add([](float a, float b) { return a + b; });
 blt::gp::operation_t sub([](float a, float b) { return a - b; });
 blt::gp::operation_t mul([](float a, float b) { return a * b; });
 blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
-blt::gp::operation_t lit([]() { return 0.0f; });
+blt::gp::operation_t lit([]() {
+    static std::uniform_real_distribution<float> dist(-32000, 32000);
+    return dist(engine);
+});
 
 
 int main()

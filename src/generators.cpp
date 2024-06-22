@@ -1,5 +1,5 @@
-#pragma once
 /*
+ *  <Short Description>
  *  Copyright (C) 2024  Brett Terpstra
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -15,22 +15,20 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-#ifndef BLT_GP_FWDECL_H
-#define BLT_GP_FWDECL_H
-
+#include <blt/gp/generators.h>
 
 namespace blt::gp
 {
     
-    class gp_program;
-    class type;
-    class type_system;
+    tree_t grow_generator_t::generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        tree_t tree;
+        return tree;
+    }
     
-    class tree_generator_t;
-    class grow_generator_t;
-    class full_generator_t;
-    
+    tree_t full_generator_t::generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        tree_t tree;
+        return tree;
+    }
 }
-
-#endif //BLT_GP_FWDECL_H

@@ -16,21 +16,34 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef BLT_GP_FWDECL_H
-#define BLT_GP_FWDECL_H
+#ifndef BLT_GP_GENERATORS_H
+#define BLT_GP_GENERATORS_H
 
+#include <blt/gp/fwdecl.h>
+#include <blt/gp/tree.h>
 
 namespace blt::gp
 {
     
-    class gp_program;
-    class type;
-    class type_system;
+    // base class for any kind of tree generator
+    class tree_generator_t
+    {
+        public:
+            virtual tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) = 0;
+    };
     
-    class tree_generator_t;
-    class grow_generator_t;
-    class full_generator_t;
+    class grow_generator_t : public tree_generator_t
+    {
+        public:
+            tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
+    
+    class full_generator_t : public tree_generator_t
+    {
+        public:
+            tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
     
 }
 
-#endif //BLT_GP_FWDECL_H
+#endif //BLT_GP_GENERATORS_H

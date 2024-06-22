@@ -16,21 +16,32 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef BLT_GP_FWDECL_H
-#define BLT_GP_FWDECL_H
+#ifndef BLT_GP_TREE_H
+#define BLT_GP_TREE_H
 
+#include <blt/gp/typesystem.h>
+#include <blt/gp/stack.h>
+#include <blt/gp/fwdecl.h>
 
 namespace blt::gp
 {
-    
-    class gp_program;
-    class type;
-    class type_system;
-    
-    class tree_generator_t;
-    class grow_generator_t;
-    class full_generator_t;
-    
+    class tree_t
+    {
+        public:
+            [[nodiscard]] inline std::vector<blt::gp::operator_id>& get_operations()
+            {
+                return operations;
+            }
+            
+            [[nodiscard]] inline blt::gp::stack_allocator& get_values()
+            {
+                return values;
+            }
+        
+        private:
+            std::vector<blt::gp::operator_id> operations;
+            blt::gp::stack_allocator values;
+    };
 }
 
-#endif //BLT_GP_FWDECL_H
+#endif //BLT_GP_TREE_H
