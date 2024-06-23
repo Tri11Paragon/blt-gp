@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.25)
+project(blt-gp VERSION 0.0.26)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
@@ -38,7 +38,7 @@ endif ()
 if (${BUILD_EXAMPLES})
     project(blt-gp-example)
 
-    add_executable(blt-gp-example examples/main.cpp)
+    add_executable(blt-gp-example examples/main.cpp examples/gp_test_2.cpp)
 
     target_link_libraries(blt-gp-example PUBLIC BLT blt-gp)
 

@@ -272,121 +272,130 @@ void test()
     
 }
 
-blt::gp::type_system type_system;
-blt::gp::gp_program program(type_system);
-std::random_device dev;
-std::mt19937_64 engine{dev()};
-
-blt::gp::operation_t add([](float a, float b) { return a + b; });
-blt::gp::operation_t sub([](float a, float b) { return a - b; });
-blt::gp::operation_t mul([](float a, float b) { return a * b; });
-blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
-blt::gp::operation_t lit([]() {
-    static std::uniform_real_distribution<float> dist(-32000, 32000);
-    return dist(engine);
-});
-
-
-int main()
+float nyah(float a, int b, bool c)
 {
-    type_system.register_type<float>();
-    type_system.register_type<bool>();
+    return a + static_cast<float>(b) * c;
+}
+
+struct silly
+{
+    unsigned long bruh;
+    int nya;
     
-    program.add_operator(add);
-    program.add_operator(sub);
-    program.add_operator(mul);
-    program.add_operator(pro_div);
-    program.add_operator(lit);
+    friend std::ostream& operator<<(std::ostream& out, const silly& s)
+    {
+        out << "[" << s.bruh << " " << s.nya << "]";
+        return out;
+    }
+};
 
-//    constexpr blt::size_t MAX_ALIGNMENT = 8;
-//    test();
-//    std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
-//    std::cout << alignof(super_large) << " " << sizeof(super_large) << " " << ((sizeof(super_large) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
-//              << std::endl;
-//    std::cout << ((sizeof(char) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " "
-//              << ((sizeof(short) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << std::endl;
-//    std::cout << ((sizeof(int) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " " << ((sizeof(long) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
-//              << std::endl;
-//    std::cout << alignof(void*) << " " << sizeof(void*) << std::endl;
-//    std::cout << blt::type_string<decltype(&"SillString")>() << std::endl;
-//
-//    alloc.push(50);
-//    alloc.push(550.3f);
-//    alloc.push(20.1230345);
-//    alloc.push(true);
-//    alloc.push(false);
-//    alloc.push(std::string("SillyString"));
-//    alloc.push(&"SillyString");
-//
-//    std::cout << std::endl;
-//    std::cout << *alloc.pop<decltype(&"SillString")>() << std::endl;
-//    std::cout << alloc.pop<std::string>() << std::endl;
-//    std::cout << alloc.pop<bool>() << std::endl;
-//    std::cout << alloc.pop<bool>() << std::endl;
-//    std::cout << alloc.pop<double>() << std::endl;
-//    std::cout << alloc.pop<float>() << std::endl;
-//    std::cout << alloc.pop<int>() << std::endl;
-//    std::cout << std::endl;
-//
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    alloc.push(silly{});
-//    alloc.push(large{});
-//    alloc.push(super_large{});
-//    alloc.push(silly{25, 24});
-//    alloc.push(large{});
-//
-//    std::cout << std::endl;
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    alloc.pop<large>();
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    std::cout << alloc.pop<silly>() << std::endl;
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    alloc.pop<super_large>();
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    alloc.pop<large>();
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
-//    std::cout << alloc.pop<silly>() << std::endl;
-//    std::cout << std::endl;
-//
-//    std::cout << "Is empty? " << alloc.empty() << " bytes left: " << alloc.bytes_in_head() << std::endl;
-//    std::cout << std::endl;
-//
-//    alloc.push(silly{2, 5});
-//    alloc.push(large{});
-//    alloc.push(super_large{});
-//    alloc.push(silly{80, 10});
-//    alloc.push(large{});
-//    alloc.push(50);
-//    alloc.push(550.3f);
-//    alloc.push(20.1230345);
-//    alloc.push(std::string("SillyString"));
-//    alloc.push(33.22f);
-//    alloc.push(120);
-//    alloc.push(true);
-//
-//    blt::gp::operation_t<float(float, int, bool)> silly_op(nyah);
-//    blt::gp::operation_t<float(float, float)> silly_op_2([](float f, float g) {
-//        return f + g;
-//    });
+struct large
+{
+    unsigned char data[256];
+};
 
-//    std::cout << silly_op(alloc) << std::endl;
-//
-//    std::cout << "Is empty? " << alloc.empty() << std::endl;
+struct super_large
+{
+    unsigned char data[5129];
+};
 
-//    std::cout << std::endl;
-//
-//    //auto* pointer = static_cast<void*>(head->metadata.offset);
-//    //return std::align(alignment, bytes, pointer, remaining_bytes);
-//
-//    float f = 10.5;
-//    int i = 412;
-//    bool b = true;
-//
-//    std::array<void*, 3> arr{reinterpret_cast<void*>(&f), reinterpret_cast<void*>(&i), reinterpret_cast<void*>(&b)};
-//
-//    blt::span<void*, 3> spv{arr};
-//
-//    std::cout << silly_op.operator()(spv) << std::endl;
+blt::gp::stack_allocator alloc;
+
+int main_old()
+{
+    constexpr blt::size_t MAX_ALIGNMENT = 8;
+    test();
+    std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
+    std::cout << alignof(super_large) << " " << sizeof(super_large) << " " << ((sizeof(super_large) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
+              << std::endl;
+    std::cout << ((sizeof(char) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " "
+              << ((sizeof(short) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << std::endl;
+    std::cout << ((sizeof(int) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " " << ((sizeof(long) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
+              << std::endl;
+    std::cout << alignof(void*) << " " << sizeof(void*) << std::endl;
+    std::cout << blt::type_string<decltype(&"SillString")>() << std::endl;
     
-    //std::cout << "Hello World!" << std::endl;
+    alloc.push(50);
+    alloc.push(550.3f);
+    alloc.push(20.1230345);
+    alloc.push(true);
+    alloc.push(false);
+    alloc.push(std::string("SillyString"));
+    alloc.push(&"SillyString");
+    
+    std::cout << std::endl;
+    std::cout << *alloc.pop<decltype(&"SillString")>() << std::endl;
+    std::cout << alloc.pop<std::string>() << std::endl;
+    std::cout << alloc.pop<bool>() << std::endl;
+    std::cout << alloc.pop<bool>() << std::endl;
+    std::cout << alloc.pop<double>() << std::endl;
+    std::cout << alloc.pop<float>() << std::endl;
+    std::cout << alloc.pop<int>() << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    alloc.push(silly{});
+    alloc.push(large{});
+    alloc.push(super_large{});
+    alloc.push(silly{25, 24});
+    alloc.push(large{});
+    
+    std::cout << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    alloc.pop<large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    std::cout << alloc.pop<silly>() << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    alloc.pop<super_large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    alloc.pop<large>();
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    std::cout << alloc.pop<silly>() << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Is empty? " << alloc.empty() << " bytes left: " << alloc.bytes_in_head() << std::endl;
+    std::cout << std::endl;
+    
+    alloc.push(silly{2, 5});
+    alloc.push(large{});
+    alloc.push(super_large{});
+    alloc.push(silly{80, 10});
+    alloc.push(large{});
+    alloc.push(50);
+    alloc.push(550.3f);
+    alloc.push(20.1230345);
+    alloc.push(std::string("SillyString"));
+    alloc.push(33.22f);
+    alloc.push(120);
+    alloc.push(true);
+    
+    blt::gp::operation_t silly_op(nyah);
+    blt::gp::operation_t silly_op_2([](float f, float g) {
+        return f + g;
+    });
+    
+    std::cout << silly_op(alloc) << std::endl;
+    
+    std::cout << "Is empty? " << alloc.empty() << std::endl;
+    
+    std::cout << std::endl;
+    
+    //auto* pointer = static_cast<void*>(head->metadata.offset);
+    //return std::align(alignment, bytes, pointer, remaining_bytes);
+    
+    float f = 10.5;
+    int i = 412;
+    bool b = true;
+    
+    alloc.push(f);
+    alloc.push(i);
+    alloc.push(b);
+    
+    //std::array<void*, 3> arr{reinterpret_cast<void*>(&f), reinterpret_cast<void*>(&i), reinterpret_cast<void*>(&b)};
+    
+    //blt::span<void*, 3> spv{arr};
+    
+    std::cout << silly_op.operator()(alloc) << std::endl;
+    
+    std::cout << "Hello World!" << std::endl;
 }

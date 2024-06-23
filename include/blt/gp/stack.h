@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <memory>
+#include <type_traits>
 
 namespace blt::gp
 {
@@ -40,9 +41,10 @@ namespace blt::gp
             template<typename T>
             void push(T&& value)
             {
+                using NO_REF_T = std::remove_reference_t<T>;
                 auto ptr = allocate_bytes<T>();
                 head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<T>();
-                new(ptr) T(std::forward<T>(value));
+                new(ptr) NO_REF_T(std::forward<T>(value));
             }
             
             template<typename T>

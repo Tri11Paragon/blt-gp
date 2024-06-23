@@ -45,20 +45,8 @@ namespace blt::gp
     class gp_program
     {
         public:
-            explicit gp_program(type_system system): system(std::move(system))
+            explicit gp_program(type_system& system, std::mt19937_64 engine): system(system), engine(engine)
             {}
-            
-            template<typename Return, typename... Args>
-            void add_operator(const operation_t<Return(Args...)>& op)
-            {
-                auto return_type_id = system.get_type<Return>().id();
-                auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
-                operator_list[return_type_id].push_back(operators.size());
-                
-                auto operator_index = operators.size();
-                (argument_types[operator_index].push_back(system.get_type<Args>()), ...);
-                operators.push_back(op.make_callable());
-            }
             
             [[nodiscard]] inline type_system& get_typesystem()
             {
@@ -67,32 +55,15 @@ namespace blt::gp
             
             void generate_tree();
             
-            inline operator_id select_terminal(type_id id, std::mt19937_64& engine)
+            inline std::mt19937_64& get_random()
             {
-                std::uniform_int_distribution<blt::size_t> dist(0, terminals[id].size() - 1);
-                return terminals[id][dist(engine)];
-            }
-            
-            inline operator_id select_non_terminal(type_id id, std::mt19937_64& engine)
-            {
-                std::uniform_int_distribution<blt::size_t> dist(0, non_terminals[id].size() - 1);
-                return non_terminals[id][dist(engine)];
-            }
-            
-            inline std::vector<type>& get_argument_types(operator_id id)
-            {
-                return argument_types[id];
+                return engine;
             }
         
         private:
-            type_system system;
+            type_system& system;
             blt::gp::stack_allocator alloc;
-            // indexed from return TYPE ID, returns index of operator
-            blt::expanding_buffer<std::vector<operator_id>> terminals;
-            blt::expanding_buffer<std::vector<operator_id>> non_terminals;
-            // indexed from OPERATOR ID (operator number)
-            blt::expanding_buffer<std::vector<type>> argument_types;
-            std::vector<std::function<void(stack_allocator&)>> operators;
+            std::mt19937_64 engine;
     };
     
 }
