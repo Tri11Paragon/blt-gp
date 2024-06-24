@@ -23,9 +23,66 @@
 #include <blt/gp/typesystem.h>
 #include <blt/gp/stack.h>
 #include <functional>
+#include <type_traits>
 
 namespace blt::gp
 {
+    namespace detail
+    {
+        using callable_t = std::function<void(void*, stack_allocator&)>;
+        struct empty_t
+        {
+        };
+    }
+    
+    template<typename Return, typename... Args>
+    struct call_with
+    {
+        template<blt::u64 index>
+        [[nodiscard]] inline constexpr static blt::size_t getByteOffset()
+        {
+            blt::size_t offset = 0;
+            blt::size_t current_index = 0;
+            ((offset += (current_index++ > index ? stack_allocator::aligned_size<Args>() : 0)), ...);
+            return offset;
+        }
+        
+        template<typename Func, blt::u64... indices, typename... ExtraArgs>
+        inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
+                                                                ExtraArgs&& ... args)
+        {
+            // expands Args and indices, providing each argument with its index calculating the current argument byte offset
+            return std::forward<Func>(func)(std::forward<ExtraArgs>(args)..., allocator.from<Args>(getByteOffset<indices>())...);
+        }
+        
+        template<typename Func, typename... ExtraArgs>
+        Return operator()(Func&& func, stack_allocator& allocator, ExtraArgs&& ... args)
+        {
+            constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
+            Return ret = exec_sequence_to_indices(std::forward<Func>(func), allocator, seq, std::forward<ExtraArgs>(args)...);
+            allocator.call_destructors<Args...>();
+            allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
+            return ret;
+        }
+    };
+    
+    template<typename First, typename... Args>
+    struct first_arg
+    {
+        using type = First;
+    };
+    
+    template<>
+    struct first_arg<void>
+    {
+    };
+    
+    template<typename Return, typename, typename... Args>
+    struct call_without_first : public call_with<Return, Args...>
+    {
+        using call_with<Return, Args...>::call_with;
+    };
+    
     template<typename>
     class operation_t;
     
@@ -43,22 +100,6 @@ namespace blt::gp
             constexpr explicit operation_t(const Functor& functor): func(functor)
             {}
             
-            template<blt::u64 index>
-            [[nodiscard]] inline constexpr static blt::size_t getByteOffset()
-            {
-                blt::size_t offset = 0;
-                blt::size_t current_index = 0;
-                ((offset += (current_index++ > index ? stack_allocator::aligned_size<Args>() : 0)), ...);
-                return offset;
-            }
-            
-            template<blt::u64... indices>
-            inline constexpr Return exec_sequence_to_indices(stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>) const
-            {
-                // expands Args and indices, providing each argument with its index calculating the current argument byte offset
-                return func(allocator.from<Args>(getByteOffset<indices>())...);
-            }
-            
             [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
             {
                 if constexpr (sizeof...(Args) == 0)
@@ -66,18 +107,47 @@ namespace blt::gp
                     return func();
                 } else
                 {
-                    constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-                    Return ret = exec_sequence_to_indices(allocator, seq);
-                    allocator.call_destructors<Args...>();
-                    allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
-                    return ret;
+                    return call_with<Return, Args...>()(func, allocator);
                 }
             }
             
-            [[nodiscard]] std::function<void(stack_allocator&)> make_callable() const
+            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& allocator) const
             {
-                return [this](stack_allocator& values) {
-                    values.push(this->operator()(values));
+                // should be an impossible state
+                if constexpr (sizeof...(Args) == 0)
+                {
+                    BLT_ABORT("Cannot pass context to function without arguments!");
+                }
+                auto& ctx_ref = *static_cast<typename first_arg<Args...>::type*>(context);
+                if constexpr (sizeof...(Args) == 1)
+                {
+                    return func(ctx_ref);
+                } else
+                {
+                    return call_without_first<Return, Args...>()(func, allocator, ctx_ref);
+                }
+            }
+            
+            template<typename Context>
+            [[nodiscard]] detail::callable_t make_callable() const
+            {
+                return [this](void* context, stack_allocator& values) {
+                    if constexpr (sizeof...(Args) == 0)
+                    {
+                        values.push(this->operator()(values));
+                    } else
+                    {
+                        // annoying hack.
+                        if constexpr (std::is_same_v<Context, typename first_arg<Args...>::type>)
+                        {
+                            // first arg is context
+                            values.push(this->operator()(context, values));
+                        } else
+                        {
+                            // first arg isn't context
+                            values.push(this->operator()(values));
+                        }
+                    }
                 };
             }
             
@@ -101,7 +171,7 @@ namespace blt::gp
     operation_t(Lambda) -> operation_t<decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return (*)(Args...)) -> operation_t<Return(Args...)>;
+    operation_t(Return(*)(Args...)) -> operation_t<Return(Args...)>;
 
 //    templat\e<typename Return, typename Class, typename... Args>
 //    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)

@@ -46,6 +46,42 @@ namespace blt::gp
     static constexpr blt::size_t STATIC_T = 0x1;
     static constexpr blt::size_t TERMINAL_T = 0x2;
     
+    template<typename Context = detail::empty_t>
+    class gp_operations
+    {
+            friend class gp_program;
+        
+        public:
+            explicit gp_operations(type_system& system): system(system)
+            {}
+            
+            template<typename Return, typename... Args>
+            void add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
+            {
+                auto return_type_id = system.get_type<Return>().id();
+                auto operator_id = blt::gp::operator_id(operators.size());
+                
+                auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
+                operator_list[return_type_id].push_back(operator_id);
+                
+                (argument_types[operator_id].push_back(system.get_type<Args>()), ...);
+                operators.push_back(op.template make_callable<Context>());
+                if (is_static)
+                    static_types.insert(operator_id);
+            }
+        
+        private:
+            type_system& system;
+            
+            // indexed from return TYPE ID, returns index of operator
+            blt::expanding_buffer<std::vector<operator_id>> terminals;
+            blt::expanding_buffer<std::vector<operator_id>> non_terminals;
+            // indexed from OPERATOR ID (operator number)
+            blt::expanding_buffer<std::vector<type>> argument_types;
+            blt::hashset_t<operator_id> static_types;
+            std::vector<detail::callable_t> operators;
+    };
+    
     class gp_program
     {
         public:
@@ -105,19 +141,14 @@ namespace blt::gp
                 return static_types.contains(static_cast<blt::size_t>(id));
             }
             
-            template<typename Return, typename... Args>
-            void add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
+            template<typename Context>
+            inline void set_operations(gp_operations<Context>&& op)
             {
-                auto return_type_id = system.get_type<Return>().id();
-                auto operator_id = blt::gp::operator_id(operators.size());
-                
-                auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
-                operator_list[return_type_id].push_back(operator_id);
-                
-                (argument_types[operator_id].push_back(system.get_type<Args>()), ...);
-                operators.push_back(op.make_callable());
-                if (is_static)
-                    static_types.insert(operator_id);
+                terminals = std::move(op.terminals);
+                non_terminals = std::move(op.non_terminals);
+                argument_types = std::move(op.argument_types);
+                static_types = std::move(op.static_types);
+                operators = std::move(op.operators);
             }
         
         private:
@@ -131,7 +162,7 @@ namespace blt::gp
             // indexed from OPERATOR ID (operator number)
             blt::expanding_buffer<std::vector<type>> argument_types;
             blt::hashset_t<operator_id> static_types;
-            std::vector<std::function<void(stack_allocator&)>> operators;
+            std::vector<detail::callable_t> operators;
     };
     
 }

@@ -40,13 +40,13 @@ namespace blt::gp
             base_type = system.select_type(program.get_random());
         } while (program.get_type_non_terminals(base_type.id()).empty());
         
-        tree_generator.emplace(program.select_non_terminal(base_type.id()), 0);
+        tree_generator.push(stack{program.select_non_terminal(base_type.id()), 0});
         
         return tree_generator;
     }
     
     template<typename Func>
-    tree_t create_tree(Func func, gp_program& program, blt::size_t min_depth, blt::size_t max_depth)
+    tree_t create_tree(Func, gp_program& program, blt::size_t, blt::size_t)
     {
         std::stack<stack> tree_generator = get_base_generator(program);
         tree_t tree;

@@ -20,7 +20,6 @@
 static constexpr long SEED = 41912;
 
 blt::gp::type_system type_system;
-std::random_device dev;
 blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; });
@@ -37,11 +36,14 @@ int main()
     type_system.register_type<float>();
     type_system.register_type<bool>();
     
-    program.add_operator(add);
-    program.add_operator(sub);
-    program.add_operator(mul);
-    program.add_operator(pro_div);
-    program.add_operator(lit, true);
+    blt::gp::gp_operations silly{type_system};
+    silly.add_operator(add);
+    silly.add_operator(sub);
+    silly.add_operator(mul);
+    silly.add_operator(pro_div);
+    silly.add_operator(lit, true);
+    
+    program.set_operations(std::move(silly));
     
     return 0;
 }
