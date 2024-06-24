@@ -38,9 +38,9 @@ namespace blt::gp
         do
         {
             base_type = system.select_type(program.get_random());
-        } while (system.get_type_non_terminals(base_type.id()).empty());
+        } while (program.get_type_non_terminals(base_type.id()).empty());
         
-        tree_generator.emplace(system.select_non_terminal(program.get_random(), base_type.id()), 0);
+        tree_generator.emplace(program.select_non_terminal(base_type.id()), 0);
         
         return tree_generator;
     }

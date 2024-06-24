@@ -37,9 +37,11 @@ int main()
     type_system.register_type<float>();
     type_system.register_type<bool>();
     
-    type_system.add_operator(add);
-    type_system.add_operator(sub);
-    type_system.add_operator(mul);
-    type_system.add_operator(pro_div);
-    type_system.add_operator(lit);
+    program.add_operator(add);
+    program.add_operator(sub);
+    program.add_operator(mul);
+    program.add_operator(pro_div);
+    program.add_operator(lit, true);
+    
+    return 0;
 }

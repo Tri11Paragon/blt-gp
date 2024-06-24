@@ -26,7 +26,7 @@
 
 namespace blt::gp
 {
-    template<typename Signature>
+    template<typename>
     class operation_t;
     
     template<typename Return, typename... Args>

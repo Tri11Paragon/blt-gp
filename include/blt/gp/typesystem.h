@@ -112,55 +112,28 @@ namespace blt::gp
                     itr = itr++;
                 return itr->second;
             }
-            
-            inline operator_id select_terminal(std::mt19937_64& engine, type_id id)
-            {
-                std::uniform_int_distribution<blt::size_t> dist(0, terminals[id].size() - 1);
-                return terminals[id][dist(engine)];
-            }
-            
-            inline operator_id select_non_terminal(std::mt19937_64& engine, type_id id)
-            {
-                std::uniform_int_distribution<blt::size_t> dist(0, non_terminals[id].size() - 1);
-                return non_terminals[id][dist(engine)];
-            }
-            
-            inline std::vector<type>& get_argument_types(operator_id id)
-            {
-                return argument_types[id];
-            }
-            
-            inline std::vector<operator_id>& get_type_terminals(type_id id)
-            {
-                return terminals[id];
-            }
-            
-            inline std::vector<operator_id>& get_type_non_terminals(type_id id)
-            {
-                return non_terminals[id];
-            }
-            
-            template<typename Return, typename... Args>
-            void add_operator(const operation_t<Return(Args...)>& op)
-            {
-                auto return_type_id = get_type<Return>().id();
-                auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
-                operator_list[return_type_id].push_back(operators.size());
-                
-                auto operator_index = operators.size();
-                (argument_types[operator_index].push_back(get_type<Args>()), ...);
-                operators.push_back(op.make_callable());
-            }
         
         private:
             blt::hashmap_t<std::string, type> types;
-            // indexed from return TYPE ID, returns index of operator
-            blt::expanding_buffer<std::vector<operator_id>> terminals;
-            blt::expanding_buffer<std::vector<operator_id>> non_terminals;
-            // indexed from OPERATOR ID (operator number)
-            blt::expanding_buffer<std::vector<type>> argument_types;
-            std::vector<std::function<void(stack_allocator&)>> operators;
     };
 }
+
+template<>
+struct std::hash<blt::gp::operator_id>
+{
+    std::size_t operator()(const blt::gp::operator_id& s) const noexcept
+    {
+        return std::hash<blt::gp::operator_id::value_type>{}(s);
+    }
+};
+
+template<>
+struct std::hash<blt::gp::type_id>
+{
+    std::size_t operator()(const blt::gp::type_id& s) const noexcept
+    {
+        return std::hash<blt::gp::type_id::value_type>{}(s);
+    }
+};
 
 #endif //BLT_GP_TYPESYSTEM_H

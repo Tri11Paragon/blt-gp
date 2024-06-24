@@ -219,6 +219,7 @@ void test()
         std::cout << std::endl;
     }
     
+    // run the tree
     std::stack<float> process;
     std::stack<op> operators;
     
@@ -398,4 +399,6 @@ int main_old()
     std::cout << silly_op.operator()(alloc) << std::endl;
     
     std::cout << "Hello World!" << std::endl;
+    
+    return 0;
 }
