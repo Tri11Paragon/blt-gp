@@ -50,6 +50,7 @@ namespace blt::gp
     class gp_operations
     {
             friend class gp_program;
+            friend class blt::gp::detail::operator_storage_test;
         
         public:
             explicit gp_operations(type_system& system): system(system)

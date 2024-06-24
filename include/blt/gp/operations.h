@@ -30,6 +30,42 @@ namespace blt::gp
     namespace detail
     {
         using callable_t = std::function<void(void*, stack_allocator&)>;
+        
+        template<typename T>
+        using remove_cv_ref = std::remove_cv_t<std::remove_reference_t<T>>;
+        
+        
+        template<typename...>
+        struct first_arg;
+        
+        template<typename First, typename... Args>
+        struct first_arg<First, Args...>
+        {
+            using type = First;
+        };
+        
+        template<>
+        struct first_arg<>
+        {
+            using type = void;
+        };
+        
+        template<bool b, typename... types>
+        struct is_same;
+        
+        template<typename... types>
+        struct is_same<true, types...> : public std::false_type
+        {
+        };
+        
+        template<typename... types>
+        struct is_same<false, types...> : public std::is_same<types...>
+        {
+        };
+        
+        template<typename... types>
+        constexpr bool is_same_v = is_same<sizeof...(types) == 0, types...>::value;
+        
         struct empty_t
         {
         };
@@ -64,17 +100,6 @@ namespace blt::gp
             allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
             return ret;
         }
-    };
-    
-    template<typename First, typename... Args>
-    struct first_arg
-    {
-        using type = First;
-    };
-    
-    template<>
-    struct first_arg<void>
-    {
     };
     
     template<typename Return, typename, typename... Args>
@@ -118,7 +143,7 @@ namespace blt::gp
                 {
                     BLT_ABORT("Cannot pass context to function without arguments!");
                 }
-                auto& ctx_ref = *static_cast<typename first_arg<Args...>::type*>(context);
+                auto& ctx_ref = *static_cast<detail::remove_cv_ref<typename detail::first_arg<Args...>::type>*>(context);
                 if constexpr (sizeof...(Args) == 1)
                 {
                     return func(ctx_ref);
@@ -132,21 +157,14 @@ namespace blt::gp
             [[nodiscard]] detail::callable_t make_callable() const
             {
                 return [this](void* context, stack_allocator& values) {
-                    if constexpr (sizeof...(Args) == 0)
+                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
                     {
-                        values.push(this->operator()(values));
+                        // first arg is context
+                        values.push(this->operator()(context, values));
                     } else
                     {
-                        // annoying hack.
-                        if constexpr (std::is_same_v<Context, typename first_arg<Args...>::type>)
-                        {
-                            // first arg is context
-                            values.push(this->operator()(context, values));
-                        } else
-                        {
-                            // first arg isn't context
-                            values.push(this->operator()(values));
-                        }
+                        // first arg isn't context
+                        values.push(this->operator()(values));
                     }
                 };
             }

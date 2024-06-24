@@ -17,6 +17,7 @@
  */
 #include <iostream>
 #include <blt/gp/program.h>
+#include <blt/std/logging.h>
 #include <variant>
 #include <stack>
 #include <deque>
@@ -300,9 +301,32 @@ struct super_large
     unsigned char data[5129];
 };
 
+struct context
+{
+    float x, y;
+};
+
+namespace blt::gp::detail
+{
+    class operator_storage_test
+    {
+        public:
+            explicit operator_storage_test(blt::gp::gp_operations<context>& ops): ops(ops)
+            {}
+            
+            inline blt::gp::detail::callable_t& operator[](blt::size_t index)
+            {
+                return ops.operators[index];
+            }
+        
+        private:
+            blt::gp::gp_operations<context>& ops;
+    };
+}
+
 blt::gp::stack_allocator alloc;
 
-int main_old()
+int main()
 {
     constexpr blt::size_t MAX_ALIGNMENT = 8;
     test();
@@ -380,6 +404,43 @@ int main_old()
     std::cout << "Is empty? " << alloc.empty() << std::endl;
     
     std::cout << std::endl;
+    
+    blt::gp::operation_t silly_op_3([](const context& ctx, float f) {
+        return ctx.x + ctx.y + f;
+    });
+    
+    blt::gp::operation_t silly_op_4([](const context& ctx) {
+        return ctx.x;
+    });
+    
+    blt::gp::type_system system;
+    system.register_type<float>();
+    blt::gp::gp_operations<context> ops{system};
+    
+    //BLT_TRACE(blt::type_string<decltype(silly_op_3)::first::type>());
+    //BLT_TRACE(typeid(decltype(silly_op_3)::first::type).name());
+    //BLT_TRACE(blt::type_string<blt::gp::detail::remove_cv_ref<decltype(silly_op_3)::first::type>>());
+    //BLT_TRACE("Same types? %s", (std::is_same_v<context, blt::gp::detail::remove_cv_ref<decltype(silly_op_3)::first::type>>) ? "true" : "false");
+    
+    ops.add_operator(silly_op_3);
+    ops.add_operator(silly_op_4);
+    ops.add_operator(silly_op_2);
+    
+    blt::gp::detail::operator_storage_test de(ops);
+    
+    context hello{5, 10};
+    
+    alloc.push(1.153f);
+    de[0](static_cast<void*>(&hello), alloc);
+    BLT_TRACE("first value: %f", alloc.pop<float>());
+    
+    de[1](static_cast<void*>(&hello), alloc);
+    BLT_TRACE("second value: %f", alloc.pop<float>());
+    
+    alloc.push(1.0f);
+    alloc.push(52.213f);
+    de[2](static_cast<void*>(&hello), alloc);
+    BLT_TRACE("third value: %f", alloc.pop<float>());
     
     //auto* pointer = static_cast<void*>(head->metadata.offset);
     //return std::align(alignment, bytes, pointer, remaining_bytes);

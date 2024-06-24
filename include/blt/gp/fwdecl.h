@@ -24,12 +24,21 @@ namespace blt::gp
 {
     
     class gp_program;
+    
     class type;
+    
     class type_system;
     
     class tree_generator_t;
+    
     class grow_generator_t;
+    
     class full_generator_t;
+    
+    namespace detail
+    {
+        class operator_storage_test;
+    }
     
 }
 
