@@ -41,6 +41,7 @@ namespace blt::gp
             template<typename T>
             void push(T&& value)
             {
+                static_assert(std::is_trivially_copyable_v<T> && "Type must be bitwise copyable!");
                 using NO_REF_T = std::remove_reference_t<T>;
                 auto ptr = allocate_bytes<T>();
                 head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<T>();
@@ -139,7 +140,26 @@ namespace blt::gp
             
             stack_allocator() = default;
             
-            stack_allocator(const stack_allocator& copy) = delete;
+            stack_allocator(const stack_allocator& copy)
+            {
+                head = nullptr;
+                block* list_itr = nullptr;
+                
+                // start at the beginning of the list
+                block* current = copy.head;
+                while (current != nullptr)
+                {
+                    list_itr = current;
+                    current = current->metadata.prev;
+                }
+                // copy all the blocks
+                while (list_itr != nullptr)
+                {
+                    push_block(list_itr->metadata.size);
+                    std::memcpy(head->buffer, list_itr->buffer, list_itr->storage_size());
+                    list_itr = list_itr->metadata.next;
+                }
+            }
             
             stack_allocator& operator=(const stack_allocator& copy) = delete;
             

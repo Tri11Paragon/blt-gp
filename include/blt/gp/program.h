@@ -83,7 +83,7 @@ namespace blt::gp
                 
                 if constexpr (sizeof...(Args) > 0)
                 {
-                    (add_non_context_argument<Args>(), ...);
+                    (add_non_context_argument<Args>(operator_id), ...);
                 }
                 
                 argc_t argc;
