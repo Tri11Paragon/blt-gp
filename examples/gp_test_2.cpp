@@ -31,7 +31,7 @@ blt::gp::operation_t lit([]() {
     return dist(program.get_random());
 });
 
-int main_old()
+int main()
 {
     type_system.register_type<float>();
     type_system.register_type<bool>();

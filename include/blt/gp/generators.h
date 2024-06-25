@@ -44,6 +44,36 @@ namespace blt::gp
             tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) final;
     };
     
+    class population_initializer_t
+    {
+        public:
+            virtual population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) = 0;
+    };
+    
+    class grow_initializer_t
+    {
+        public:
+            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
+    
+    class full_initializer_t
+    {
+        public:
+            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
+    
+    class half_half_initializer_t
+    {
+        public:
+            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
+    
+    class ramped_half_initializer_t
+    {
+        public:
+            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+    };
+    
 }
 
 #endif //BLT_GP_GENERATORS_H

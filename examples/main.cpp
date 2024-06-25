@@ -326,7 +326,7 @@ namespace blt::gp::detail
 
 blt::gp::stack_allocator alloc;
 
-int main()
+int main_old()
 {
     constexpr blt::size_t MAX_ALIGNMENT = 8;
     test();

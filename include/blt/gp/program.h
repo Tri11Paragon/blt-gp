@@ -46,18 +46,34 @@ namespace blt::gp
     static constexpr blt::size_t STATIC_T = 0x1;
     static constexpr blt::size_t TERMINAL_T = 0x2;
     
+    struct argc_t
+    {
+        blt::size_t argc = 0;
+        blt::size_t argc_context = 0;
+    };
+    
     template<typename Context = detail::empty_t>
     class gp_operations
     {
             friend class gp_program;
+            
             friend class blt::gp::detail::operator_storage_test;
         
         public:
             explicit gp_operations(type_system& system): system(system)
             {}
             
+            template<typename T>
+            void add_non_context_argument(blt::gp::operator_id operator_id)
+            {
+                if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
+                {
+                    argument_types[operator_id].push_back(system.get_type<T>());
+                }
+            }
+            
             template<typename Return, typename... Args>
-            void add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
+            gp_operations& add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
             {
                 auto return_type_id = system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(operators.size());
@@ -65,10 +81,24 @@ namespace blt::gp
                 auto& operator_list = op.get_argc() == 0 ? terminals : non_terminals;
                 operator_list[return_type_id].push_back(operator_id);
                 
-                (argument_types[operator_id].push_back(system.get_type<Args>()), ...);
+                if constexpr (sizeof...(Args) > 0)
+                {
+                    (add_non_context_argument<Args>(), ...);
+                }
+                
+                argc_t argc;
+                argc.argc_context = argc.argc = sizeof...(Args);
+                
+                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? argc.argc -= 1 : (blt::size_t) nullptr), ...);
+                
+                BLT_ASSERT(argc.argc_context - argc.argc <= 1 && "Cannot pass multiple context as arguments!");
+                
+                operator_argc[operator_id] = argc;
+                
                 operators.push_back(op.template make_callable<Context>());
                 if (is_static)
                     static_types.insert(operator_id);
+                return *this;
             }
         
         private:
@@ -79,6 +109,7 @@ namespace blt::gp
             blt::expanding_buffer<std::vector<operator_id>> non_terminals;
             // indexed from OPERATOR ID (operator number)
             blt::expanding_buffer<std::vector<type>> argument_types;
+            blt::expanding_buffer<argc_t> operator_argc;
             blt::hashset_t<operator_id> static_types;
             std::vector<detail::callable_t> operators;
     };
@@ -103,6 +134,22 @@ namespace blt::gp
             [[nodiscard]] inline std::mt19937_64& get_random()
             {
                 return engine;
+            }
+            
+            [[nodiscard]] inline bool choice()
+            {
+                static std::uniform_int_distribution dist(0, 1);
+                return dist(engine);
+            }
+            
+            /**
+             * @param cutoff precent in floating point form chance of the event happening.
+             * @return
+             */
+            [[nodiscard]] inline bool choice(double cutoff)
+            {
+                static std::uniform_real_distribution dist(0.0, 1.0);
+                return dist(engine) < cutoff;
             }
             
             [[nodiscard]] inline type_system& get_typesystem()
@@ -137,6 +184,16 @@ namespace blt::gp
                 return non_terminals[id];
             }
             
+            inline argc_t get_argc(operator_id id)
+            {
+                return operator_argc[id];
+            }
+            
+            inline detail::callable_t& get_operation(operator_id id)
+            {
+                return operators[id];
+            }
+            
             inline bool is_static(operator_id id)
             {
                 return static_types.contains(static_cast<blt::size_t>(id));
@@ -149,6 +206,7 @@ namespace blt::gp
                 non_terminals = std::move(op.non_terminals);
                 argument_types = std::move(op.argument_types);
                 static_types = std::move(op.static_types);
+                operator_argc = std::move(op.operator_argc);
                 operators = std::move(op.operators);
             }
         
@@ -162,6 +220,7 @@ namespace blt::gp
             blt::expanding_buffer<std::vector<operator_id>> non_terminals;
             // indexed from OPERATOR ID (operator number)
             blt::expanding_buffer<std::vector<type>> argument_types;
+            blt::expanding_buffer<argc_t> operator_argc;
             blt::hashset_t<operator_id> static_types;
             std::vector<detail::callable_t> operators;
     };

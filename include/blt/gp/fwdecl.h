@@ -29,6 +29,10 @@ namespace blt::gp
     
     class type_system;
     
+    class tree_t;
+    
+    class population_t;
+    
     class tree_generator_t;
     
     class grow_generator_t;

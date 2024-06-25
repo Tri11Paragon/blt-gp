@@ -22,13 +22,27 @@
 #include <blt/gp/typesystem.h>
 #include <blt/gp/stack.h>
 #include <blt/gp/fwdecl.h>
+#include <blt/std/types.h>
 
 namespace blt::gp
 {
+    
+    struct op_container_t
+    {
+        blt::gp::operator_id op_id;
+        blt::u16 depth;
+    };
+    
     class tree_t
     {
         public:
-            [[nodiscard]] inline std::vector<blt::gp::operator_id>& get_operations()
+            [[nodiscard]] inline std::vector<op_container_t>& get_operations()
+            {
+                valid = false;
+                return operations;
+            }
+            
+            [[nodiscard]] inline const std::vector<op_container_t>& get_operations() const
             {
                 return operations;
             }
@@ -37,10 +51,34 @@ namespace blt::gp
             {
                 return values;
             }
+            
+            void setDepth(blt::size_t d)
+            {
+                depth = d;
+                valid = true;
+            }
+            
+            blt::size_t getDepth()
+            {
+                if (valid)
+                    return depth;
+                valid = true;
+                return 0;
+            }
         
         private:
-            std::vector<blt::gp::operator_id> operations;
+            bool valid = false;
+            std::vector<op_container_t> operations;
             blt::gp::stack_allocator values;
+            blt::size_t depth;
+    };
+    
+    class population_t
+    {
+        public:
+        
+        private:
+            std::vector<tree_t> individuals;
     };
 }
 

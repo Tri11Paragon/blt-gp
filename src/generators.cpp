@@ -28,7 +28,7 @@ namespace blt::gp
         blt::size_t depth;
     };
     
-    static inline std::stack<stack> get_base_generator(gp_program& program)
+    inline std::stack<stack> get_initial_stack(gp_program& program)
     {
         std::stack<stack> tree_generator;
         
@@ -40,36 +40,87 @@ namespace blt::gp
             base_type = system.select_type(program.get_random());
         } while (program.get_type_non_terminals(base_type.id()).empty());
         
-        tree_generator.push(stack{program.select_non_terminal(base_type.id()), 0});
+        tree_generator.push(stack{program.select_non_terminal(base_type.id()), 1});
         
         return tree_generator;
     }
     
     template<typename Func>
-    tree_t create_tree(Func, gp_program& program, blt::size_t, blt::size_t)
+    inline tree_t create_tree(Func&& perChild, gp_program& program)
     {
-        std::stack<stack> tree_generator = get_base_generator(program);
+        std::stack<stack> tree_generator = get_initial_stack(program);
+        blt::size_t max_depth = 0;
         tree_t tree;
         
         while (!tree_generator.empty())
         {
-        
+            auto top = tree_generator.top();
+            tree_generator.pop();
+            
+            tree.get_operations().push_back({top.id, static_cast<blt::u16>(top.depth)});
+            max_depth = std::max(max_depth, top.depth);
+            
+            if (program.is_static(top.id))
+            {
+                program.get_operation(top.id)(nullptr, tree.get_values());
+                continue;
+            }
+            
+            for (const auto& child : program.get_argument_types(top.id))
+            {
+                std::forward<Func>(perChild)(program, tree_generator, child, top.depth + 1);
+            }
         }
+        
+        tree.setDepth(max_depth);
         
         return tree;
     }
     
     tree_t grow_generator_t::generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth)
     {
-        return create_tree([]() {
-        
-        }, program, min_depth, max_depth);
+        return create_tree([min_depth, max_depth](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
+            if (new_depth >= max_depth)
+            {
+                tree_generator.push({program.select_terminal(type.id()), new_depth});
+                return;
+            }
+            if (program.choice() || new_depth < min_depth)
+                tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+            else
+                tree_generator.push({program.select_terminal(type.id()), new_depth});
+        }, program);
     }
     
-    tree_t full_generator_t::generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth)
+    tree_t full_generator_t::generate(gp_program& program, blt::size_t, blt::size_t max_depth)
     {
-        return create_tree([]() {
-        
-        }, program, min_depth, max_depth);
+        return create_tree([max_depth](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
+            if (new_depth >= max_depth)
+            {
+                tree_generator.push({program.select_terminal(type.id()), new_depth});
+                return;
+            }
+            tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+        }, program);
+    }
+    
+    population_t grow_initializer_t::generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        return population_t();
+    }
+    
+    population_t full_initializer_t::generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        return population_t();
+    }
+    
+    population_t half_half_initializer_t::generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        return population_t();
+    }
+    
+    population_t ramped_half_initializer_t::generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth)
+    {
+        return population_t();
     }
 }
