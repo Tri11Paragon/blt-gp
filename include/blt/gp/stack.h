@@ -41,8 +41,8 @@ namespace blt::gp
             template<typename T>
             void push(T&& value)
             {
-                static_assert(std::is_trivially_copyable_v<T> && "Type must be bitwise copyable!");
                 using NO_REF_T = std::remove_reference_t<T>;
+                static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
                 auto ptr = allocate_bytes<T>();
                 head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<T>();
                 new(ptr) NO_REF_T(std::forward<T>(value));
@@ -51,6 +51,7 @@ namespace blt::gp
             template<typename T>
             T pop()
             {
+                static_assert(std::is_trivially_copyable_v<std::remove_reference_t<T>> && "Type must be bitwise copyable!");
                 constexpr static auto TYPE_SIZE = aligned_size<T>();
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");

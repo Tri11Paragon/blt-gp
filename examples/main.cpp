@@ -345,12 +345,12 @@ int main_old()
     alloc.push(20.1230345);
     alloc.push(true);
     alloc.push(false);
-    alloc.push(std::string("SillyString"));
+    //alloc.push(std::string("SillyString"));
     alloc.push(&"SillyString");
     
     std::cout << std::endl;
     std::cout << *alloc.pop<decltype(&"SillString")>() << std::endl;
-    std::cout << alloc.pop<std::string>() << std::endl;
+    //std::cout << alloc.pop<std::string>() << std::endl;
     std::cout << alloc.pop<bool>() << std::endl;
     std::cout << alloc.pop<bool>() << std::endl;
     std::cout << alloc.pop<double>() << std::endl;
@@ -389,7 +389,7 @@ int main_old()
     alloc.push(50);
     alloc.push(550.3f);
     alloc.push(20.1230345);
-    alloc.push(std::string("SillyString"));
+    //alloc.push(std::string("SillyString"));
     alloc.push(33.22f);
     alloc.push(120);
     alloc.push(true);

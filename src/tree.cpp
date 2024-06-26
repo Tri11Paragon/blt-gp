@@ -1,5 +1,5 @@
-#pragma once
 /*
+ *  <Short Description>
  *  Copyright (C) 2024  Brett Terpstra
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -15,39 +15,19 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-#ifndef BLT_GP_FWDECL_H
-#define BLT_GP_FWDECL_H
-
+#include <blt/gp/tree.h>
 
 namespace blt::gp
 {
-    
-    class gp_program;
-    
-    class type;
-    
-    class type_system;
-    
-    struct op_container_t;
-    
-    class evaluation_context;
-    
-    class tree_t;
-    
-    class population_t;
-    
-    class tree_generator_t;
-    
-    class grow_generator_t;
-    
-    class full_generator_t;
-    
-    namespace detail
+    evaluation_context tree_t::evaluate(void* context)
     {
-        class operator_storage_test;
+        evaluation_context results {values};
+        
+        auto& value_stack = results.values;
+        std::stack<op_container_t> operations_stack;
+        
+        
+        
+        return results;
     }
-    
 }
-
-#endif //BLT_GP_FWDECL_H

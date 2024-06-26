@@ -25,53 +25,89 @@
 namespace blt::gp
 {
     
+    struct generator_arguments
+    {
+        gp_program& program;
+        type_id root_type;
+        blt::size_t min_depth;
+        blt::size_t max_depth;
+    };
+    
+    struct initializer_arguments
+    {
+        gp_program& program;
+        type_id root_type;
+        blt::size_t size;
+        blt::size_t min_depth;
+        blt::size_t max_depth;
+        
+        [[nodiscard]] generator_arguments to_gen_args() const
+        {
+            return {program, root_type, min_depth, max_depth};
+        }
+    };
+    
     // base class for any kind of tree generator
     class tree_generator_t
     {
         public:
-            virtual tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) = 0;
+            virtual tree_t generate(const generator_arguments& args) = 0;
     };
     
     class grow_generator_t : public tree_generator_t
     {
         public:
-            tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) final;
+            tree_t generate(const generator_arguments& args) final;
     };
     
     class full_generator_t : public tree_generator_t
     {
         public:
-            tree_t generate(gp_program& program, blt::size_t min_depth, blt::size_t max_depth) final;
+            tree_t generate(const generator_arguments& args) final;
     };
     
     class population_initializer_t
     {
         public:
-            virtual population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) = 0;
+            virtual population_t generate(const initializer_arguments& args) = 0;
     };
     
-    class grow_initializer_t
+    class grow_initializer_t : public population_initializer_t
     {
         public:
-            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+            population_t generate(const initializer_arguments& args) final;
+        
+        private:
+            grow_generator_t grow;
     };
     
-    class full_initializer_t
+    class full_initializer_t : public population_initializer_t
     {
         public:
-            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+            population_t generate(const initializer_arguments& args) final;
+        
+        private:
+            full_generator_t full;
     };
     
-    class half_half_initializer_t
+    class half_half_initializer_t : public population_initializer_t
     {
         public:
-            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+            population_t generate(const initializer_arguments& args) final;
+        
+        private:
+            grow_generator_t grow;
+            full_generator_t full;
     };
     
-    class ramped_half_initializer_t
+    class ramped_half_initializer_t : public population_initializer_t
     {
         public:
-            population_t generate(gp_program& program, blt::size_t size, blt::size_t min_depth, blt::size_t max_depth) final;
+            population_t generate(const initializer_arguments& args) final;
+        
+        private:
+            grow_generator_t grow;
+            full_generator_t full;
     };
     
 }

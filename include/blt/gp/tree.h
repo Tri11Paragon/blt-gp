@@ -24,13 +24,34 @@
 #include <blt/gp/fwdecl.h>
 #include <blt/std/types.h>
 
+#include <utility>
+#include <stack>
+
 namespace blt::gp
 {
     
     struct op_container_t
     {
-        blt::gp::operator_id op_id;
+        op_container_t(detail::callable_t& func, u16 depth, bool isStatic, u16 argc, u8 argcContext):
+                func(func), depth(depth), is_static(isStatic), argc(argc), argc_context(argcContext)
+        {}
+        
+        detail::callable_t& func;
         blt::u16 depth;
+        bool is_static: 1;
+        blt::u16 argc: 15;
+        blt::u8 argc_context;
+    };
+    
+    class evaluation_context
+    {
+            friend class tree_t;
+        
+        private:
+            explicit evaluation_context(stack_allocator values): values(std::move(values))
+            {}
+            
+            blt::gp::stack_allocator values;
     };
     
     class tree_t
@@ -65,6 +86,36 @@ namespace blt::gp
                 valid = true;
                 return 0;
             }
+            
+            evaluation_context evaluate(void* context);
+            
+            /**
+             * Helper template for returning the result of the last evaluation
+             */
+            template<typename T>
+            T get_evaluation_value(evaluation_context& context)
+            {
+                return context.values.pop<T>();
+            }
+            
+            /**
+             * Helper template for returning the result of the last evaluation
+             */
+            template<typename T>
+            T& get_evaluation_ref(evaluation_context& context)
+            {
+                return context.values.from<T>(0);
+            }
+            
+            /**
+             * Helper template for returning the result of evalutation (this calls it)
+             */
+            template<typename T>
+            T get_evaluation_value(void* context)
+            {
+                auto results = evaluate(context);
+                return results.values.pop<T>();
+            }
         
         private:
             bool valid = false;
@@ -76,6 +127,10 @@ namespace blt::gp
     class population_t
     {
         public:
+            std::vector<tree_t>& getIndividuals()
+            {
+                return individuals;
+            }
         
         private:
             std::vector<tree_t> individuals;
