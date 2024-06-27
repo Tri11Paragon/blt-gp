@@ -32,15 +32,13 @@ namespace blt::gp
     
     struct op_container_t
     {
-        op_container_t(detail::callable_t& func, u16 depth, bool isStatic, u16 argc, u8 argcContext):
-                func(func), depth(depth), is_static(isStatic), argc(argc), argc_context(argcContext)
+        op_container_t(detail::callable_t& func, detail::transfer_t& transfer, bool is_value):
+                func(func), transfer(transfer), is_value(is_value)
         {}
         
         detail::callable_t& func;
-        blt::u16 depth;
-        bool is_static: 1;
-        blt::u16 argc: 15;
-        blt::u8 argc_context;
+        detail::transfer_t& transfer;
+        bool is_value;
     };
     
     class evaluation_context
@@ -48,7 +46,7 @@ namespace blt::gp
             friend class tree_t;
         
         private:
-            explicit evaluation_context(stack_allocator values): values(std::move(values))
+            explicit evaluation_context()
             {}
             
             blt::gp::stack_allocator values;
@@ -108,7 +106,7 @@ namespace blt::gp
             }
             
             /**
-             * Helper template for returning the result of evalutation (this calls it)
+             * Helper template for returning the result of evaluation (this calls it)
              */
             template<typename T>
             T get_evaluation_value(void* context)
