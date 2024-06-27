@@ -30,15 +30,15 @@ blt::gp::operation_t sub([](float a, float b) { return a - b; });
 blt::gp::operation_t mul([](float a, float b) { return a * b; });
 blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
 
-blt::gp::operation_t op_if([](bool b, float a, float c) {return b ? a : c; });
-blt::gp::operation_t eq_f([](float a, float b) {return a == b; });
-blt::gp::operation_t eq_b([](bool a, bool b) {return a == b; });
-blt::gp::operation_t lt([](float a, float b) {return a < b; });
-blt::gp::operation_t gt([](float a, float b) {return a > b; });
-blt::gp::operation_t op_and([](bool a, bool b) {return a && b; });
-blt::gp::operation_t op_or([](bool a, bool b) {return a || b; });
-blt::gp::operation_t op_xor([](bool a, bool b) {return static_cast<bool>(a ^ b); });
-blt::gp::operation_t op_not([](bool b) {return !b; });
+blt::gp::operation_t op_if([](bool b, float a, float c) { return b ? a : c; });
+blt::gp::operation_t eq_f([](float a, float b) { return a == b; });
+blt::gp::operation_t eq_b([](bool a, bool b) { return a == b; });
+blt::gp::operation_t lt([](float a, float b) { return a < b; });
+blt::gp::operation_t gt([](float a, float b) { return a > b; });
+blt::gp::operation_t op_and([](bool a, bool b) { return a && b; });
+blt::gp::operation_t op_or([](bool a, bool b) { return a || b; });
+blt::gp::operation_t op_xor([](bool a, bool b) { return static_cast<bool>(a ^ b); });
+blt::gp::operation_t op_not([](bool b) { return !b; });
 
 blt::gp::operation_t lit([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
@@ -74,12 +74,16 @@ int main()
     
     program.set_operations(std::move(silly));
     
-    blt::gp::grow_generator_t grow;
-    auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});
+    blt::gp::ramped_half_initializer_t pop_init;
     
-    auto value = tree.get_evaluation_value<float>(nullptr);
+    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
     
-    BLT_TRACE(value);
+    for (auto& tree : pop.getIndividuals())
+    {
+        auto value = tree.get_evaluation_value<float>(nullptr);
+        
+        BLT_TRACE(value);
+    }
     
     return 0;
 }

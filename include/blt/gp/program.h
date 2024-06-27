@@ -173,6 +173,20 @@ namespace blt::gp
                 return non_terminals[id][dist(engine)];
             }
             
+//            inline operator_id select_non_terminal_too_deep(type_id id)
+//            {
+//                std::uniform_int_distribution<blt::size_t> dist(0, non_terminals[id].size() - 1);
+//                operator_id sel;
+//                do
+//                {
+//                    sel = non_terminals[id][dist(engine)];
+//                } while (std::find_if(argument_types[sel].begin(), argument_types[sel].end(),
+//                                      [id](const auto& v) {
+//                                          return v.id() == id;
+//                                      }) != argument_types[sel].end());
+//                return sel;
+//            }
+            
             inline std::vector<type>& get_argument_types(operator_id id)
             {
                 return argument_types[id];

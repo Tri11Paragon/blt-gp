@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.37)
+project(blt-gp VERSION 0.0.38)
 
 include(CTest)
 
@@ -72,5 +72,6 @@ if (${BUILD_EXAMPLES})
     blt_add_example(blt-gp1 examples/gp_test_1.cpp)
     blt_add_example(blt-gp2 examples/gp_test_2.cpp)
     blt_add_example(blt-gp3 examples/gp_test_3.cpp)
+    blt_add_example(blt-gp4 examples/gp_test_4.cpp)
 
 endif ()
