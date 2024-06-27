@@ -47,8 +47,6 @@ namespace blt::gp
             operations_stack.emplace_back(empty_callable, operation.transfer, true);
         }
         
-        BLT_TRACE("Bytes Left: %ld | %ld", values_process.bytes_in_head(), value_stack.bytes_in_head());
-        
         return results;
     }
 }

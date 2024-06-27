@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.35)
+project(blt-gp VERSION 0.0.36)
 
 include(CTest)
 
@@ -64,12 +64,13 @@ if (${BUILD_EXAMPLES})
             target_link_options(${name}-example PRIVATE -fsanitize=thread)
         endif ()
 
-        add_test(NAME ${name}-test COMMAND ${name}-example)
+        add_test(NAME ${name} COMMAND ${name}-example)
 
         project(blt-gp)
     endmacro()
 
-    blt_add_example(blt-gp1 examples/main.cpp)
+    blt_add_example(blt-gp1 examples/gp_test_1.cpp)
     blt_add_example(blt-gp2 examples/gp_test_2.cpp)
+    blt_add_example(blt-gp3 examples/gp_test_3.cpp)
 
 endif ()

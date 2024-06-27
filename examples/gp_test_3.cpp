@@ -20,7 +20,6 @@
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 
-
 static constexpr long SEED = 41912;
 
 blt::gp::type_system type_system;
@@ -30,6 +29,17 @@ blt::gp::operation_t add([](float a, float b) { return a + b; });
 blt::gp::operation_t sub([](float a, float b) { return a - b; });
 blt::gp::operation_t mul([](float a, float b) { return a * b; });
 blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
+
+blt::gp::operation_t op_if([](bool b, float a, float c) {return b ? a : c; });
+blt::gp::operation_t eq_f([](float a, float b) {return a == b; });
+blt::gp::operation_t eq_b([](bool a, bool b) {return a == b; });
+blt::gp::operation_t lt([](float a, float b) {return a < b; });
+blt::gp::operation_t gt([](float a, float b) {return a > b; });
+blt::gp::operation_t op_and([](bool a, bool b) {return a && b; });
+blt::gp::operation_t op_or([](bool a, bool b) {return a || b; });
+blt::gp::operation_t op_xor([](bool a, bool b) {return static_cast<bool>(a ^ b); });
+blt::gp::operation_t op_not([](bool b) {return !b; });
+
 blt::gp::operation_t lit([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
     static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
@@ -37,11 +47,12 @@ blt::gp::operation_t lit([]() {
 });
 
 /**
- * This is a test using a type with blt::gp
+ * This is a test using multiple types with blt::gp
  */
 int main()
 {
     type_system.register_type<float>();
+    type_system.register_type<bool>();
     
     blt::gp::gp_operations silly{type_system};
     silly.add_operator(add);
@@ -58,6 +69,8 @@ int main()
     auto value = tree.get_evaluation_value<float>(nullptr);
     
     BLT_TRACE(value);
+    
+    return 0;
     
     return 0;
 }
