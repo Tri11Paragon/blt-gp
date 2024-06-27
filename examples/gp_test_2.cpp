@@ -26,10 +26,19 @@ static constexpr long SEED = 41912;
 blt::gp::type_system type_system;
 blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
 
-blt::gp::operation_t add([](float a, float b) { return a + b; });
-blt::gp::operation_t sub([](float a, float b) { return a - b; });
-blt::gp::operation_t mul([](float a, float b) { return a * b; });
-blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
+blt::gp::operation_t add([](float a, float b) {
+    BLT_TRACE("a: %f + b: %f = %f", a, b, a + b);
+    return a + b;
+});
+blt::gp::operation_t sub([](float a, float b) {
+    BLT_TRACE("a: %f - b: %f = %f", a, b, a - b);
+    return a - b; });
+blt::gp::operation_t mul([](float a, float b) {
+    BLT_TRACE("a: %f * b: %f = %f", a, b, a * b);
+    return a * b; });
+blt::gp::operation_t pro_div([](float a, float b) {
+    BLT_TRACE("a: %f / b: %f = %f", a, b, (b == 0 ? 0.0f : a / b));
+    return b == 0 ? 0.0f : a / b; });
 blt::gp::operation_t lit([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
     static std::uniform_real_distribution<float> dist(0.0f, 10.0f);

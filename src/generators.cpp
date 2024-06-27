@@ -61,10 +61,10 @@ namespace blt::gp
             tree_generator.pop();
             
             tree.get_operations().emplace_back(
-                args.program.get_operation(top.id),
-                args.program.get_transfer_func(top.id),
-                args.program.is_static(top.id)
-            );
+                    args.program.get_operation(top.id),
+                    args.program.get_transfer_func(top.id),
+                    args.program.is_static(top.id)
+                                              );
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_static(top.id))
@@ -89,7 +89,10 @@ namespace blt::gp
         return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
-                tree_generator.push({program.select_terminal(type.id()), new_depth});
+                if (program.get_type_terminals(type.id()).empty())
+                    tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+                else
+                    tree_generator.push({program.select_terminal(type.id()), new_depth});
                 return;
             }
             if (program.choice() || new_depth < args.min_depth)
@@ -104,7 +107,10 @@ namespace blt::gp
         return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
-                tree_generator.push({program.select_terminal(type.id()), new_depth});
+                if (program.get_type_terminals(type.id()).empty())
+                    tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+                else
+                    tree_generator.push({program.select_terminal(type.id()), new_depth});
                 return;
             }
             tree_generator.push({program.select_non_terminal(type.id()), new_depth});

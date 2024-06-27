@@ -59,6 +59,17 @@ int main()
     silly.add_operator(sub);
     silly.add_operator(mul);
     silly.add_operator(pro_div);
+    
+    silly.add_operator(op_if);
+    silly.add_operator(eq_f);
+    silly.add_operator(eq_b);
+    silly.add_operator(lt);
+    silly.add_operator(gt);
+    silly.add_operator(op_and);
+    silly.add_operator(op_or);
+    silly.add_operator(op_xor);
+    silly.add_operator(op_not);
+    
     silly.add_operator(lit, true);
     
     program.set_operations(std::move(silly));
