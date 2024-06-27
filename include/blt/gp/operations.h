@@ -29,8 +29,6 @@ namespace blt::gp
 {
     namespace detail
     {
-        using callable_t = std::function<void(void*, stack_allocator&)>;
-        
         template<typename T>
         using remove_cv_ref = std::remove_cv_t<std::remove_reference_t<T>>;
         
@@ -85,19 +83,19 @@ namespace blt::gp
         
         template<typename Func, blt::u64... indices, typename... ExtraArgs>
         inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
-                                                                ExtraArgs&& ... args)
+                                                                ExtraArgs&&... args)
         {
             // expands Args and indices, providing each argument with its index calculating the current argument byte offset
             return std::forward<Func>(func)(std::forward<ExtraArgs>(args)..., allocator.from<Args>(getByteOffset<indices>())...);
         }
         
         template<typename Func, typename... ExtraArgs>
-        Return operator()(Func&& func, stack_allocator& allocator, ExtraArgs&& ... args)
+        Return operator()(Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
         {
             constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-            Return ret = exec_sequence_to_indices(std::forward<Func>(func), allocator, seq, std::forward<ExtraArgs>(args)...);
-            allocator.call_destructors<Args...>();
-            allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
+            Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
+            read_allocator.call_destructors<Args...>();
+            read_allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
             return ret;
         }
     };
@@ -125,18 +123,18 @@ namespace blt::gp
             constexpr explicit operation_t(const Functor& functor): func(functor)
             {}
             
-            [[nodiscard]] constexpr inline Return operator()(stack_allocator& allocator) const
+            [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
             {
                 if constexpr (sizeof...(Args) == 0)
                 {
                     return func();
                 } else
                 {
-                    return call_with<Return, Args...>()(func, allocator);
+                    return call_with<Return, Args...>()(func, read_allocator);
                 }
             }
             
-            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& allocator) const
+            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator) const
             {
                 // should be an impossible state
                 if constexpr (sizeof...(Args) == 0)
@@ -149,22 +147,22 @@ namespace blt::gp
                     return func(ctx_ref);
                 } else
                 {
-                    return call_without_first<Return, Args...>()(func, allocator, ctx_ref);
+                    return call_without_first<Return, Args...>()(func, read_allocator, ctx_ref);
                 }
             }
             
             template<typename Context>
             [[nodiscard]] detail::callable_t make_callable() const
             {
-                return [this](void* context, stack_allocator& values) {
+                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator) {
                     if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
                     {
                         // first arg is context
-                        values.push(this->operator()(context, values));
+                        write_allocator.push(this->operator()(context, read_allocator));
                     } else
                     {
                         // first arg isn't context
-                        values.push(this->operator()(values));
+                        write_allocator.push(this->operator()(read_allocator));
                     }
                 };
             }

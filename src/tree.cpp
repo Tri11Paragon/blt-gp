@@ -16,17 +16,38 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/tree.h>
+#include <blt/gp/stack.h>
+#include <blt/std/assert.h>
+#include <blt/std/logging.h>
 
 namespace blt::gp
 {
+    inline auto empty_callable = detail::callable_t([](void*, stack_allocator&, stack_allocator&) { BLT_ABORT("This should never be called!"); });
+    
     evaluation_context tree_t::evaluate(void* context)
     {
-        evaluation_context results {values};
+        // copy the initial values
+        evaluation_context results{};
         
-        auto& value_stack = results.values;
-        std::stack<op_container_t> operations_stack;
+        auto value_stack = values;
+        auto& values_process = results.values;
+        auto operations_stack = operations;
         
+        while (!operations_stack.empty())
+        {
+            auto operation = operations_stack.back();
+            // keep the last value in the stack on the process stack stored in the eval context, this way it can be accessed easily.
+            operations_stack.pop_back();
+            if (operation.is_value)
+            {
+                operation.transfer(values_process, value_stack);
+                continue;
+            }
+            operation.func(context, values_process, value_stack);
+            operations_stack.emplace_back(empty_callable, operation.transfer, true);
+        }
         
+        BLT_TRACE("Bytes Left: %ld | %ld", values_process.bytes_in_head(), value_stack.bytes_in_head());
         
         return results;
     }

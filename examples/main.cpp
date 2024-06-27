@@ -270,7 +270,7 @@ void test()
     }
     
     std::cout << process.size() << std::endl;
-    std::cout << process.top() << std::endl;
+    std::cout << "Total Results: " << process.top() << std::endl;
     
 }
 
@@ -326,7 +326,7 @@ namespace blt::gp::detail
 
 blt::gp::stack_allocator alloc;
 
-int main_old()
+int main()
 {
     constexpr blt::size_t MAX_ALIGNMENT = 8;
     test();
@@ -431,15 +431,15 @@ int main_old()
     context hello{5, 10};
     
     alloc.push(1.153f);
-    de[0](static_cast<void*>(&hello), alloc);
+    de[0](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("first value: %f", alloc.pop<float>());
     
-    de[1](static_cast<void*>(&hello), alloc);
+    de[1](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("second value: %f", alloc.pop<float>());
     
     alloc.push(1.0f);
     alloc.push(52.213f);
-    de[2](static_cast<void*>(&hello), alloc);
+    de[2](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("third value: %f", alloc.pop<float>());
     
     //auto* pointer = static_cast<void*>(head->metadata.offset);

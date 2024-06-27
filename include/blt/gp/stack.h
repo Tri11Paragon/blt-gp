@@ -20,6 +20,7 @@
 #define BLT_GP_STACK_H
 
 #include <blt/std/types.h>
+#include <blt/std/logging.h>
 #include <utility>
 #include <stdexcept>
 #include <cstdlib>
@@ -110,9 +111,16 @@ namespace blt::gp
                     if (diff <= 0)
                     {
                         bytes -= head->used_bytes_in_block();
+                        auto old = head;
                         head = head->metadata.prev;
-                    } else // otherwise update the offset pointer
+                        free(old);
+                        if (diff == 0)
+                            break;
+                    } else {
+                        // otherwise update the offset pointer
                         head->metadata.offset -= bytes;
+                        break;
+                    }
                 }
             }
             
@@ -143,6 +151,9 @@ namespace blt::gp
             
             stack_allocator(const stack_allocator& copy)
             {
+                if (copy.empty())
+                    return;
+                
                 head = nullptr;
                 block* list_itr = nullptr;
                 
@@ -158,6 +169,8 @@ namespace blt::gp
                 {
                     push_block(list_itr->metadata.size);
                     std::memcpy(head->buffer, list_itr->buffer, list_itr->storage_size());
+                    head->metadata.size = list_itr->metadata.size;
+                    head->metadata.offset = head->buffer + list_itr->used_bytes_in_block();
                     list_itr = list_itr->metadata.next;
                 }
             }

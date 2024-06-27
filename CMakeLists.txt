@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.33)
+project(blt-gp VERSION 0.0.34)
+
+include(CTest)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
@@ -36,29 +38,38 @@ if (${ENABLE_TSAN} MATCHES ON)
 endif ()
 
 if (${BUILD_EXAMPLES})
-    project(blt-gp-example)
+    macro(blt_add_example name source)
 
-    add_executable(blt-gp-example examples/main.cpp examples/gp_test_2.cpp)
+        project(${name}-example)
 
-    target_link_libraries(blt-gp-example PUBLIC BLT blt-gp)
+        add_executable(${name}-example ${source})
 
-    target_compile_options(blt-gp-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-    target_link_options(blt-gp-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+        target_link_libraries(${name}-example PRIVATE BLT blt-gp)
 
-    if (${ENABLE_ADDRSAN} MATCHES ON)
-        target_compile_options(blt-gp-example PRIVATE -fsanitize=address)
-        target_link_options(blt-gp-example PRIVATE -fsanitize=address)
-    endif ()
+        target_compile_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+        target_link_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
 
-    if (${ENABLE_UBSAN} MATCHES ON)
-        target_compile_options(blt-gp-example PRIVATE -fsanitize=undefined)
-        target_link_options(blt-gp-example PRIVATE -fsanitize=undefined)
-    endif ()
+        if (${ENABLE_ADDRSAN} MATCHES ON)
+            target_compile_options(${name}-example PRIVATE -fsanitize=address)
+            target_link_options(${name}-example PRIVATE -fsanitize=address)
+        endif ()
 
-    if (${ENABLE_TSAN} MATCHES ON)
-        target_compile_options(blt-gp-example PRIVATE -fsanitize=thread)
-        target_link_options(blt-gp-example PRIVATE -fsanitize=thread)
-    endif ()
+        if (${ENABLE_UBSAN} MATCHES ON)
+            target_compile_options(${name}-example PRIVATE -fsanitize=undefined)
+            target_link_options(${name}-example PRIVATE -fsanitize=undefined)
+        endif ()
 
-    project(blt-gp)
+        if (${ENABLE_TSAN} MATCHES ON)
+            target_compile_options(${name}-example PRIVATE -fsanitize=thread)
+            target_link_options(${name}-example PRIVATE -fsanitize=thread)
+        endif ()
+
+        add_test(NAME ${name}-test COMMAND ${name}-example)
+
+        project(blt-gp)
+    endmacro()
+
+    blt_add_example(blt-gp1 examples/main.cpp)
+    blt_add_example(blt-gp2 examples/gp_test_2.cpp)
+
 endif ()

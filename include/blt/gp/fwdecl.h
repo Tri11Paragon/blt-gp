@@ -19,6 +19,8 @@
 #ifndef BLT_GP_FWDECL_H
 #define BLT_GP_FWDECL_H
 
+#include <functional>
+#include <blt/std/logging.h>
 
 namespace blt::gp
 {
@@ -43,9 +45,15 @@ namespace blt::gp
     
     class full_generator_t;
     
+    class stack_allocator;
+    
     namespace detail
     {
         class operator_storage_test;
+        // context*, read stack, write stack
+        using callable_t = std::function<void(void*, stack_allocator&, stack_allocator&)>;
+        // to, from
+        using transfer_t = std::function<void(stack_allocator&, stack_allocator&)>;
     }
     
 }

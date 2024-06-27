@@ -17,6 +17,7 @@
  */
 #include <blt/gp/generators.h>
 #include <blt/gp/program.h>
+#include <blt/std/logging.h>
 #include <stack>
 
 namespace blt::gp
@@ -61,16 +62,17 @@ namespace blt::gp
             
             tree.get_operations().emplace_back(
                 args.program.get_operation(top.id),
-                static_cast<blt::u16>(top.depth),
-                args.program.is_static(top.id),
-                static_cast<blt::u16>(args.program.get_argc(top.id).argc),
-                static_cast<blt::u8>(args.program.get_argc(top.id).argc_context)
+                args.program.get_transfer_func(top.id),
+                //static_cast<blt::u16>(top.depth),
+                args.program.is_static(top.id)
+                //static_cast<blt::u16>(args.program.get_argc(top.id).argc),
+                //static_cast<blt::u8>(args.program.get_argc(top.id).argc_context)
             );
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_static(top.id))
             {
-                args.program.get_operation(top.id)(nullptr, tree.get_values());
+                args.program.get_operation(top.id)(nullptr, tree.get_values(), tree.get_values());
                 continue;
             }
             

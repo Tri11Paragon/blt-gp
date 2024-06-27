@@ -16,6 +16,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/program.h>
+#include <blt/gp/generators.h>
+#include <blt/gp/tree.h>
+#include <blt/std/logging.h>
+
 
 static constexpr long SEED = 41912;
 
@@ -27,7 +31,8 @@ blt::gp::operation_t sub([](float a, float b) { return a - b; });
 blt::gp::operation_t mul([](float a, float b) { return a * b; });
 blt::gp::operation_t pro_div([](float a, float b) { return b == 0 ? 0.0f : a / b; });
 blt::gp::operation_t lit([]() {
-    static std::uniform_real_distribution<float> dist(-32000, 32000);
+    //static std::uniform_real_distribution<float> dist(-32000, 32000);
+    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
     return dist(program.get_random());
 });
 
@@ -44,6 +49,13 @@ int main()
     silly.add_operator(lit, true);
     
     program.set_operations(std::move(silly));
+    
+    blt::gp::grow_generator_t grow;
+    auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});
+    
+    auto value = tree.get_evaluation_value<float>(nullptr);
+    
+    BLT_TRACE(value);
     
     return 0;
 }

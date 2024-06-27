@@ -63,15 +63,6 @@ namespace blt::gp
             explicit gp_operations(type_system& system): system(system)
             {}
             
-            template<typename T>
-            void add_non_context_argument(blt::gp::operator_id operator_id)
-            {
-                if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
-                {
-                    argument_types[operator_id].push_back(system.get_type<T>());
-                }
-            }
-            
             template<typename Return, typename... Args>
             gp_operations& add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
             {
@@ -96,12 +87,24 @@ namespace blt::gp
                 operator_argc[operator_id] = argc;
                 
                 operators.push_back(op.template make_callable<Context>());
+                transfer_funcs.push_back([](stack_allocator& to, stack_allocator& from) {
+                    to.push(from.pop<Return>());
+                });
                 if (is_static)
                     static_types.insert(operator_id);
                 return *this;
             }
         
         private:
+            template<typename T>
+            void add_non_context_argument(blt::gp::operator_id operator_id)
+            {
+                if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
+                {
+                    argument_types[operator_id].push_back(system.get_type<T>());
+                }
+            }
+            
             type_system& system;
             
             // indexed from return TYPE ID, returns index of operator
@@ -112,6 +115,7 @@ namespace blt::gp
             blt::expanding_buffer<argc_t> operator_argc;
             blt::hashset_t<operator_id> static_types;
             std::vector<detail::callable_t> operators;
+            std::vector<detail::transfer_t> transfer_funcs;
     };
     
     class gp_program
@@ -194,6 +198,11 @@ namespace blt::gp
                 return operators[id];
             }
             
+            inline detail::transfer_t& get_transfer_func(operator_id id)
+            {
+                return transfer_funcs[id];
+            }
+            
             inline bool is_static(operator_id id)
             {
                 return static_types.contains(static_cast<blt::size_t>(id));
@@ -208,6 +217,7 @@ namespace blt::gp
                 static_types = std::move(op.static_types);
                 operator_argc = std::move(op.operator_argc);
                 operators = std::move(op.operators);
+                transfer_funcs = std::move(op.transfer_funcs);
             }
         
         private:
@@ -223,6 +233,7 @@ namespace blt::gp
             blt::expanding_buffer<argc_t> operator_argc;
             blt::hashset_t<operator_id> static_types;
             std::vector<detail::callable_t> operators;
+            std::vector<detail::transfer_t> transfer_funcs;
     };
     
 }
