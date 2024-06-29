@@ -80,10 +80,10 @@ namespace blt::gp
      * Is a provider for the set of types possible in a GP program
      * also provides a set of functions for converting between C++ types and BLT GP types
      */
-    class type_system
+    class type_provider
     {
         public:
-            type_system() = default;
+            type_provider() = default;
             
             template<typename T>
             inline type register_type()
@@ -96,6 +96,17 @@ namespace blt::gp
             inline type get_type()
             {
                 return types[blt::type_string_raw<T>()];
+            }
+            
+            inline type get_type(type_id id)
+            {
+                for (const auto& v : types)
+                {
+                    if (v.second.id() == id)
+                        return v.second;
+                }
+                BLT_ABORT(("Type " + std::to_string(id) + " does not exist").c_str());
+                std::exit(0);
             }
             
             /**

@@ -22,7 +22,7 @@
 
 static constexpr long SEED = 41912;
 
-blt::gp::type_system type_system;
+blt::gp::type_provider type_system;
 blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; });
@@ -54,7 +54,7 @@ int main()
     type_system.register_type<float>();
     type_system.register_type<bool>();
     
-    blt::gp::gp_operations silly{type_system};
+    blt::gp::operator_builder silly{type_system};
     silly.add_operator(add);
     silly.add_operator(sub);
     silly.add_operator(mul);

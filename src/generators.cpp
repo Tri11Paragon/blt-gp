@@ -59,12 +59,12 @@ namespace blt::gp
         {
             auto top = tree_generator.top();
             tree_generator.pop();
+            //BLT_INFO("%ld D: %ld (%ld left)", top.id, top.depth, tree_generator.size());
             
             tree.get_operations().emplace_back(
                     args.program.get_operation(top.id),
                     args.program.get_transfer_func(top.id),
-                    args.program.is_static(top.id)
-                                              );
+                    args.program.is_static(top.id));
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_static(top.id))
@@ -159,10 +159,16 @@ namespace blt::gp
         auto remainder = args.size % steps;
         population_t pop;
         
+        BLT_INFO(steps);
+        BLT_INFO(per_step);
+        BLT_INFO(remainder);
+        
         for (auto depth : blt::range(args.min_depth, args.max_depth))
         {
+            BLT_TRACE(depth);
             for (auto i = 0ul; i < per_step; i++)
             {
+                BLT_DEBUG(i);
                 if (args.program.choice())
                     pop.getIndividuals().push_back(full.generate({args.program, args.root_type, args.min_depth, depth}));
                 else

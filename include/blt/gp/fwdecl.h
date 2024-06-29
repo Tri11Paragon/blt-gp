@@ -29,7 +29,7 @@ namespace blt::gp
     
     class type;
     
-    class type_system;
+    class type_provider;
     
     struct op_container_t;
     

@@ -311,7 +311,7 @@ namespace blt::gp::detail
     class operator_storage_test
     {
         public:
-            explicit operator_storage_test(blt::gp::gp_operations<context>& ops): ops(ops)
+            explicit operator_storage_test(blt::gp::operator_builder<context>& ops): ops(ops)
             {}
             
             inline blt::gp::detail::callable_t& operator[](blt::size_t index)
@@ -320,7 +320,7 @@ namespace blt::gp::detail
             }
         
         private:
-            blt::gp::gp_operations<context>& ops;
+            blt::gp::operator_builder<context>& ops;
     };
 }
 
@@ -413,9 +413,9 @@ int main()
         return ctx.x;
     });
     
-    blt::gp::type_system system;
+    blt::gp::type_provider system;
     system.register_type<float>();
-    blt::gp::gp_operations<context> ops{system};
+    blt::gp::operator_builder<context> ops{system};
     
     //BLT_TRACE(blt::type_string<decltype(silly_op_3)::first::type>());
     //BLT_TRACE(typeid(decltype(silly_op_3)::first::type).name());

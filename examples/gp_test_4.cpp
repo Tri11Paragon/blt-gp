@@ -22,7 +22,7 @@
 
 static constexpr long SEED = 41912;
 
-blt::gp::type_system type_system;
+blt::gp::type_provider type_system;
 blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; });
@@ -54,25 +54,25 @@ int main()
     type_system.register_type<float>();
     type_system.register_type<bool>();
     
-    blt::gp::gp_operations silly{type_system};
-    silly.add_operator(add);
-    silly.add_operator(sub);
-    silly.add_operator(mul);
-    silly.add_operator(pro_div);
+    blt::gp::operator_builder builder{type_system};
+    builder.add_operator(add);
+    builder.add_operator(sub);
+    builder.add_operator(mul);
+    builder.add_operator(pro_div);
     
-    silly.add_operator(op_if);
-    silly.add_operator(eq_f);
-    silly.add_operator(eq_b);
-    silly.add_operator(lt);
-    silly.add_operator(gt);
-    silly.add_operator(op_and);
-    silly.add_operator(op_or);
-    silly.add_operator(op_xor);
-    silly.add_operator(op_not);
+    builder.add_operator(op_if);
+    builder.add_operator(eq_f);
+    builder.add_operator(eq_b);
+    builder.add_operator(lt);
+    builder.add_operator(gt);
+    builder.add_operator(op_and);
+    builder.add_operator(op_or);
+    builder.add_operator(op_xor);
+    builder.add_operator(op_not);
     
-    silly.add_operator(lit, true);
+    builder.add_operator(lit, true);
     
-    program.set_operations(std::move(silly));
+    program.set_operations(builder.build());
     
     blt::gp::ramped_half_initializer_t pop_init;
     
