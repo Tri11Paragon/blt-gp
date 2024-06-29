@@ -90,7 +90,7 @@ namespace blt::gp
             if (new_depth >= args.max_depth)
             {
                 if (program.get_type_terminals(type.id()).empty())
-                    tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+                    tree_generator.push({program.select_non_terminal_too_deep(type.id()), new_depth});
                 else
                     tree_generator.push({program.select_terminal(type.id()), new_depth});
                 return;
@@ -108,7 +108,7 @@ namespace blt::gp
             if (new_depth >= args.max_depth)
             {
                 if (program.get_type_terminals(type.id()).empty())
-                    tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+                    tree_generator.push({program.select_non_terminal_too_deep(type.id()), new_depth});
                 else
                     tree_generator.push({program.select_terminal(type.id()), new_depth});
                 return;
@@ -159,16 +159,10 @@ namespace blt::gp
         auto remainder = args.size % steps;
         population_t pop;
         
-        BLT_INFO(steps);
-        BLT_INFO(per_step);
-        BLT_INFO(remainder);
-        
         for (auto depth : blt::range(args.min_depth, args.max_depth))
         {
-            BLT_TRACE(depth);
             for (auto i = 0ul; i < per_step; i++)
             {
-                BLT_DEBUG(i);
                 if (args.program.choice())
                     pop.getIndividuals().push_back(full.generate({args.program, args.root_type, args.min_depth, depth}));
                 else

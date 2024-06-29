@@ -58,6 +58,7 @@ namespace blt::gp
         // indexed from return TYPE ID, returns index of operator
         blt::expanding_buffer<std::vector<operator_id>> terminals;
         blt::expanding_buffer<std::vector<operator_id>> non_terminals;
+        blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
         blt::expanding_buffer<std::vector<type>> argument_types;
         blt::expanding_buffer<argc_t> operator_argc;
@@ -101,8 +102,11 @@ namespace blt::gp
                 storage.operator_argc[operator_id] = argc;
                 
                 storage.operators.push_back(op.template make_callable<Context>());
-                storage.transfer_funcs.push_back([](stack_allocator& to, stack_allocator& from) {
-                    to.push(from.pop<Return>());
+                storage.transfer_funcs.push_back([](stack_allocator& to, stack_allocator& from, blt::ptrdiff_t offset) {
+                    if (offset < 0)
+                        to.push(from.pop<Return>());
+                    else
+                        to.push(from.from<Return>(offset));
                 });
                 if (is_static)
                     storage.static_types.insert(operator_id);
@@ -118,8 +122,6 @@ namespace blt::gp
                     if (!v.second.empty())
                         has_terminals.insert(v.first);
                 }
-                
-                blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
                 
                 for (const auto& op_r : blt::enumerate(storage.non_terminals))
                 {
@@ -138,24 +140,37 @@ namespace blt::gp
                         }
                         ordered_terminals.emplace_back(op, terminals);
                     }
-                    bool found = false;
+                    bool found_terminal_inputs = false;
+                    bool matches_argc = false;
                     for (const auto& terms : ordered_terminals)
                     {
+                        if (terms.second == storage.operator_argc[terms.first].argc)
+                            matches_argc = true;
                         if (terms.second != 0)
-                        {
-                            found = true;
+                            found_terminal_inputs = true;
+                        if (matches_argc && found_terminal_inputs)
                             break;
-                        }
                     }
-                    if (!found)
+                    if (!found_terminal_inputs)
+                        BLT_ABORT(("Failed to find function with terminal arguments for return type " + std::to_string(return_type)).c_str());
+                    if (!matches_argc)
                     {
-                        BLT_ABORT(("Failed to find non-terminals "));
+                        BLT_ABORT(("Failed to find a function which purely translates types "
+                                   "(that is all input types are terminals) for return type " + std::to_string(return_type)).c_str());
                     }
                     
                     std::sort(ordered_terminals.begin(), ordered_terminals.end(), [](const auto& a, const auto& b) {
                         return a.second > b.second;
                     });
-                    operators_ordered_terminals[return_type] = ordered_terminals;
+                    
+                    auto first_size = *ordered_terminals.begin();
+                    auto iter = ordered_terminals.begin();
+                    while (++iter != ordered_terminals.end() && iter->second == first_size.second)
+                    {}
+                    
+                    ordered_terminals.erase(iter, ordered_terminals.end());
+                    
+                    storage.operators_ordered_terminals[return_type] = ordered_terminals;
                 }
                 
                 return std::move(storage);
@@ -220,6 +235,9 @@ namespace blt::gp
             
             inline operator_id select_terminal(type_id id)
             {
+                // we wanted a terminal, but could not find one, so we will select from a function that has a terminal
+                if (storage.terminals[id].empty())
+                    return select_non_terminal_too_deep(id);
                 std::uniform_int_distribution<blt::size_t> dist(0, storage.terminals[id].size() - 1);
                 return storage.terminals[id][dist(engine)];
             }
@@ -229,20 +247,12 @@ namespace blt::gp
                 std::uniform_int_distribution<blt::size_t> dist(0, storage.non_terminals[id].size() - 1);
                 return storage.non_terminals[id][dist(engine)];
             }
-
-//            inline operator_id select_non_terminal_too_deep(type_id id)
-//            {
-//                std::uniform_int_distribution<blt::size_t> dist(0, non_terminals[id].size() - 1);
-//                operator_id sel;
-//                do
-//                {
-//                    sel = non_terminals[id][dist(engine)];
-//                } while (std::find_if(argument_types[sel].begin(), argument_types[sel].end(),
-//                                      [id](const auto& v) {
-//                                          return v.id() == id;
-//                                      }) != argument_types[sel].end());
-//                return sel;
-//            }
+            
+            inline operator_id select_non_terminal_too_deep(type_id id)
+            {
+                std::uniform_int_distribution<blt::size_t> dist(0, storage.operators_ordered_terminals[id].size() - 1);
+                return storage.operators_ordered_terminals[id][dist(engine)].first;
+            }
             
             inline std::vector<type>& get_argument_types(operator_id id)
             {

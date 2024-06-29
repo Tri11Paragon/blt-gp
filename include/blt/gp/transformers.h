@@ -19,9 +19,20 @@
 #ifndef BLT_GP_TRANSFORMERS_H
 #define BLT_GP_TRANSFORMERS_H
 
+#include <blt/std/utility.h>
+#include <blt/gp/fwdecl.h>
+#include <blt/gp/tree.h>
+
 namespace blt::gp
 {
-
+    
+    class crossover_t
+    {
+        public:
+            BLT_ATTRIB_CONST virtual std::pair<tree_t, tree_t> apply(gp_program& program, const tree_t& p1, const tree_t& p2);
+            virtual void apply_in_place(gp_program& program, tree_t& p1, tree_t& p2);
+    };
+    
 }
 
 #endif //BLT_GP_TRANSFORMERS_H

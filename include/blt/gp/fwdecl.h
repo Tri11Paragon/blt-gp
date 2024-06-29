@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <blt/std/logging.h>
+#include <blt/std/types.h>
 
 namespace blt::gp
 {
@@ -53,7 +54,7 @@ namespace blt::gp
         // context*, read stack, write stack
         using callable_t = std::function<void(void*, stack_allocator&, stack_allocator&)>;
         // to, from
-        using transfer_t = std::function<void(stack_allocator&, stack_allocator&)>;
+        using transfer_t = std::function<void(stack_allocator&, stack_allocator&, blt::ptrdiff_t)>;
     }
     
 }
