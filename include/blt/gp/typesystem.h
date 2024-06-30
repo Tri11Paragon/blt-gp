@@ -88,8 +88,10 @@ namespace blt::gp
             template<typename T>
             inline type register_type()
             {
-                types.insert({blt::type_string_raw<T>(), type::make_type<T>(types.size())});
-                return types[blt::type_string_raw<T>()];
+                auto t = type::make_type<T>(types.size());
+                types.insert({blt::type_string_raw<T>(), t});
+                types_from_id[t.id()] = t;
+                return t;
             }
             
             template<typename T>
@@ -100,13 +102,7 @@ namespace blt::gp
             
             inline type get_type(type_id id)
             {
-                for (const auto& v : types)
-                {
-                    if (v.second.id() == id)
-                        return v.second;
-                }
-                BLT_ABORT(("Type " + std::to_string(id) + " does not exist").c_str());
-                std::exit(0);
+                return types_from_id[id];
             }
             
             /**
@@ -126,6 +122,7 @@ namespace blt::gp
         
         private:
             blt::hashmap_t<std::string, type> types;
+            blt::expanding_buffer<type> types_from_id;
     };
 }
 

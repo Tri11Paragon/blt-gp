@@ -49,13 +49,17 @@ namespace blt::gp
     
     struct argc_t
     {
-        blt::size_t argc = 0;
-        blt::size_t argc_context = 0;
+        blt::u32 argc = 0;
+        blt::u32 argc_context = 0;
     };
     
     struct operator_info
     {
-    
+        std::vector<type_id> argument_types;
+        type_id return_type;
+        argc_t argc;
+        detail::callable_t function;
+        detail::transfer_t transfer;
     };
     
     struct operator_storage
@@ -65,9 +69,9 @@ namespace blt::gp
         blt::expanding_buffer<std::vector<operator_id>> non_terminals;
         blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
+        blt::hashset_t<operator_id> static_types;
         blt::expanding_buffer<std::vector<type>> argument_types;
         blt::expanding_buffer<argc_t> operator_argc;
-        blt::hashset_t<operator_id> static_types;
         std::vector<detail::callable_t> operators;
         std::vector<detail::transfer_t> transfer_funcs;
     };
