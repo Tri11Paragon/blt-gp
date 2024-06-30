@@ -19,5 +19,12 @@
 
 namespace blt::gp
 {
-
+    blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
+    {
+        result_t result{p1, p2};
+        
+        
+        
+        return result;
+    }
 }

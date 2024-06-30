@@ -53,6 +53,11 @@ namespace blt::gp
         blt::size_t argc_context = 0;
     };
     
+    struct operator_info
+    {
+    
+    };
+    
     struct operator_storage
     {
         // indexed from return TYPE ID, returns index of operator

@@ -57,7 +57,6 @@ namespace blt::gp
         public:
             [[nodiscard]] inline std::vector<op_container_t>& get_operations()
             {
-                valid = false;
                 return operations;
             }
             
@@ -69,20 +68,6 @@ namespace blt::gp
             [[nodiscard]] inline blt::gp::stack_allocator& get_values()
             {
                 return values;
-            }
-            
-            void setDepth(blt::size_t d)
-            {
-                depth = d;
-                valid = true;
-            }
-            
-            blt::size_t getDepth()
-            {
-                if (valid)
-                    return depth;
-                valid = true;
-                return 0;
             }
             
             evaluation_context evaluate(void* context);
@@ -116,7 +101,6 @@ namespace blt::gp
             }
         
         private:
-            bool valid = false;
             std::vector<op_container_t> operations;
             blt::gp::stack_allocator values;
             blt::size_t depth;

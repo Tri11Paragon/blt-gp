@@ -21,11 +21,13 @@
 
 #include <blt/std/types.h>
 #include <blt/std/logging.h>
+#include <blt/gp/fwdecl.h>
 #include <utility>
 #include <stdexcept>
 #include <cstdlib>
 #include <memory>
 #include <type_traits>
+#include <cstring>
 
 namespace blt::gp
 {
@@ -52,7 +54,8 @@ namespace blt::gp
             template<typename T>
             T pop()
             {
-                static_assert(std::is_trivially_copyable_v<std::remove_reference_t<T>> && "Type must be bitwise copyable!");
+                using NO_REF_T = std::remove_reference_t<T>;
+                static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
                 constexpr static auto TYPE_SIZE = aligned_size<T>();
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
@@ -116,7 +119,8 @@ namespace blt::gp
                         free(old);
                         if (diff == 0)
                             break;
-                    } else {
+                    } else
+                    {
                         // otherwise update the offset pointer
                         head->metadata.offset -= bytes;
                         break;
@@ -185,8 +189,7 @@ namespace blt::gp
             
             stack_allocator& operator=(stack_allocator&& move) noexcept
             {
-                head = move.head;
-                move.head = nullptr;
+                move.head = std::exchange(head, move.head);
                 return *this;
             }
             

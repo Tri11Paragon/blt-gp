@@ -59,7 +59,6 @@ namespace blt::gp
         {
             auto top = tree_generator.top();
             tree_generator.pop();
-            //BLT_INFO("%ld D: %ld (%ld left)", top.id, top.depth, tree_generator.size());
             
             tree.get_operations().emplace_back(
                     args.program.get_operation(top.id),
@@ -74,12 +73,8 @@ namespace blt::gp
             }
             
             for (const auto& child : args.program.get_argument_types(top.id))
-            {
                 std::forward<Func>(perChild)(args.program, tree_generator, child, top.depth + 1);
-            }
         }
-        
-        tree.setDepth(max_depth);
         
         return tree;
     }

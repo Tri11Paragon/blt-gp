@@ -22,6 +22,7 @@
 #include <blt/std/utility.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/tree.h>
+#include <blt/std/expected.h>
 
 namespace blt::gp
 {
@@ -29,8 +30,25 @@ namespace blt::gp
     class crossover_t
     {
         public:
-            BLT_ATTRIB_CONST virtual std::pair<tree_t, tree_t> apply(gp_program& program, const tree_t& p1, const tree_t& p2);
-            virtual void apply_in_place(gp_program& program, tree_t& p1, tree_t& p2);
+            enum class error_t
+            {
+                NO_VALID_TYPE
+            };
+            struct result_t
+            {
+                tree_t child1;
+                tree_t child2;
+            };
+            
+            /**
+             * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
+             * the parents are not modified during this process
+             * @param program reference to the global program container responsible for managing these trees
+             * @param p1 reference to the first parent
+             * @param p2 reference to the second parent
+             * @return expected pair of child otherwise returns error enum
+             */
+            virtual blt::expected<result_t, error_t> apply(gp_program& program, const tree_t& p1, const tree_t& p2); // NOLINT
     };
     
 }
