@@ -44,7 +44,7 @@ namespace blt::gp
                 continue;
             }
             operation.func(context, values_process, value_stack);
-            operations_stack.emplace_back(empty_callable, operation.transfer, true);
+            operations_stack.emplace_back(empty_callable, operation.transfer, operation.id, true);
         }
         
         return results;

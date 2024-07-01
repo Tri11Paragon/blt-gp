@@ -32,12 +32,13 @@ namespace blt::gp
     
     struct op_container_t
     {
-        op_container_t(detail::callable_t& func, detail::transfer_t& transfer, bool is_value):
-                func(func), transfer(transfer), is_value(is_value)
+        op_container_t(detail::callable_t& func, detail::transfer_t& transfer, operator_id id, bool is_value):
+                func(func), transfer(transfer), id(id), is_value(is_value)
         {}
         
         detail::callable_t& func;
         detail::transfer_t& transfer;
+        operator_id id;
         bool is_value;
     };
     

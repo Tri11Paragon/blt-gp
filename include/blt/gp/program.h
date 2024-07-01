@@ -50,6 +50,14 @@ namespace blt::gp
         blt::u32 argc_context = 0;
     };
     
+    struct config_t
+    {
+        // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
+        blt::u16 max_crossover_tries = 5;
+        // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
+        bool should_crossover_try_forward = false;
+    };
+    
     struct operator_info
     {
         std::vector<type_id> argument_types;
@@ -286,10 +294,16 @@ namespace blt::gp
             {
                 storage = std::move(op);
             }
+            
+            [[nodiscard]] inline const config_t& get_config() const
+            {
+                return config;
+            }
         
         private:
             type_provider& system;
             blt::gp::stack_allocator alloc;
+            config_t config;
             
             operator_storage storage;
             
