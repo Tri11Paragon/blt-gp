@@ -43,9 +43,6 @@
 
 namespace blt::gp
 {
-    static constexpr blt::size_t NONE_T = 0x0;
-    static constexpr blt::size_t STATIC_T = 0x1;
-    static constexpr blt::size_t TERMINAL_T = 0x2;
     
     struct argc_t
     {
@@ -70,10 +67,11 @@ namespace blt::gp
         blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
         blt::hashset_t<operator_id> static_types;
-        blt::expanding_buffer<std::vector<type>> argument_types;
-        blt::expanding_buffer<argc_t> operator_argc;
-        std::vector<detail::callable_t> operators;
-        std::vector<detail::transfer_t> transfer_funcs;
+//        blt::expanding_buffer<std::vector<type>> argument_types;
+//        blt::expanding_buffer<argc_t> operator_argc;
+//        std::vector<detail::callable_t> operators;
+//        std::vector<detail::transfer_t> transfer_funcs;
+        std::vector<operator_info> operators;
     };
     
     template<typename Context = detail::empty_t>
@@ -96,27 +94,28 @@ namespace blt::gp
                 auto& operator_list = op.get_argc() == 0 ? storage.terminals : storage.non_terminals;
                 operator_list[return_type_id].push_back(operator_id);
                 
+                operator_info info;
+                
                 if constexpr (sizeof...(Args) > 0)
                 {
-                    (add_non_context_argument<Args>(operator_id), ...);
+                    (add_non_context_argument<Args>(info.argument_types), ...);
                 }
                 
-                argc_t argc;
-                argc.argc_context = argc.argc = sizeof...(Args);
+                info.argc.argc_context = info.argc.argc = sizeof...(Args);
+                info.return_type = system.get_type<Return>().id();
                 
-                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? argc.argc -= 1 : (blt::size_t) nullptr), ...);
+                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
                 
-                BLT_ASSERT(argc.argc_context - argc.argc <= 1 && "Cannot pass multiple context as arguments!");
+                BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
-                storage.operator_argc[operator_id] = argc;
-                
-                storage.operators.push_back(op.template make_callable<Context>());
-                storage.transfer_funcs.push_back([](stack_allocator& to, stack_allocator& from, blt::ptrdiff_t offset) {
+                info.function = op.template make_callable<Context>();
+                info.transfer = [](stack_allocator& to, stack_allocator& from, blt::ptrdiff_t offset) {
                     if (offset < 0)
                         to.push(from.pop<Return>());
                     else
                         to.push(from.from<Return>(offset));
-                });
+                };
+                storage.operators.push_back(info);
                 if (is_static)
                     storage.static_types.insert(operator_id);
                 return *this;
@@ -142,9 +141,9 @@ namespace blt::gp
                     {
                         // count number of terminals
                         blt::size_t terminals = 0;
-                        for (const auto& type : storage.argument_types[op])
+                        for (const auto& type : storage.operators[op].argument_types)
                         {
-                            if (has_terminals.contains(type.id()))
+                            if (has_terminals.contains(type))
                                 terminals++;
                         }
                         ordered_terminals.emplace_back(op, terminals);
@@ -153,7 +152,7 @@ namespace blt::gp
                     bool matches_argc = false;
                     for (const auto& terms : ordered_terminals)
                     {
-                        if (terms.second == storage.operator_argc[terms.first].argc)
+                        if (terms.second == storage.operators[terms.first].argc.argc)
                             matches_argc = true;
                         if (terms.second != 0)
                             found_terminal_inputs = true;
@@ -187,11 +186,11 @@ namespace blt::gp
         
         private:
             template<typename T>
-            void add_non_context_argument(blt::gp::operator_id operator_id)
+            void add_non_context_argument(decltype(operator_info::argument_types)& types)
             {
                 if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
                 {
-                    storage.argument_types[operator_id].push_back(system.get_type<T>());
+                    types.push_back(system.get_type<T>().id());
                 }
             }
             
@@ -263,9 +262,9 @@ namespace blt::gp
                 return storage.operators_ordered_terminals[id][dist(engine)].first;
             }
             
-            inline std::vector<type>& get_argument_types(operator_id id)
+            inline operator_info& get_operator_info(operator_id id)
             {
-                return storage.argument_types[id];
+                return storage.operators[id];
             }
             
             inline std::vector<operator_id>& get_type_terminals(type_id id)
@@ -276,21 +275,6 @@ namespace blt::gp
             inline std::vector<operator_id>& get_type_non_terminals(type_id id)
             {
                 return storage.non_terminals[id];
-            }
-            
-            inline argc_t get_argc(operator_id id)
-            {
-                return storage.operator_argc[id];
-            }
-            
-            inline detail::callable_t& get_operation(operator_id id)
-            {
-                return storage.operators[id];
-            }
-            
-            inline detail::transfer_t& get_transfer_func(operator_id id)
-            {
-                return storage.transfer_funcs[id];
             }
             
             inline bool is_static(operator_id id)

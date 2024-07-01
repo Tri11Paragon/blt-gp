@@ -60,19 +60,21 @@ namespace blt::gp
             auto top = tree_generator.top();
             tree_generator.pop();
             
+            auto& info = args.program.get_operator_info(top.id);
+            
             tree.get_operations().emplace_back(
-                    args.program.get_operation(top.id),
-                    args.program.get_transfer_func(top.id),
+                    info.function,
+                    info.transfer,
                     args.program.is_static(top.id));
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_static(top.id))
             {
-                args.program.get_operation(top.id)(nullptr, tree.get_values(), tree.get_values());
+                info.function(nullptr, tree.get_values(), tree.get_values());
                 continue;
             }
             
-            for (const auto& child : args.program.get_argument_types(top.id))
+            for (const auto& child : info.argument_types)
                 std::forward<Func>(perChild)(args.program, tree_generator, child, top.depth + 1);
         }
         
@@ -81,34 +83,34 @@ namespace blt::gp
     
     tree_t grow_generator_t::generate(const generator_arguments& args)
     {
-        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
+        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
-                if (program.get_type_terminals(type.id()).empty())
-                    tree_generator.push({program.select_non_terminal_too_deep(type.id()), new_depth});
+                if (program.get_type_terminals(type).empty())
+                    tree_generator.push({program.select_non_terminal_too_deep(type), new_depth});
                 else
-                    tree_generator.push({program.select_terminal(type.id()), new_depth});
+                    tree_generator.push({program.select_terminal(type), new_depth});
                 return;
             }
             if (program.choice() || new_depth < args.min_depth)
-                tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+                tree_generator.push({program.select_non_terminal(type), new_depth});
             else
-                tree_generator.push({program.select_terminal(type.id()), new_depth});
+                tree_generator.push({program.select_terminal(type), new_depth});
         }, args);
     }
     
     tree_t full_generator_t::generate(const generator_arguments& args)
     {
-        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, const type& type, blt::size_t new_depth) {
+        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
-                if (program.get_type_terminals(type.id()).empty())
-                    tree_generator.push({program.select_non_terminal_too_deep(type.id()), new_depth});
+                if (program.get_type_terminals(type).empty())
+                    tree_generator.push({program.select_non_terminal_too_deep(type), new_depth});
                 else
-                    tree_generator.push({program.select_terminal(type.id()), new_depth});
+                    tree_generator.push({program.select_terminal(type), new_depth});
                 return;
             }
-            tree_generator.push({program.select_non_terminal(type.id()), new_depth});
+            tree_generator.push({program.select_non_terminal(type), new_depth});
         }, args);
     }
     
