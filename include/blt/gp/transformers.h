@@ -32,7 +32,8 @@ namespace blt::gp
         public:
             enum class error_t
             {
-                NO_VALID_TYPE
+                NO_VALID_TYPE,
+                TREE_TOO_SMALL
             };
             struct result_t
             {

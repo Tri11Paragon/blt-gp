@@ -72,7 +72,7 @@ int main()
     
     silly.add_operator(lit, true);
     
-    program.set_operations(std::move(silly));
+    program.set_operations(silly.build());
     
     blt::gp::grow_generator_t grow;
     auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});

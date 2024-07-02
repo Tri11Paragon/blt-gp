@@ -316,7 +316,7 @@ namespace blt::gp::detail
             
             inline blt::gp::detail::callable_t& operator[](blt::size_t index)
             {
-                return ops.operators[index];
+                return ops.storage.operators[index].function;
             }
         
         private:

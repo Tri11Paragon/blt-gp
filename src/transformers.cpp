@@ -17,6 +17,7 @@
  */
 #include <blt/gp/transformers.h>
 #include <blt/gp/program.h>
+#include <blt/std/ranges.h>
 #include <random>
 
 namespace blt::gp
@@ -32,8 +33,11 @@ namespace blt::gp
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
         
-        std::uniform_int_distribution op_sel1(1ul, c1_ops.size() - 1);
-        std::uniform_int_distribution op_sel2(1ul, c2_ops.size() - 1);
+        if (c1_ops.size() < 5 || c2_ops.size() < 5)
+            return blt::unexpected(error_t::TREE_TOO_SMALL);
+        
+        std::uniform_int_distribution op_sel1(3ul, c1_ops.size() - 1);
+        std::uniform_int_distribution op_sel2(3ul, c2_ops.size() - 1);
         
         blt::size_t crossover_point = op_sel1(program.get_random());
         blt::size_t attempted_point = 0;
@@ -69,7 +73,49 @@ namespace blt::gp
             }
         } while (crossover_point_type.return_type != attempted_point_type->return_type);
         
-        const auto& found_point_type = *attempted_point_type;
+        blt::i64 children_left = 0;
+        blt::size_t index = crossover_point;
+        
+        do
+        {
+            const auto& type = program.get_operator_info(c1_ops[index].id);
+            if (type.argc.argc > 0)
+                children_left += type.argc.argc;
+            else
+                children_left--;
+            index++;
+        } while (children_left > 0);
+        
+        auto crossover_point_end_itr = c1_ops.begin() + static_cast<blt::ptrdiff_t>(index);
+        
+        children_left = 0;
+        index = attempted_point;
+        
+        do
+        {
+            const auto& type = program.get_operator_info(c2_ops[index].id);
+            if (type.argc.argc > 0)
+                children_left += type.argc.argc;
+            else
+                children_left--;
+            if (children_left > 0)
+                index++;
+            else
+                break;
+        } while (true);
+        
+        auto found_point_end_iter = c2_ops.begin() + static_cast<blt::ptrdiff_t>(index);
+        
+        stack_allocator c1_stack_init = c1.get_values();
+        stack_allocator c2_stack_init = c2.get_values();
+        
+        std::vector<op_container_t> c1_operators;
+        std::vector<op_container_t> c2_operators;
+        
+        for (const auto& op : blt::enumerate(c1_ops.begin() + static_cast<blt::ptrdiff_t>(crossover_point), crossover_point_end_itr))
+            c1_operators.push_back(op);
+        for (const auto& op : blt::enumerate(c2_ops.begin() + static_cast<blt::ptrdiff_t>(attempted_point), found_point_end_iter))
+            c2_operators.push_back(op);
         
         return result;
     }
