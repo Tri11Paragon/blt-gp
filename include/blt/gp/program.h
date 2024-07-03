@@ -117,11 +117,15 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 info.function = op.template make_callable<Context>();
-                info.transfer = [](stack_allocator& to, stack_allocator& from, blt::ptrdiff_t offset) {
-                    if (offset < 0)
-                        to.push(from.pop<Return>());
-                    else
-                        to.push(from.from<Return>(offset));
+                info.transfer = [](stack_allocator& to, stack_allocator& from) {
+#if BLT_DEBUG_LEVEL >= 3
+                    auto value = from.pop<Return>();
+                    BLT_TRACE_STREAM << value << "\n";
+                    to.push(value);
+#else
+                    to.push(from.pop<Return>());
+#endif
+                
                 };
                 storage.operators.push_back(info);
                 if (is_static)

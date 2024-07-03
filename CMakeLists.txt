@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.48)
+project(blt-gp VERSION 0.0.49)
 
 include(CTest)
 
@@ -7,6 +7,7 @@ option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
 option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
 option(BUILD_EXAMPLES "Build example programs. This is a single executable" OFF)
+option(DEBUG_LEVEL "Enable debug features which prints extra information to the console, might slow processing down. [0, 3)" 0)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -21,6 +22,7 @@ target_compile_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comm
 target_link_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
 
 target_link_libraries(blt-gp PRIVATE BLT)
+target_compile_definitions(blt-gp PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
 
 if (${ENABLE_ADDRSAN} MATCHES ON)
     target_compile_options(blt-gp PRIVATE -fsanitize=address)
@@ -48,6 +50,7 @@ if (${BUILD_EXAMPLES})
 
         target_compile_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
         target_link_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+        target_compile_definitions(${name}-example PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
 
         if (${ENABLE_ADDRSAN} MATCHES ON)
             target_compile_options(${name}-example PRIVATE -fsanitize=address)

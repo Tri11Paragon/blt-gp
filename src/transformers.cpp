@@ -26,9 +26,11 @@ namespace blt::gp
     {
         const auto& config = program.get_config();
         result_t result{p1, p2};
-        
+
+#if BLT_DEBUG_LEVEL > 0
         BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
         BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
+#endif
         
         auto& c1 = result.child1;
         auto& c2 = result.child2;
@@ -82,6 +84,9 @@ namespace blt::gp
         do
         {
             const auto& type = program.get_operator_info(c1_ops[index].id);
+#if BLT_DEBUG_LEVEL > 1
+            BLT_TRACE("Crossover type: %s, op %ld", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), c1_ops[index].id);
+#endif
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
             else
@@ -91,6 +96,9 @@ namespace blt::gp
         
         auto crossover_point_begin_itr = c1_ops.begin() + static_cast<blt::ptrdiff_t>(crossover_point);
         auto crossover_point_end_itr = c1_ops.begin() + static_cast<blt::ptrdiff_t>(index);
+#if BLT_DEBUG_LEVEL > 0
+        BLT_TRACE("[%ld %ld) %ld", crossover_point, index, index - crossover_point);
+#endif
         
         children_left = 0;
         index = attempted_point;
@@ -98,18 +106,22 @@ namespace blt::gp
         do
         {
             const auto& type = program.get_operator_info(c2_ops[index].id);
+#if BLT_DEBUG_LEVEL > 1
+            BLT_TRACE("Found type: %s, op: %ld", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), c2_ops[index].id);
+#endif
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
             else
                 children_left--;
-            if (children_left > 0)
-                index++;
-            else
-                break;
-        } while (true);
+            index++;
+        } while (children_left > 0);
         
         auto found_point_begin_itr = c2_ops.begin() + static_cast<blt::ptrdiff_t>(attempted_point);
         auto found_point_end_itr = c2_ops.begin() + static_cast<blt::ptrdiff_t>(index);
+
+#if BLT_DEBUG_LEVEL > 0
+        BLT_TRACE("[%ld %ld) %ld", attempted_point, index, index - attempted_point);
+#endif
         
         stack_allocator& c1_stack_init = c1.get_values();
         stack_allocator& c2_stack_init = c2.get_values();
@@ -121,83 +133,92 @@ namespace blt::gp
             c1_operators.push_back(op);
         for (const auto& op : blt::enumerate(found_point_begin_itr, found_point_end_itr))
             c2_operators.push_back(op);
+
+#if BLT_DEBUG_LEVEL > 0
+        BLT_TRACE("Sizes: %ld %ld || Ops size: %ld %ld", c1_operators.size(), c2_operators.size(), c1_ops.size(), c2_ops.size());
+#endif
         
         stack_allocator c1_stack_after_copy;
         stack_allocator c1_stack_for_copy;
         stack_allocator c2_stack_after_copy;
         stack_allocator c2_stack_for_copy;
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring past crossover 1:");
+#endif
         // transfer all values after the crossover point. these will need to be transferred back to child2
         for (auto it = c1_ops.end() - 1; it != crossover_point_end_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c1_stack_after_copy, c1_stack_init, -1);
+                it->transfer(c1_stack_after_copy, c1_stack_init);
         }
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring for crossover 1:");
+#endif
         // transfer all values for the crossover point.
         for (auto it = crossover_point_end_itr - 1; it != crossover_point_begin_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c1_stack_for_copy, c1_stack_init, -1);
+                it->transfer(c1_stack_for_copy, c1_stack_init);
         }
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring past crossover 2:");
+#endif
         // transfer child2 values for copying back into c1
         for (auto it = c2_ops.end() - 1; it != found_point_end_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c2_stack_after_copy, c2_stack_init, -1);
+                it->transfer(c2_stack_after_copy, c2_stack_init);
         }
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring for crossover 2:");
+#endif
         for (auto it = found_point_end_itr - 1; it != found_point_begin_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c2_stack_for_copy, c2_stack_init, -1);
+                it->transfer(c2_stack_for_copy, c2_stack_init);
         }
-        
-        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
-        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
-        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring back for crossover 1:");
+#endif
         // now copy back into the respective children
         for (auto it = found_point_begin_itr; it != found_point_end_itr; it++)
         {
             if (it->is_value)
-                it->transfer(c1.get_values(), c2_stack_for_copy, -1);
+                it->transfer(c1.get_values(), c2_stack_for_copy);
         }
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring back for crossover 2:");
+#endif
         for (auto it = crossover_point_begin_itr; it != crossover_point_end_itr; it++)
         {
             if (it->is_value)
-                it->transfer(c2.get_values(), c1_stack_for_copy, -1);
+                it->transfer(c2.get_values(), c1_stack_for_copy);
         }
-        
-        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
-        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
-        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring back after crossover 1:");
+#endif
         // now copy after the crossover point back to the correct children
         for (auto it = crossover_point_end_itr; it != c1_ops.end(); it++)
         {
             if (it->is_value)
-                it->transfer(c1.get_values(), c1_stack_after_copy, -1);
+                it->transfer(c1.get_values(), c1_stack_after_copy);
         }
-        
+
+#if BLT_DEBUG_LEVEL > 1
+        BLT_DEBUG("Transferring back after crossover 2:");
+#endif
         for (auto it = found_point_end_itr; it != c2_ops.end(); it++)
         {
             if (it->is_value)
-                it->transfer(c2.get_values(), c2_stack_after_copy, -1);
+                it->transfer(c2.get_values(), c2_stack_after_copy);
         }
-        
-        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
-        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
         
         // now swap the operators
         auto insert_point_c1 = crossover_point_begin_itr - 1;
@@ -208,10 +229,7 @@ namespace blt::gp
         c2_ops.erase(found_point_begin_itr, found_point_end_itr);
         
         c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
-        c1_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
-        
-        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
-        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
+        c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
         
         return result;
     }

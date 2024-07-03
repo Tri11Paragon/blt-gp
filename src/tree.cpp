@@ -40,7 +40,7 @@ namespace blt::gp
             operations_stack.pop_back();
             if (operation.is_value)
             {
-                operation.transfer(values_process, value_stack, -1);
+                operation.transfer(values_process, value_stack);
                 continue;
             }
             operation.func(context, values_process, value_stack);

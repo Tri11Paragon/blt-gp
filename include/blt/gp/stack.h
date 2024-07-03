@@ -106,8 +106,25 @@ namespace blt::gp
             
             void pop_bytes(blt::ptrdiff_t bytes)
             {
+#if BLT_DEBUG_LEVEL >= 3
+                blt::size_t counter = 0;
+#endif
                 while (bytes > 0)
                 {
+#if BLT_DEBUG_LEVEL > 0
+                    if (head == nullptr)
+                    {
+                        BLT_WARN("Head is nullptr, unable to pop bytes!");
+                        BLT_WARN("This error is normally caused by an invalid tree!");
+#if BLT_DEBUG_LEVEL >= 3
+                        BLT_WARN("Made it to %ld iterations", counter);
+#endif
+                        return;
+                    }
+    #if BLT_DEBUG_LEVEL >= 3
+                    counter++;
+    #endif
+#endif
                     auto diff = head->used_bytes_in_block() - bytes;
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
                     // and pop from it, update the amount of bytes to reflect the amount removed from the current block
