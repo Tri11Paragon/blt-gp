@@ -27,6 +27,9 @@ namespace blt::gp
         const auto& config = program.get_config();
         result_t result{p1, p2};
         
+        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
+        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
+        
         auto& c1 = result.child1;
         auto& c2 = result.child2;
         
@@ -86,6 +89,7 @@ namespace blt::gp
             index++;
         } while (children_left > 0);
         
+        auto crossover_point_begin_itr = c1_ops.begin() + static_cast<blt::ptrdiff_t>(crossover_point);
         auto crossover_point_end_itr = c1_ops.begin() + static_cast<blt::ptrdiff_t>(index);
         
         children_left = 0;
@@ -104,18 +108,110 @@ namespace blt::gp
                 break;
         } while (true);
         
-        auto found_point_end_iter = c2_ops.begin() + static_cast<blt::ptrdiff_t>(index);
+        auto found_point_begin_itr = c2_ops.begin() + static_cast<blt::ptrdiff_t>(attempted_point);
+        auto found_point_end_itr = c2_ops.begin() + static_cast<blt::ptrdiff_t>(index);
         
-        stack_allocator c1_stack_init = c1.get_values();
-        stack_allocator c2_stack_init = c2.get_values();
+        stack_allocator& c1_stack_init = c1.get_values();
+        stack_allocator& c2_stack_init = c2.get_values();
         
         std::vector<op_container_t> c1_operators;
         std::vector<op_container_t> c2_operators;
         
-        for (const auto& op : blt::enumerate(c1_ops.begin() + static_cast<blt::ptrdiff_t>(crossover_point), crossover_point_end_itr))
+        for (const auto& op : blt::enumerate(crossover_point_begin_itr, crossover_point_end_itr))
             c1_operators.push_back(op);
-        for (const auto& op : blt::enumerate(c2_ops.begin() + static_cast<blt::ptrdiff_t>(attempted_point), found_point_end_iter))
+        for (const auto& op : blt::enumerate(found_point_begin_itr, found_point_end_itr))
             c2_operators.push_back(op);
+        
+        stack_allocator c1_stack_after_copy;
+        stack_allocator c1_stack_for_copy;
+        stack_allocator c2_stack_after_copy;
+        stack_allocator c2_stack_for_copy;
+        
+        // transfer all values after the crossover point. these will need to be transferred back to child2
+        for (auto it = c1_ops.end() - 1; it != crossover_point_end_itr - 1; it--)
+        {
+            if (it->is_value)
+                it->transfer(c1_stack_after_copy, c1_stack_init, -1);
+        }
+        
+        // transfer all values for the crossover point.
+        for (auto it = crossover_point_end_itr - 1; it != crossover_point_begin_itr - 1; it--)
+        {
+            if (it->is_value)
+                it->transfer(c1_stack_for_copy, c1_stack_init, -1);
+        }
+        
+        // transfer child2 values for copying back into c1
+        for (auto it = c2_ops.end() - 1; it != found_point_end_itr - 1; it--)
+        {
+            if (it->is_value)
+                it->transfer(c2_stack_after_copy, c2_stack_init, -1);
+        }
+        
+        for (auto it = found_point_end_itr - 1; it != found_point_begin_itr - 1; it--)
+        {
+            if (it->is_value)
+                it->transfer(c2_stack_for_copy, c2_stack_init, -1);
+        }
+        
+        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
+        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
+        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
+        
+        // now copy back into the respective children
+        for (auto it = found_point_begin_itr; it != found_point_end_itr; it++)
+        {
+            if (it->is_value)
+                it->transfer(c1.get_values(), c2_stack_for_copy, -1);
+        }
+        
+        for (auto it = crossover_point_begin_itr; it != crossover_point_end_itr; it++)
+        {
+            if (it->is_value)
+                it->transfer(c2.get_values(), c1_stack_for_copy, -1);
+        }
+        
+        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
+        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
+        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
+        
+        // now copy after the crossover point back to the correct children
+        for (auto it = crossover_point_end_itr; it != c1_ops.end(); it++)
+        {
+            if (it->is_value)
+                it->transfer(c1.get_values(), c1_stack_after_copy, -1);
+        }
+        
+        for (auto it = found_point_end_itr; it != c2_ops.end(); it++)
+        {
+            if (it->is_value)
+                it->transfer(c2.get_values(), c2_stack_after_copy, -1);
+        }
+        
+        BLT_TRACE("c1_stack_after_copy empty? %s", c1_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c1_stack_for_copy empty? %s", c1_stack_for_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_after_copy empty? %s", c2_stack_after_copy.empty() ? "true" : "false");
+        BLT_TRACE("c2_stack_for_copy empty? %s", c2_stack_for_copy.empty() ? "true" : "false");
+        
+        // now swap the operators
+        auto insert_point_c1 = crossover_point_begin_itr - 1;
+        auto insert_point_c2 = found_point_begin_itr - 1;
+        
+        // invalidates [begin, end()) so the insert points should be fine
+        c1_ops.erase(crossover_point_begin_itr, crossover_point_end_itr);
+        c2_ops.erase(found_point_begin_itr, found_point_end_itr);
+        
+        c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
+        c1_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
+        
+        BLT_INFO("Child 1 Stack empty? %s", result.child1.get_values().empty() ? "true" : "false");
+        BLT_INFO("Child 2 Stack empty? %s", result.child2.get_values().empty() ? "true" : "false");
         
         return result;
     }

@@ -36,8 +36,8 @@ namespace blt::gp
                 func(func), transfer(transfer), id(id), is_value(is_value)
         {}
         
-        detail::callable_t& func;
-        detail::transfer_t& transfer;
+        std::reference_wrapper<detail::callable_t> func;
+        std::reference_wrapper<detail::transfer_t> transfer;
         operator_id id;
         bool is_value;
     };

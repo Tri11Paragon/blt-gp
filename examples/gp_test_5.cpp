@@ -36,6 +36,7 @@
 #include <blt/gp/generators.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
+#include <blt/gp/transformers.h>
 
 static constexpr long SEED = 41912;
 
@@ -94,13 +95,39 @@ int main()
     blt::gp::ramped_half_initializer_t pop_init;
     
     auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
+
+//    for (auto& tree : pop.getIndividuals())
+//    {
+//        auto value = tree.get_evaluation_value<float>(nullptr);
+//
+//        BLT_TRACE(value);
+//    }
     
-    for (auto& tree : pop.getIndividuals())
+    blt::gp::crossover_t crossover;
+    
+    auto& ind = pop.getIndividuals();
+    auto results = crossover.apply(program, ind[0], ind[1]);
+    
+    if (results.has_value())
     {
-        auto value = tree.get_evaluation_value<float>(nullptr);
-        
-        BLT_TRACE(value);
+        BLT_TRACE("Parent 1: %f", ind[0].get_evaluation_value<float>(nullptr));
+        BLT_TRACE("Parent 2: %f", ind[1].get_evaluation_value<float>(nullptr));
+        BLT_TRACE("------------");
+        BLT_TRACE("Child 1: %f", results->child1.get_evaluation_value<float>(nullptr));
+        BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>(nullptr));
+    } else
+    {
+        switch (results.error())
+        {
+            case blt::gp::crossover_t::error_t::NO_VALID_TYPE:
+                BLT_ERROR("No valid type!");
+                break;
+            case blt::gp::crossover_t::error_t::TREE_TOO_SMALL:
+                BLT_ERROR("Tree is too small!");
+                break;
+        }
     }
+    
     
     return 0;
 }
