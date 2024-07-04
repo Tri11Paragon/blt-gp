@@ -48,6 +48,11 @@ namespace blt::gp
     {
         blt::u32 argc = 0;
         blt::u32 argc_context = 0;
+        
+        [[nodiscard]] bool is_terminal() const
+        {
+            return argc == 0;
+        }
     };
     
     struct config_t
@@ -56,14 +61,21 @@ namespace blt::gp
         blt::u16 max_crossover_tries = 5;
         // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
         bool should_crossover_try_forward = false;
+        // avoid selecting terminals when doing crossover
+        bool avoid_terminals = false;
     };
     
     struct operator_info
     {
+        // types of the arguments
         std::vector<type_id> argument_types;
+        // return type of this operator
         type_id return_type;
+        // number of arguments for this operator
         argc_t argc;
+        // function to call this operator
         detail::callable_t function;
+        // function used to transfer values between stacks
         detail::transfer_t transfer;
     };
     
@@ -80,6 +92,8 @@ namespace blt::gp
 //        std::vector<detail::callable_t> operators;
 //        std::vector<detail::transfer_t> transfer_funcs;
         std::vector<operator_info> operators;
+        std::vector<detail::print_func_t> print_funcs;
+        std::vector<std::optional<std::string_view>> names;
     };
     
     template<typename Context = detail::empty_t>
@@ -120,7 +134,7 @@ namespace blt::gp
                 info.transfer = [](stack_allocator& to, stack_allocator& from) {
 #if BLT_DEBUG_LEVEL >= 3
                     auto value = from.pop<Return>();
-                    BLT_TRACE_STREAM << value << "\n";
+                    //BLT_TRACE_STREAM << value << "\n";
                     to.push(value);
 #else
                     to.push(from.pop<Return>());
@@ -128,6 +142,10 @@ namespace blt::gp
                 
                 };
                 storage.operators.push_back(info);
+                storage.print_funcs.push_back([](std::ostream& out, stack_allocator& stack) {
+                    out << stack.pop<Return>();
+                });
+                storage.names.push_back(op.get_name());
                 if (is_static)
                     storage.static_types.insert(operator_id);
                 return *this;
@@ -277,6 +295,16 @@ namespace blt::gp
             inline operator_info& get_operator_info(operator_id id)
             {
                 return storage.operators[id];
+            }
+            
+            inline detail::print_func_t& get_print_func(operator_id id)
+            {
+                return storage.print_funcs[id];
+            }
+            
+            inline std::optional<std::string_view> get_name(operator_id id)
+            {
+                return storage.names[id];
             }
             
             inline std::vector<operator_id>& get_type_terminals(type_id id)

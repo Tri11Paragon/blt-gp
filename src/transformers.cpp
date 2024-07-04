@@ -45,6 +45,10 @@ namespace blt::gp
         std::uniform_int_distribution op_sel2(3ul, c2_ops.size() - 1);
         
         blt::size_t crossover_point = op_sel1(program.get_random());
+        
+        while (config.avoid_terminals && program.get_operator_info(c1_ops[crossover_point].id).argc.is_terminal())
+            crossover_point = op_sel1(program.get_random());
+        
         blt::size_t attempted_point = 0;
         
         const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id);
@@ -57,16 +61,22 @@ namespace blt::gp
             {
                 if (config.should_crossover_try_forward)
                 {
+                    bool found = false;
                     for (auto i = attempted_point + 1; i < c2_ops.size(); i++)
                     {
                         auto* info = &program.get_operator_info(c2_ops[i].id);
                         if (info->return_type == crossover_point_type.return_type)
                         {
+                            if (config.avoid_terminals && info->argc.is_terminal())
+                                continue;
                             attempted_point = i;
                             attempted_point_type = info;
+                            found = true;
                             break;
                         }
                     }
+                    if (!found)
+                        return blt::unexpected(error_t::NO_VALID_TYPE);
                 }
                 // should we try again over the whole tree? probably not.
                 return blt::unexpected(error_t::NO_VALID_TYPE);
@@ -74,9 +84,13 @@ namespace blt::gp
             {
                 attempted_point = op_sel2(program.get_random());
                 attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id);
+                if (config.avoid_terminals && attempted_point_type->argc.is_terminal())
+                    continue;
+                if (crossover_point_type.return_type == attempted_point_type->return_type)
+                    break;
                 counter++;
             }
-        } while (crossover_point_type.return_type != attempted_point_type->return_type);
+        } while (true);
         
         blt::i64 children_left = 0;
         blt::size_t index = crossover_point;
@@ -85,12 +99,15 @@ namespace blt::gp
         {
             const auto& type = program.get_operator_info(c1_ops[index].id);
 #if BLT_DEBUG_LEVEL > 1
-            BLT_TRACE("Crossover type: %s, op %ld", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), c1_ops[index].id);
+    #define MAKE_C_STR() program.get_name(c1_ops[index].id).has_value() ? std::string(program.get_name(c1_ops[index].id).value()).c_str() : std::to_string(c1_ops[index].id).c_str()
+            BLT_TRACE("Crossover type: %s, op: %s", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), MAKE_C_STR());
+    #undef MAKE_C_STR
 #endif
+            // this is a child to someone
+            if (children_left != 0)
+                children_left--;
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
-            else
-                children_left--;
             index++;
         } while (children_left > 0);
         
@@ -107,12 +124,16 @@ namespace blt::gp
         {
             const auto& type = program.get_operator_info(c2_ops[index].id);
 #if BLT_DEBUG_LEVEL > 1
-            BLT_TRACE("Found type: %s, op: %ld", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), c2_ops[index].id);
+    #define MAKE_C_STR() program.get_name(c2_ops[index].id).has_value() ? std::string(program.get_name(c2_ops[index].id).value()).c_str() : std::to_string(c2_ops[index].id).c_str()
+            BLT_TRACE("Found type: %s, op: %s", std::string(program.get_typesystem().get_type(type.return_type).name()).c_str(), MAKE_C_STR());
+    #undef MAKE_C_STR
 #endif
+            // this is a child to someone
+            if (children_left != 0)
+                children_left--;
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
-            else
-                children_left--;
+            
             index++;
         } while (children_left > 0);
         

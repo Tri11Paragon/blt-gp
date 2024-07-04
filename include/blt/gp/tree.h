@@ -26,6 +26,7 @@
 
 #include <utility>
 #include <stack>
+#include <ostream>
 
 namespace blt::gp
 {
@@ -100,6 +101,8 @@ namespace blt::gp
                 auto results = evaluate(context);
                 return results.values.pop<T>();
             }
+            
+            void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false);
         
         private:
             std::vector<op_container_t> operations;

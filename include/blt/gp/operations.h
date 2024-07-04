@@ -24,6 +24,7 @@
 #include <blt/gp/stack.h>
 #include <functional>
 #include <type_traits>
+#include <optional>
 
 namespace blt::gp
 {
@@ -83,7 +84,7 @@ namespace blt::gp
         
         template<typename Func, blt::u64... indices, typename... ExtraArgs>
         inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
-                                                                ExtraArgs&&... args)
+                                                                ExtraArgs&& ... args)
         {
             // expands Args and indices, providing each argument with its index calculating the current argument byte offset
             return std::forward<Func>(func)(std::forward<ExtraArgs>(args)..., allocator.from<Args>(getByteOffset<indices>())...);
@@ -120,7 +121,7 @@ namespace blt::gp
             constexpr operation_t(operation_t&& move) = default;
             
             template<typename Functor>
-            constexpr explicit operation_t(const Functor& functor): func(functor)
+            constexpr explicit operation_t(const Functor& functor, std::optional<std::string_view> name = {}): func(functor), name(name)
             {}
             
             [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
@@ -171,9 +172,15 @@ namespace blt::gp
             {
                 return sizeof...(Args);
             }
+            
+            [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
+            {
+                return name;
+            }
         
         private:
             function_t func;
+            std::optional<std::string_view> name;
     };
     
     template<typename Return, typename Class, typename... Args>
@@ -188,6 +195,12 @@ namespace blt::gp
     
     template<typename Return, typename... Args>
     operation_t(Return(*)(Args...)) -> operation_t<Return(Args...)>;
+    
+    template<typename Lambda>
+    operation_t(Lambda, std::optional<std::string_view>) -> operation_t<decltype(&Lambda::operator())>;
+    
+    template<typename Return, typename... Args>
+    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(Args...)>;
 
 //    templat\e<typename Return, typename Class, typename... Args>
 //    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)
