@@ -108,13 +108,13 @@ int main()
     
     blt::gp::crossover_t crossover;
     
-    auto& ind = pop.getIndividuals();
+    auto& ind = pop.get_individuals();
     
     std::vector<float> pre;
     std::vector<float> pos;
     blt::size_t errors = 0;
     BLT_INFO("Pre-Crossover:");
-    for (auto& tree : pop.getIndividuals())
+    for (auto& tree : pop.get_individuals())
     {
         auto f = tree.tree.get_evaluation_value<float>(nullptr);
         pre.push_back(f);
@@ -123,10 +123,10 @@ int main()
     
     BLT_INFO("Crossover:");
     blt::gp::population_t new_pop;
-    while (new_pop.getIndividuals().size() < pop.getIndividuals().size())
+    while (new_pop.get_individuals().size() < pop.get_individuals().size())
     {
         auto& random = program.get_random();
-        std::uniform_int_distribution dist(0ul, pop.getIndividuals().size() - 1);
+        std::uniform_int_distribution dist(0ul, pop.get_individuals().size() - 1);
         blt::size_t first = dist(random);
         blt::size_t second;
         do
@@ -149,8 +149,8 @@ int main()
 //            results->child1.print(program, std::cout, print_literals, pretty_print, print_returns);
 //            BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>(nullptr));
 //            results->child2.print(program, std::cout, print_literals, pretty_print, print_returns);
-            new_pop.getIndividuals().push_back({std::move(results->child1)});
-            new_pop.getIndividuals().push_back({std::move(results->child2)});
+            new_pop.get_individuals().push_back({std::move(results->child1)});
+            new_pop.get_individuals().push_back({std::move(results->child2)});
         } else
         {
             switch (results.error())
@@ -163,8 +163,8 @@ int main()
                     break;
             }
             errors++;
-            new_pop.getIndividuals().push_back(ind[first]);
-            new_pop.getIndividuals().push_back(ind[second]);
+            new_pop.get_individuals().push_back(ind[first]);
+            new_pop.get_individuals().push_back(ind[second]);
         }
     }
     

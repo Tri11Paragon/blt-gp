@@ -21,12 +21,12 @@
 namespace blt::gp
 {
     
-    tree_t& select_best_t::select(gp_program&, population_t& pop, population_stats& stats)
+    tree_t& select_best_t::select(gp_program&, population_t& pop, population_stats&)
     {
-        auto& first = pop.getIndividuals()[0];
+        auto& first = pop.get_individuals()[0];
         double best_fitness = first.adjusted_fitness;
         tree_t* tree = &first.tree;
-        for (auto& ind : pop.getIndividuals())
+        for (auto& ind : pop.get_individuals())
         {
             if (ind.adjusted_fitness < best_fitness)
             {
@@ -37,12 +37,12 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_worst_t::select(gp_program&, population_t& pop, population_stats& stats)
+    tree_t& select_worst_t::select(gp_program&, population_t& pop, population_stats&)
     {
-        auto& first = pop.getIndividuals()[0];
+        auto& first = pop.get_individuals()[0];
         double worst_fitness = first.adjusted_fitness;
         tree_t* tree = &first.tree;
-        for (auto& ind : pop.getIndividuals())
+        for (auto& ind : pop.get_individuals())
         {
             if (ind.adjusted_fitness > worst_fitness)
             {
@@ -53,23 +53,23 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_random_t::select(gp_program& program, population_t& pop, population_stats& stats)
+    tree_t& select_random_t::select(gp_program& program, population_t& pop, population_stats&)
     {
         // TODO: use a more generic randomness solution.
-        std::uniform_int_distribution dist(0ul, pop.getIndividuals().size());
-        return pop.getIndividuals()[dist(program.get_random())].tree;
+        std::uniform_int_distribution dist(0ul, pop.get_individuals().size());
+        return pop.get_individuals()[dist(program.get_random())].tree;
     }
     
-    tree_t& select_tournament_t::select(gp_program& program, population_t& pop, population_stats& stats)
+    tree_t& select_tournament_t::select(gp_program& program, population_t& pop, population_stats&)
     {
-        std::uniform_int_distribution dist(0ul, pop.getIndividuals().size());
+        std::uniform_int_distribution dist(0ul, pop.get_individuals().size());
         
-        auto& first = pop.getIndividuals()[dist(program.get_random())];
+        auto& first = pop.get_individuals()[dist(program.get_random())];
         individual* ind = &first;
         double best_guy = first.adjusted_fitness;
         for (blt::size_t i = 0; i < selection_size - 1; i++)
         {
-            auto& sel = pop.getIndividuals()[dist(program.get_random())];
+            auto& sel = pop.get_individuals()[dist(program.get_random())];
             if (sel.adjusted_fitness < best_guy)
             {
                 best_guy = sel.adjusted_fitness;
@@ -80,9 +80,29 @@ namespace blt::gp
         return ind->tree;
     }
     
-    // https://www.google.com/search?client=firefox-b-d&sca_esv=71668abf73626b35&sca_upv=1&biw=1916&bih=940&sxsrf=ADLYWIJehgPtkALJDoTgHCiO4GNeQppSeA:1720490607140&q=roulette+wheel+selection+pseudocode&uds=ADvngMgiq8uozSRb4WPAa_ESRaBJz-G_Xhk1OLU3QFjqc3o31P4ECuIkKJxHd-cR3WUe9U7VQGpI6NRaMgYiWTMd4wNofAAaNq6X4eHYpN8cR9HmTfTw0KgYC6gI4dgu-s-5mXivdsv4QxrkVAL7yMoXacJngsiMBg&udm=2&sa=X&ved=2ahUKEwig7Oj77piHAxU3D1kFHS1lAIsQxKsJegQIDBAB&ictx=0#vhid=6iCOymnPvtyy-M&vssid=mosaic
     tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)
     {
+        static std::uniform_real_distribution dist(0.0, 1.0);
+        auto choice = dist(program.get_random());
+        for (const auto& ind : blt::enumerate(pop))
+        {
+            if (ind.first == pop.get_individuals().size()-1)
+                return ind.second.tree;
+            if (choice > ind.second.probability && pop.get_individuals()[ind.first+1].probability < choice)
+                return ind.second.tree;
+        }
+        BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path!");
+        return pop.get_individuals()[0].tree;
+        //BLT_ABORT("Unable to find individual");
+    }
     
+    void select_fitness_proportionate_t::pre_process(gp_program&, population_t& pop, population_stats& stats)
+    {
+        double sum_of_prob = 0;
+        for (auto& ind : pop)
+        {
+            ind.probability = sum_of_prob + (ind.adjusted_fitness / stats.overall_fitness);
+            sum_of_prob += ind.probability;
+        }
     }
 }

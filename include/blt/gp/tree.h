@@ -114,8 +114,8 @@ namespace blt::gp
     {
         tree_t tree;
         double raw_fitness = 0;
-        double standardized_fitness = 0;
         double adjusted_fitness = 0;
+        double probability = 0;
     };
     
     struct population_stats
@@ -184,7 +184,7 @@ namespace blt::gp
                     blt::size_t pos;
             };
             
-            std::vector<individual>& getIndividuals()
+            std::vector<individual>& get_individuals()
             {
                 return individuals;
             }
@@ -192,6 +192,26 @@ namespace blt::gp
             population_tree_iterator for_each_tree()
             {
                 return population_tree_iterator{individuals, 0};
+            }
+            
+            auto begin()
+            {
+                return individuals.begin();
+            }
+            
+            auto end()
+            {
+                return individuals.end();
+            }
+            
+            [[nodiscard]] auto begin() const
+            {
+                return individuals.begin();
+            }
+            
+            [[nodiscard]] auto end() const
+            {
+                return individuals.end();
             }
         
         private:

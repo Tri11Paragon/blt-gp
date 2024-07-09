@@ -120,7 +120,7 @@ namespace blt::gp
         population_t pop;
         
         for (auto i = 0ul; i < args.size; i++)
-            pop.getIndividuals().push_back({grow.generate(args.to_gen_args())});
+            pop.get_individuals().push_back({grow.generate(args.to_gen_args())});
         
         return pop;
     }
@@ -130,7 +130,7 @@ namespace blt::gp
         population_t pop;
         
         for (auto i = 0ul; i < args.size; i++)
-            pop.getIndividuals().push_back({full.generate(args.to_gen_args())});
+            pop.get_individuals().push_back({full.generate(args.to_gen_args())});
         
         return pop;
     }
@@ -142,9 +142,9 @@ namespace blt::gp
         for (auto i = 0ul; i < args.size; i++)
         {
             if (args.program.choice())
-                pop.getIndividuals().push_back({full.generate(args.to_gen_args())});
+                pop.get_individuals().push_back({full.generate(args.to_gen_args())});
             else
-                pop.getIndividuals().push_back({grow.generate(args.to_gen_args())});
+                pop.get_individuals().push_back({grow.generate(args.to_gen_args())});
         }
         
         return pop;
@@ -162,21 +162,21 @@ namespace blt::gp
             for (auto i = 0ul; i < per_step; i++)
             {
                 if (args.program.choice())
-                    pop.getIndividuals().push_back({full.generate({args.program, args.root_type, args.min_depth, depth})});
+                    pop.get_individuals().push_back({full.generate({args.program, args.root_type, args.min_depth, depth})});
                 else
-                    pop.getIndividuals().push_back({grow.generate({args.program, args.root_type, args.min_depth, depth})});
+                    pop.get_individuals().push_back({grow.generate({args.program, args.root_type, args.min_depth, depth})});
             }
         }
         
         for (auto i = 0ul; i < remainder; i++)
         {
             if (args.program.choice())
-                pop.getIndividuals().push_back({full.generate(args.to_gen_args())});
+                pop.get_individuals().push_back({full.generate(args.to_gen_args())});
             else
-                pop.getIndividuals().push_back({grow.generate(args.to_gen_args())});
+                pop.get_individuals().push_back({grow.generate(args.to_gen_args())});
         }
         
-        blt_assert(pop.getIndividuals().size() == args.size);
+        blt_assert(pop.get_individuals().size() == args.size);
         
         return pop;
     }

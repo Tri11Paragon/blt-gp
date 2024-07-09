@@ -319,10 +319,10 @@ namespace blt::gp
             template<typename Return, typename Class, typename Container, typename Lambda = Return(Class::*)(tree_t, Container, blt::size_t) const>
             void evaluate_fitness(Lambda&& fitness_function, Container& result_storage)
             {
-                for (const auto& ind : blt::enumerate(current_pop.getIndividuals()))
+                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                     ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
                 double min = 0;
-                for (auto& ind : current_pop.getIndividuals())
+                for (auto& ind : current_pop.get_individuals())
                 {
                     if (ind.raw_fitness < min)
                         min = ind.raw_fitness;
@@ -335,10 +335,10 @@ namespace blt::gp
                 individual* worst = nullptr;
                 
                 auto diff = -min;
-                for (auto& ind : current_pop.getIndividuals())
+                for (auto& ind : current_pop.get_individuals())
                 {
-                    ind.standardized_fitness = ind.raw_fitness + diff;
-                    ind.adjusted_fitness = 1.0 / (1.0 + ind.standardized_fitness);
+                    auto standardized_fitness = ind.raw_fitness + diff;
+                    ind.adjusted_fitness = 1.0 / (1.0 + standardized_fitness);
                     
                     if (ind.adjusted_fitness > worst_fitness)
                     {

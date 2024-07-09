@@ -37,6 +37,9 @@ namespace blt::gp
              */
             virtual tree_t& select(gp_program& program, population_t& pop, population_stats& stats) = 0;
             
+            virtual void pre_process(gp_program&, population_t&, population_stats&)
+            {}
+            
             virtual ~selection_t() = default;
     };
     
@@ -76,6 +79,8 @@ namespace blt::gp
     class select_fitness_proportionate_t : public selection_t
     {
         public:
+            void pre_process(gp_program& program, population_t& pop, population_stats& stats) final;
+            
             tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
     };
     

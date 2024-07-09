@@ -23,7 +23,6 @@
 
 static constexpr long SEED = 41912;
 
-
 blt::gp::type_provider type_system;
 blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
 
@@ -97,7 +96,7 @@ int main()
     BLT_INFO("Mutation:");
     for (auto& tree : pop.for_each_tree())
     {
-        new_pop.getIndividuals().push_back({mutator.apply(program, generator, tree)});
+        new_pop.get_individuals().push_back({mutator.apply(program, generator, tree)});
     }
     BLT_INFO("Post-Mutation");
     for (auto& tree : new_pop.for_each_tree())
