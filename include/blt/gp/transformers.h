@@ -22,6 +22,7 @@
 #include <blt/std/utility.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/tree.h>
+#include <blt/gp/generators.h>
 #include <blt/std/expected.h>
 
 namespace blt::gp
@@ -40,6 +41,20 @@ namespace blt::gp
                 tree_t child1;
                 tree_t child2;
             };
+            struct config_t
+            {
+                // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
+                blt::u16 max_crossover_tries = 5;
+                // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
+                bool should_crossover_try_forward = false;
+                // avoid selecting terminals when doing crossover
+                bool avoid_terminals = false;
+            };
+            
+            crossover_t() = default;
+            
+            explicit crossover_t(const config_t& config): config(config)
+            {}
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -50,6 +65,32 @@ namespace blt::gp
              * @return expected pair of child otherwise returns error enum
              */
             virtual blt::expected<result_t, error_t> apply(gp_program& program, const tree_t& p1, const tree_t& p2); // NOLINT
+            
+            virtual ~crossover_t() = default;
+        
+        private:
+            config_t config;
+    };
+    
+    class mutation_t
+    {
+        public:
+            struct config_t
+            {
+                blt::size_t replacement_min_depth = 3;
+                blt::size_t replacement_max_depth = 7;
+            };
+            
+            mutation_t() = default;
+            
+            explicit mutation_t(const config_t& config): config(config)
+            {}
+            
+            virtual tree_t apply(gp_program& program, tree_generator_t& generator, const tree_t& p); // NOLINT
+            
+            virtual ~mutation_t() = default;
+        private:
+            config_t config;
     };
     
 }

@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="gp progject" pattern="file[blt-gp]:include//*||file[blt-gp]:examples//*||file[blt-gp]:src//*" />
+</component>

@@ -37,8 +37,6 @@
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 #include <blt/gp/transformers.h>
-#include <string_view>
-#include <iostream>
 
 static constexpr long SEED = 41912;
 
@@ -98,84 +96,34 @@ int main()
     blt::gp::ramped_half_initializer_t pop_init;
     
     auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
-
-//    for (auto& tree : pop.getIndividuals())
-//    {
-//        auto value = tree.get_evaluation_value<float>(nullptr);
-//
-//        BLT_TRACE(value);
-//    }
     
-    blt::gp::crossover_t crossover;
-    
-    auto& ind = pop.getIndividuals();
+    blt::gp::population_t new_pop;
+    blt::gp::mutation_t mutator;
+    blt::gp::grow_generator_t generator;
     
     std::vector<float> pre;
     std::vector<float> pos;
-    blt::size_t errors = 0;
-    BLT_INFO("Pre-Crossover:");
-    for (auto& tree : pop.getIndividuals())
+
+    BLT_INFO("Pre-Mutation:");
+    for (auto& tree : pop.for_each_tree())
     {
-        auto f = tree.tree.get_evaluation_value<float>(nullptr);
+        auto f = tree.get_evaluation_value<float>(nullptr);
         pre.push_back(f);
         BLT_TRACE(f);
     }
-    
-    BLT_INFO("Crossover:");
-    blt::gp::population_t new_pop;
-    while (new_pop.getIndividuals().size() < pop.getIndividuals().size())
+    BLT_INFO("Mutation:");
+    for (auto& tree : pop.for_each_tree())
     {
-        auto& random = program.get_random();
-        std::uniform_int_distribution dist(0ul, pop.getIndividuals().size() - 1);
-        blt::size_t first = dist(random);
-        blt::size_t second;
-        do
-        {
-            second = dist(random);
-        } while (second == first);
-        
-        auto results = crossover.apply(program, ind[first].tree, ind[second].tree);
-        if (results.has_value())
-        {
-//            bool print_literals = true;
-//            bool pretty_print = false;
-//            bool print_returns = false;
-//            BLT_TRACE("Parent 1: %f", ind[0].get_evaluation_value<float>(nullptr));
-//            ind[0].print(program, std::cout, print_literals, pretty_print, print_returns);
-//            BLT_TRACE("Parent 2: %f", ind[1].get_evaluation_value<float>(nullptr));
-//            ind[1].print(program, std::cout, print_literals, pretty_print, print_returns);
-//            BLT_TRACE("------------");
-//            BLT_TRACE("Child 1: %f", results->child1.get_evaluation_value<float>(nullptr));
-//            results->child1.print(program, std::cout, print_literals, pretty_print, print_returns);
-//            BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>(nullptr));
-//            results->child2.print(program, std::cout, print_literals, pretty_print, print_returns);
-            new_pop.getIndividuals().push_back({std::move(results->child1)});
-            new_pop.getIndividuals().push_back({std::move(results->child2)});
-        } else
-        {
-            switch (results.error())
-            {
-                case blt::gp::crossover_t::error_t::NO_VALID_TYPE:
-                    BLT_ERROR("No valid type!");
-                    break;
-                case blt::gp::crossover_t::error_t::TREE_TOO_SMALL:
-                    BLT_ERROR("Tree is too small!");
-                    break;
-            }
-            errors++;
-            new_pop.getIndividuals().push_back(ind[first]);
-            new_pop.getIndividuals().push_back(ind[second]);
-        }
+        new_pop.getIndividuals().push_back({mutator.apply(program, generator, tree)});
     }
-    
-    BLT_INFO("Post-Crossover:");
+    BLT_INFO("Post-Mutation");
     for (auto& tree : new_pop.for_each_tree())
     {
         auto f = tree.get_evaluation_value<float>(nullptr);
         pos.push_back(f);
         BLT_TRACE(f);
     }
-    
+
     BLT_INFO("Stats:");
     blt::size_t eq = 0;
     for (const auto& v : pos)
@@ -190,7 +138,6 @@ int main()
         }
     }
     BLT_INFO("Equal values: %ld", eq);
-    BLT_INFO("Error times: %ld", errors);
     
     return 0;
 }

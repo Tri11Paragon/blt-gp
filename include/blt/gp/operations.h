@@ -107,14 +107,14 @@ namespace blt::gp
         using call_with<Return, Args...>::call_with;
     };
     
-    template<typename>
+    template<typename, typename>
     class operation_t;
     
-    template<typename Return, typename... Args>
-    class operation_t<Return(Args...)>
+    template<typename ArgType, typename Return, typename... Args>
+    class operation_t<ArgType, Return(Args...)>
     {
         public:
-            using function_t = std::function<Return(Args...)>;
+            using function_t = ArgType;
             
             constexpr operation_t(const operation_t& copy) = default;
             
@@ -183,24 +183,24 @@ namespace blt::gp
             std::optional<std::string_view> name;
     };
     
-    template<typename Return, typename Class, typename... Args>
-    class operation_t<Return (Class::*)(Args...) const> : public operation_t<Return(Args...)>
+    template<typename ArgType, typename Return, typename Class, typename... Args>
+    class operation_t<ArgType, Return (Class::*)(Args...) const> : public operation_t<ArgType, Return(Args...)>
     {
         public:
-            using operation_t<Return(Args...)>::operation_t;
+            using operation_t<ArgType, Return(Args...)>::operation_t;
     };
     
     template<typename Lambda>
-    operation_t(Lambda) -> operation_t<decltype(&Lambda::operator())>;
+    operation_t(Lambda) -> operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...)) -> operation_t<Return(Args...)>;
+    operation_t(Return(*)(Args...)) -> operation_t<Return(*)(Args...), Return(Args...)>;
     
     template<typename Lambda>
-    operation_t(Lambda, std::optional<std::string_view>) -> operation_t<decltype(&Lambda::operator())>;
+    operation_t(Lambda, std::optional<std::string_view>) -> operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(Args...)>;
+    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(*)(Args...), Return(Args...)>;
 
 //    templat\e<typename Return, typename Class, typename... Args>
 //    operation_t<Return(Args...)> make_operator(Return (Class::*)(Args...) const lambda)

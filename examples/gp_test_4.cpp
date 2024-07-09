@@ -78,7 +78,7 @@ int main()
     
     auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
     
-    for (auto& tree : pop.getIndividuals())
+    for (auto& tree : pop.for_each_tree())
     {
         auto value = tree.get_evaluation_value<float>(nullptr);
         

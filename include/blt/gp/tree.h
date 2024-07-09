@@ -110,16 +110,92 @@ namespace blt::gp
             blt::size_t depth;
     };
     
+    struct individual
+    {
+        tree_t tree;
+        double raw_fitness = 0;
+        double standardized_fitness = 0;
+        double adjusted_fitness = 0;
+    };
+    
+    struct population_stats
+    {
+        double overall_fitness = 0;
+        double average_fitness = 0;
+        double best_fitness = 1;
+        double worst_fitness = 0;
+        // these will never be null unless your pop is not initialized / fitness eval was not called!
+        individual* best_individual = nullptr;
+        individual* worst_individual = nullptr;
+    };
+    
     class population_t
     {
         public:
-            std::vector<tree_t>& getIndividuals()
+            class population_tree_iterator
+            {
+                public:
+                    population_tree_iterator(std::vector<individual>& ind, blt::size_t pos): ind(ind), pos(pos)
+                    {}
+                    
+                    auto begin()
+                    {
+                        return population_tree_iterator(ind, 0);
+                    }
+                    
+                    auto end()
+                    {
+                        return population_tree_iterator(ind, ind.size());
+                    }
+                    
+                    population_tree_iterator operator++(int)
+                    {
+                        auto prev = pos++;
+                        return {ind, prev};
+                    }
+                    
+                    population_tree_iterator operator++()
+                    {
+                        return {ind, ++pos};
+                    }
+                    
+                    tree_t& operator*()
+                    {
+                        return ind[pos].tree;
+                    }
+                    
+                    tree_t& operator->()
+                    {
+                        return ind[pos].tree;
+                    }
+                    
+                    friend bool operator==(population_tree_iterator a, population_tree_iterator b)
+                    {
+                        return a.pos == b.pos;
+                    }
+                    
+                    friend bool operator!=(population_tree_iterator a, population_tree_iterator b)
+                    {
+                        return a.pos != b.pos;
+                    }
+                
+                private:
+                    std::vector<individual>& ind;
+                    blt::size_t pos;
+            };
+            
+            std::vector<individual>& getIndividuals()
             {
                 return individuals;
             }
+            
+            population_tree_iterator for_each_tree()
+            {
+                return population_tree_iterator{individuals, 0};
+            }
         
         private:
-            std::vector<tree_t> individuals;
+            std::vector<individual> individuals;
     };
 }
 

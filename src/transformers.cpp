@@ -24,7 +24,6 @@ namespace blt::gp
 {
     blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
     {
-        const auto& config = program.get_config();
         result_t result{p1, p2};
 
 #if BLT_DEBUG_LEVEL > 0
@@ -253,5 +252,81 @@ namespace blt::gp
         c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
         
         return result;
+    }
+    
+    tree_t mutation_t::apply(gp_program& program, tree_generator_t& generator, const tree_t& p)
+    {
+        auto c = p;
+        
+        auto& ops = c.get_operations();
+        auto& vals = c.get_values();
+        
+        std::uniform_int_distribution point_sel_dist(0ul, ops.size() - 1);
+        auto point = point_sel_dist(program.get_random());
+        const auto& type_info = program.get_operator_info(ops[point].id);
+        
+        blt::i64 children_left = 0;
+        blt::size_t index = point;
+        
+        do
+        {
+            const auto& type = program.get_operator_info(ops[index].id);
+            
+            // this is a child to someone
+            if (children_left != 0)
+                children_left--;
+            if (type.argc.argc > 0)
+                children_left += type.argc.argc;
+            index++;
+        } while (children_left > 0);
+        
+        auto begin_p = ops.begin() + static_cast<blt::ptrdiff_t>(point);
+        auto end_p = ops.begin() + static_cast<blt::ptrdiff_t>(index);
+        
+        stack_allocator after_stack;
+        //std::vector<op_container_t> after_ops;
+        
+        for (auto it = ops.end() - 1; it != end_p - 1; it--)
+        {
+            if (it->is_value)
+            {
+                it->transfer(after_stack, vals);
+                //after_ops.push_back(*it);
+            }
+        }
+        
+        for (auto it = end_p - 1; it != begin_p - 1; it--)
+        {
+            if (it->is_value)
+                it->transfer(std::optional<std::reference_wrapper<stack_allocator>>{}, vals);
+        }
+        
+        auto before = begin_p - 1;
+        
+        ops.erase(begin_p, end_p);
+        
+        auto new_tree = generator.generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+        
+        auto& new_ops = new_tree.get_operations();
+        auto& new_vals = new_tree.get_values();
+        
+        ops.insert(++before, new_ops.begin(), new_ops.end());
+        
+        for (const auto& op : new_ops)
+        {
+            if (op.is_value)
+                op.transfer(vals, new_vals);
+        }
+        
+        auto new_end_point = point + new_ops.size();
+        auto new_end_p = ops.begin() + static_cast<blt::ptrdiff_t>(new_end_point);
+        
+        for (auto it = new_end_p; it != ops.end(); it++)
+        {
+            if (it->is_value)
+                it->transfer(vals, after_stack);
+        }
+        
+        return c;
     }
 }

@@ -52,6 +52,8 @@ namespace blt::gp
     {
         public:
             virtual tree_t generate(const generator_arguments& args) = 0;
+            
+            virtual ~tree_generator_t() = default;
     };
     
     class grow_generator_t : public tree_generator_t
@@ -70,6 +72,8 @@ namespace blt::gp
     {
         public:
             virtual population_t generate(const initializer_arguments& args) = 0;
+            
+            virtual ~population_initializer_t() = default;
     };
     
     class grow_initializer_t : public population_initializer_t

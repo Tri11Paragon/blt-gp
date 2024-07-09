@@ -29,6 +29,7 @@
 #include <iostream>
 #include <random>
 #include <algorithm>
+#include <memory>
 
 #include <blt/std/ranges.h>
 #include <blt/std/hashmap.h>
@@ -38,6 +39,7 @@
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/typesystem.h>
 #include <blt/gp/operations.h>
+#include <blt/gp/transformers.h>
 #include <blt/gp/tree.h>
 #include <blt/gp/stack.h>
 
@@ -53,16 +55,6 @@ namespace blt::gp
         {
             return argc == 0;
         }
-    };
-    
-    struct config_t
-    {
-        // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
-        blt::u16 max_crossover_tries = 5;
-        // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
-        bool should_crossover_try_forward = false;
-        // avoid selecting terminals when doing crossover
-        bool avoid_terminals = false;
     };
     
     struct operator_info
@@ -87,10 +79,6 @@ namespace blt::gp
         blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
         blt::hashset_t<operator_id> static_types;
-//        blt::expanding_buffer<std::vector<type>> argument_types;
-//        blt::expanding_buffer<argc_t> operator_argc;
-//        std::vector<detail::callable_t> operators;
-//        std::vector<detail::transfer_t> transfer_funcs;
         std::vector<operator_info> operators;
         std::vector<detail::print_func_t> print_funcs;
         std::vector<std::optional<std::string_view>> names;
@@ -107,8 +95,8 @@ namespace blt::gp
             explicit operator_builder(type_provider& system): system(system)
             {}
             
-            template<typename Return, typename... Args>
-            operator_builder& add_operator(const operation_t<Return(Args...)>& op, bool is_static = false)
+            template<typename ArgType, typename Return, typename... Args>
+            operator_builder& add_operator(const operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
             {
                 auto return_type_id = system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
@@ -131,13 +119,21 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 info.function = op.template make_callable<Context>();
-                info.transfer = [](stack_allocator& to, stack_allocator& from) {
+                info.transfer = [](std::optional<std::reference_wrapper<stack_allocator>> to, stack_allocator& from) {
 #if BLT_DEBUG_LEVEL >= 3
                     auto value = from.pop<Return>();
                     //BLT_TRACE_STREAM << value << "\n";
-                    to.push(value);
+                    if (to){
+                        to->get().push(value);
+                    }
 #else
-                    to.push(from.pop<Return>());
+                    if (to)
+                    {
+                        to->get().push(from.pop<Return>());
+                    } else
+                    {
+                        from.pop<Return>();
+                    }
 #endif
                 
                 };
@@ -231,6 +227,68 @@ namespace blt::gp
     class gp_program
     {
         public:
+            struct config_t
+            {
+                blt::size_t population_size = 500;
+                blt::size_t initial_min_tree_size = 3;
+                blt::size_t initial_max_tree_size = 10;
+                
+                std::reference_wrapper<mutation_t> mutator;
+                std::reference_wrapper<crossover_t> crossover;
+                std::reference_wrapper<population_initializer_t> pop_initializer;
+                
+                // default config (ramped half-and-half init) or for buildering
+                config_t();
+                
+                // default config with a user specified initializer
+                config_t(const std::reference_wrapper<population_initializer_t>& popInitializer); // NOLINT
+                
+                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize);
+                
+                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize,
+                         const std::reference_wrapper<population_initializer_t>& popInitializer);
+                
+                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize,
+                         const std::reference_wrapper<mutation_t>& mutator, const std::reference_wrapper<crossover_t>& crossover,
+                         const std::reference_wrapper<population_initializer_t>& popInitializer);
+                
+                config_t& set_pop_size(blt::size_t pop)
+                {
+                    population_size = pop;
+                    return *this;
+                }
+                
+                config_t& set_initial_min_tree_size(blt::size_t size)
+                {
+                    initial_min_tree_size = size;
+                    return *this;
+                }
+                
+                config_t& set_initial_max_tree_size(blt::size_t size)
+                {
+                    initial_max_tree_size = size;
+                    return *this;
+                }
+                
+                config_t& set_crossover(crossover_t& ref)
+                {
+                    crossover = ref;
+                    return *this;
+                }
+                
+                config_t& set_mutation(mutation_t& ref)
+                {
+                    mutator = ref;
+                    return *this;
+                }
+                
+                config_t& set_initializer(population_initializer_t& ref)
+                {
+                    pop_initializer = ref;
+                    return *this;
+                }
+            };
+            
             /**
              * Note about context size: This is required as context is passed to every operator in the GP tree, this context will be provided by your
              * call to one of the evaluator functions. This was the nicest way to provide this as C++ lacks reflection
@@ -243,7 +301,69 @@ namespace blt::gp
                     system(system), engine(engine)
             {}
             
-            void generate_tree();
+            explicit gp_program(type_provider& system, std::mt19937_64 engine, config_t config):
+                    system(system), engine(engine), config(config)
+            {}
+            
+            void generate_population(type_id root_type);
+            
+            
+            /**
+             * takes in a lambda for the fitness evaluation function (must return a value convertable to double)
+             * The lambda must accept a tree for evaluation, container for evaluation context, and a index into that container (current tree)
+             *
+             * Container must be concurrently accessible from multiple threads using operator[]
+             *
+             * NOTE: 0 is considered the best, in terms of standardized and adjusted fitness
+             */
+            template<typename Return, typename Class, typename Container, typename Lambda = Return(Class::*)(tree_t, Container, blt::size_t) const>
+            void evaluate_fitness(Lambda&& fitness_function, Container& result_storage)
+            {
+                for (const auto& ind : blt::enumerate(current_pop.getIndividuals()))
+                    ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
+                double min = 0;
+                for (auto& ind : current_pop.getIndividuals())
+                {
+                    if (ind.raw_fitness < min)
+                        min = ind.raw_fitness;
+                }
+                
+                double overall_fitness = 0;
+                double best_fitness = 2;
+                double worst_fitness = 0;
+                individual* best = nullptr;
+                individual* worst = nullptr;
+                
+                auto diff = -min;
+                for (auto& ind : current_pop.getIndividuals())
+                {
+                    ind.standardized_fitness = ind.raw_fitness + diff;
+                    ind.adjusted_fitness = 1.0 / (1.0 + ind.standardized_fitness);
+                    
+                    if (ind.adjusted_fitness > worst_fitness)
+                    {
+                        worst_fitness = ind.adjusted_fitness;
+                        worst = &ind;
+                    }
+                    
+                    if (ind.adjusted_fitness < best_fitness)
+                    {
+                        best_fitness = ind.adjusted_fitness;
+                        best = &ind;
+                    }
+                    
+                    overall_fitness += ind.adjusted_fitness;
+                }
+                
+                current_stats = {overall_fitness, overall_fitness / static_cast<double>(config.population_size), best_fitness, worst_fitness, best,
+                                 worst};
+            }
+            
+            void next_generation()
+            {
+                current_pop = next_pop;
+                current_generation++;
+            }
             
             [[nodiscard]] inline std::mt19937_64& get_random()
             {
@@ -257,7 +377,7 @@ namespace blt::gp
             }
             
             /**
-             * @param cutoff precent in floating point form chance of the event happening.
+             * @param cutoff percent in floating point form chance of the event happening.
              * @return
              */
             [[nodiscard]] inline bool choice(double cutoff)
@@ -326,20 +446,20 @@ namespace blt::gp
             {
                 storage = std::move(op);
             }
-            
-            [[nodiscard]] inline const config_t& get_config() const
-            {
-                return config;
-            }
         
         private:
             type_provider& system;
+            
             blt::gp::stack_allocator alloc;
-            config_t config;
             
             operator_storage storage;
+            population_t current_pop;
+            population_stats current_stats;
+            population_t next_pop;
+            blt::size_t current_generation = 0;
             
             std::mt19937_64 engine;
+            config_t config;
     };
     
 }
