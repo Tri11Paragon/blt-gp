@@ -40,6 +40,7 @@
 #include <blt/gp/typesystem.h>
 #include <blt/gp/operations.h>
 #include <blt/gp/transformers.h>
+#include <blt/gp/selection.h>
 #include <blt/gp/tree.h>
 #include <blt/gp/stack.h>
 
@@ -230,8 +231,19 @@ namespace blt::gp
             struct config_t
             {
                 blt::size_t population_size = 500;
+                blt::size_t max_generations = 50;
                 blt::size_t initial_min_tree_size = 3;
                 blt::size_t initial_max_tree_size = 10;
+                
+                // percent chance that we will do crossover
+                double crossover_chance = 0.8;
+                // percent chance that we will do mutation
+                double mutation_chance = 0.1;
+                // everything else will just be selected
+                
+                blt::size_t elites = 0;
+                
+                bool try_mutation_on_crossover_failure = true;
                 
                 std::reference_wrapper<mutation_t> mutator;
                 std::reference_wrapper<crossover_t> crossover;
@@ -243,14 +255,9 @@ namespace blt::gp
                 // default config with a user specified initializer
                 config_t(const std::reference_wrapper<population_initializer_t>& popInitializer); // NOLINT
                 
-                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize);
+                config_t(size_t populationSize, const std::reference_wrapper<population_initializer_t>& popInitializer);
                 
-                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize,
-                         const std::reference_wrapper<population_initializer_t>& popInitializer);
-                
-                config_t(size_t populationSize, size_t initialMinTreeSize, size_t initialMaxTreeSize,
-                         const std::reference_wrapper<mutation_t>& mutator, const std::reference_wrapper<crossover_t>& crossover,
-                         const std::reference_wrapper<population_initializer_t>& popInitializer);
+                config_t(size_t populationSize); // NOLINT
                 
                 config_t& set_pop_size(blt::size_t pop)
                 {
@@ -287,6 +294,36 @@ namespace blt::gp
                     pop_initializer = ref;
                     return *this;
                 }
+                
+                config_t& set_elite_count(blt::size_t new_elites)
+                {
+                    elites = new_elites;
+                    return *this;
+                }
+                
+                config_t& set_crossover_chance(double new_crossover_chance)
+                {
+                    crossover_chance = new_crossover_chance;
+                    return *this;
+                }
+                
+                config_t& set_mutation_chance(double new_mutation_chance)
+                {
+                    mutation_chance = new_mutation_chance;
+                    return *this;
+                }
+                
+                config_t& set_max_generations(blt::size_t new_max_generations)
+                {
+                    max_generations = new_max_generations;
+                    return *this;
+                }
+                
+                config_t& set_try_mutation_on_crossover_failure(bool new_try_mutation_on_crossover_failure)
+                {
+                    try_mutation_on_crossover_failure = new_try_mutation_on_crossover_failure;
+                    return *this;
+                }
             };
             
             /**
@@ -307,6 +344,60 @@ namespace blt::gp
             
             void generate_population(type_id root_type);
             
+            template<typename Crossover, typename Mutation, typename Reproduction>
+            void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection)
+            {
+                static std::uniform_real_distribution dist(0.0, 1.0);
+                double total_prob = config.mutation_chance + config.crossover_chance;
+                double crossover_chance = config.crossover_chance / total_prob;
+                double mutation_chance = crossover_chance + config.mutation_chance / total_prob;
+                
+                // should already be empty
+                next_pop.clear();
+                crossover_selection.pre_process(*this, current_pop, current_stats);
+                mutation_selection.pre_process(*this, current_pop, current_stats);
+                reproduction_selection.pre_process(*this, current_pop, current_stats);
+                
+                for (blt::size_t i = 0; i < config.population_size; i++)
+                {
+                    auto type = dist(get_random());
+                    if (type > crossover_chance && type < mutation_chance)
+                    {
+                        // crossover
+                        auto& p1 = crossover_selection.select(*this, current_pop, current_stats);
+                        auto& p2 = crossover_selection.select(*this, current_pop, current_stats);
+                        
+                        auto results = config.crossover.get().apply(*this, p1, p2);
+                        
+                        // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
+                        if (results)
+                        {
+                            next_pop.get_individuals().emplace_back(std::move(results->child1));
+                            next_pop.get_individuals().emplace_back(std::move(results->child2));
+                        } else
+                        {
+                            if (config.try_mutation_on_crossover_failure && choice(config.mutation_chance))
+                                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p1)));
+                            else
+                                next_pop.get_individuals().push_back(p1);
+                            if (config.try_mutation_on_crossover_failure && choice(config.mutation_chance))
+                                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p2)));
+                            else
+                                next_pop.get_individuals().push_back(p2);
+                        }
+                    } else if (type > mutation_chance)
+                    {
+                        // mutation
+                        auto& p = mutation_selection.select(*this, current_pop, current_stats);
+                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p)));
+                    } else
+                    {
+                        // reproduction
+                        auto& p = reproduction_selection.select(*this, current_pop, current_stats);
+                        next_pop.get_individuals().push_back(p);
+                    }
+                }
+            }
             
             /**
              * takes in a lambda for the fitness evaluation function (must return a value convertable to double)
@@ -361,7 +452,7 @@ namespace blt::gp
             
             void next_generation()
             {
-                current_pop = next_pop;
+                current_pop = std::move(next_pop);
                 current_generation++;
             }
             

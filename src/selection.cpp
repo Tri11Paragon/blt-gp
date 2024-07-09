@@ -80,7 +80,7 @@ namespace blt::gp
         return ind->tree;
     }
     
-    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)
+    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats&)
     {
         static std::uniform_real_distribution dist(0.0, 1.0);
         auto choice = dist(program.get_random());

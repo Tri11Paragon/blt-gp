@@ -149,8 +149,8 @@ int main()
 //            results->child1.print(program, std::cout, print_literals, pretty_print, print_returns);
 //            BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>(nullptr));
 //            results->child2.print(program, std::cout, print_literals, pretty_print, print_returns);
-            new_pop.get_individuals().push_back({std::move(results->child1)});
-            new_pop.get_individuals().push_back({std::move(results->child2)});
+            new_pop.get_individuals().emplace_back(std::move(results->child1));
+            new_pop.get_individuals().emplace_back(std::move(results->child2));
         } else
         {
             switch (results.error())

@@ -22,6 +22,8 @@
 
 namespace blt::gp
 {
+    grow_generator_t grow_generator;
+    
     blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
     {
         result_t result{p1, p2};
@@ -254,7 +256,7 @@ namespace blt::gp
         return result;
     }
     
-    tree_t mutation_t::apply(gp_program& program, tree_generator_t& generator, const tree_t& p)
+    tree_t mutation_t::apply(gp_program& program, const tree_t& p)
     {
         auto c = p;
         
@@ -305,7 +307,7 @@ namespace blt::gp
         
         ops.erase(begin_p, end_p);
         
-        auto new_tree = generator.generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+        auto new_tree = config.generator.get().generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
         
         auto& new_ops = new_tree.get_operations();
         auto& new_vals = new_tree.get_values();
@@ -329,4 +331,7 @@ namespace blt::gp
         
         return c;
     }
+    
+    mutation_t::config_t::config_t(): generator(grow_generator)
+    {}
 }

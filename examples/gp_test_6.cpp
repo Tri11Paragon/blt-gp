@@ -114,7 +114,7 @@ int main()
     BLT_INFO("Mutation:");
     for (auto& tree : pop.for_each_tree())
     {
-        new_pop.get_individuals().push_back({mutator.apply(program, generator, tree)});
+        new_pop.get_individuals().emplace_back(mutator.apply(program, generator, tree));
     }
     BLT_INFO("Post-Mutation");
     for (auto& tree : new_pop.for_each_tree())

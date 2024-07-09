@@ -107,7 +107,6 @@ namespace blt::gp
         private:
             std::vector<op_container_t> operations;
             blt::gp::stack_allocator values;
-            blt::size_t depth;
     };
     
     struct individual
@@ -116,6 +115,22 @@ namespace blt::gp
         double raw_fitness = 0;
         double adjusted_fitness = 0;
         double probability = 0;
+        
+        individual() = default;
+        
+        explicit individual(tree_t&& tree): tree(tree)
+        {}
+        
+        explicit individual(const tree_t& tree): tree(tree)
+        {}
+        
+        individual(const individual&) = default;
+        
+        individual(individual&&) = default;
+        
+        individual& operator=(const individual&) = delete;
+        
+        individual& operator=(individual&&) = default;
     };
     
     struct population_stats
@@ -213,6 +228,21 @@ namespace blt::gp
             {
                 return individuals.end();
             }
+            
+            void clear()
+            {
+                individuals.clear();
+            }
+            
+            population_t() = default;
+            
+            population_t(const population_t&) = default;
+            
+            population_t(population_t&&) = default;
+            
+            population_t& operator=(const population_t&) = delete;
+            
+            population_t& operator=(population_t&&) = default;
         
         private:
             std::vector<individual> individuals;

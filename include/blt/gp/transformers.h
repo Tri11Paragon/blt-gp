@@ -79,6 +79,13 @@ namespace blt::gp
             {
                 blt::size_t replacement_min_depth = 3;
                 blt::size_t replacement_max_depth = 7;
+                
+                std::reference_wrapper<tree_generator_t> generator;
+                
+                config_t(tree_generator_t& generator): generator(generator) // NOLINT
+                {}
+                
+                config_t();
             };
             
             mutation_t() = default;
@@ -86,9 +93,10 @@ namespace blt::gp
             explicit mutation_t(const config_t& config): config(config)
             {}
             
-            virtual tree_t apply(gp_program& program, tree_generator_t& generator, const tree_t& p); // NOLINT
+            virtual tree_t apply(gp_program& program, const tree_t& p); // NOLINT
             
             virtual ~mutation_t() = default;
+        
         private:
             config_t config;
     };
