@@ -21,10 +21,78 @@
 
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/tree.h>
+#include <blt/gp/config.h>
+#include <blt/gp/random.h>
 #include <blt/std/assert.h>
 
 namespace blt::gp
 {
+    
+    struct selector_args
+    {
+        gp_program& program;
+        population_t& next_pop;
+        population_t& current_pop;
+        population_stats& current_stats;
+        prog_config_t& config;
+        random_t& random;
+    };
+    
+//    template<typename Crossover, typename Mutation, typename Reproduction>
+//    constexpr inline auto default_next_pop_selector = [](
+//            selector_args&& args, Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection) {
+//        auto& [program, next_pop, current_pop, current_stats, config, random] = args;
+//
+//        double total_prob = config.mutation_chance + config.crossover_chance;
+//        double crossover_chance = config.crossover_chance / total_prob;
+//        double mutation_chance = crossover_chance + config.mutation_chance / total_prob;
+//
+//        while (next_pop.get_individuals().size() < config.population_size)
+//        {
+//            auto type = random.;
+//            if (type > crossover_chance && type < mutation_chance)
+//            {
+//                // crossover
+//                auto& p1 = crossover_selection.select(program, current_pop, current_stats);
+//                auto& p2 = crossover_selection.select(program, current_pop, current_stats);
+//
+//                auto results = config.crossover.get().apply(program, p1, p2);
+//
+//                // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
+//                if (results)
+//                {
+//                    next_pop.get_individuals().emplace_back(std::move(results->child1));
+//                    // annoying check
+//                    if (next_pop.get_individuals().size() < config.population_size)
+//                        next_pop.get_individuals().emplace_back(std::move(results->child2));
+//                } else
+//                {
+//                    if (config.try_mutation_on_crossover_failure && program.choice(config.mutation_chance))
+//                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p1)));
+//                    else
+//                        next_pop.get_individuals().push_back(p1);
+//                    // annoying check.
+//                    if (next_pop.get_individuals().size() < config.population_size)
+//                    {
+//                        if (config.try_mutation_on_crossover_failure && choice(config.mutation_chance))
+//                            next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p2)));
+//                        else
+//                            next_pop.get_individuals().push_back(p2);
+//                    }
+//                }
+//            } else if (type > mutation_chance)
+//            {
+//                // mutation
+//                auto& p = mutation_selection.select(program, current_pop, current_stats);
+//                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p)));
+//            } else
+//            {
+//                // reproduction
+//                auto& p = reproduction_selection.select(program, current_pop, current_stats);
+//                next_pop.get_individuals().push_back(p);
+//            }
+//        }
+//    };
     
     class selection_t
     {

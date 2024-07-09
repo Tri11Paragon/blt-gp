@@ -96,7 +96,7 @@ int main()
     BLT_INFO("Mutation:");
     for (auto& tree : pop.for_each_tree())
     {
-        new_pop.get_individuals().emplace_back(mutator.apply(program, generator, tree));
+        new_pop.get_individuals().emplace_back(mutator.apply(program, tree));
     }
     BLT_INFO("Post-Mutation");
     for (auto& tree : new_pop.for_each_tree())
@@ -120,6 +120,13 @@ int main()
         }
     }
     BLT_INFO("Equal values: %ld", eq);
+    
+    blt::u32 seed = 691;
+    for (blt::size_t i = 0; i < 500; i++)
+    {
+        auto random = blt::random::pcg_int(seed);
+        BLT_INFO(random);
+    }
     
     return 0;
 }

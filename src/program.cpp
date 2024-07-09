@@ -27,20 +27,20 @@ namespace blt::gp
     static crossover_t s_crossover;
     static ramped_half_initializer_t s_init;
     
-    gp_program::config_t::config_t(): mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
+    prog_config_t::prog_config_t(): mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
     {
     
     }
     
-    gp_program::config_t::config_t(const std::reference_wrapper<population_initializer_t>& popInitializer):
+    prog_config_t::prog_config_t(const std::reference_wrapper<population_initializer_t>& popInitializer):
             mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
     {}
     
-    gp_program::config_t::config_t(size_t populationSize, const std::reference_wrapper<population_initializer_t>& popInitializer):
-            population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
+    prog_config_t::prog_config_t(size_t populationSize, const std::reference_wrapper<population_initializer_t>& popInitializer):
+            population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
     {}
     
-    gp_program::config_t::config_t(size_t populationSize):
+    prog_config_t::prog_config_t(size_t populationSize):
             population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
     {}
 }
