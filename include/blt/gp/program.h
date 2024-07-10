@@ -27,15 +27,16 @@
 #include <string>
 #include <utility>
 #include <iostream>
-#include <random>
 #include <algorithm>
 #include <memory>
+#include <array>
 
 #include <blt/std/ranges.h>
 #include <blt/std/hashmap.h>
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
 #include <blt/std/memory.h>
+#include <blt/std/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/typesystem.h>
 #include <blt/gp/operations.h>
@@ -238,87 +239,46 @@ namespace blt::gp
              * @param engine random engine to use throughout the program. TODO replace this with something better
              * @param context_size number of arguments which are always present as "context" to the GP system / operators
              */
-            explicit gp_program(type_provider& system, std::mt19937_64 engine):
+            explicit gp_program(type_provider& system, random_t engine):
                     system(system), engine(engine)
             {}
             
-            explicit gp_program(type_provider& system, std::mt19937_64 engine, prog_config_t config):
+            explicit gp_program(type_provider& system, random_t engine, prog_config_t config):
                     system(system), engine(engine), config(config)
             {}
             
-            void generate_population(type_id root_type);
-            
-            template<typename Crossover, typename Mutation, typename Reproduction>
-            void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection)
+            void generate_population(type_id root_type)
             {
-                static std::uniform_real_distribution dist(0.0, 1.0);
-                double total_prob = config.mutation_chance + config.crossover_chance;
-                double crossover_chance = config.crossover_chance / total_prob;
-                double mutation_chance = crossover_chance + config.mutation_chance / total_prob;
-                
+                current_pop = config.pop_initializer.get().generate(
+                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+            }
+            
+            template<typename Crossover, typename Mutation, typename Reproduction, typename Creation_Func = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
+            void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection,
+                                        Creation_Func& func = default_next_pop_creator<Crossover, Mutation, Reproduction>)
+            {
                 // should already be empty
                 next_pop.clear();
                 crossover_selection.pre_process(*this, current_pop, current_stats);
                 mutation_selection.pre_process(*this, current_pop, current_stats);
                 reproduction_selection.pre_process(*this, current_pop, current_stats);
                 
-                while(next_pop.get_individuals().size() < config.population_size)
-                {
-                    auto type = dist(get_random());
-                    if (type > crossover_chance && type < mutation_chance)
-                    {
-                        // crossover
-                        auto& p1 = crossover_selection.select(*this, current_pop, current_stats);
-                        auto& p2 = crossover_selection.select(*this, current_pop, current_stats);
-                        
-                        auto results = config.crossover.get().apply(*this, p1, p2);
-                        
-                        // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
-                        if (results)
-                        {
-                            next_pop.get_individuals().emplace_back(std::move(results->child1));
-                            // annoying check
-                            if (next_pop.get_individuals().size() < config.population_size)
-                                next_pop.get_individuals().emplace_back(std::move(results->child2));
-                        } else
-                        {
-                            if (config.try_mutation_on_crossover_failure && choice(config.mutation_chance))
-                                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p1)));
-                            else
-                                next_pop.get_individuals().push_back(p1);
-                            // annoying check.
-                            if (next_pop.get_individuals().size() < config.population_size)
-                            {
-                                if (config.try_mutation_on_crossover_failure && choice(config.mutation_chance))
-                                    next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p2)));
-                                else
-                                    next_pop.get_individuals().push_back(p2);
-                            }
-                        }
-                    } else if (type > mutation_chance)
-                    {
-                        // mutation
-                        auto& p = mutation_selection.select(*this, current_pop, current_stats);
-                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(*this, p)));
-                    } else
-                    {
-                        // reproduction
-                        auto& p = reproduction_selection.select(*this, current_pop, current_stats);
-                        next_pop.get_individuals().push_back(p);
-                    }
-                }
+                func(get_selector_args(), std::forward<Crossover>(crossover_selection), std::forward<Mutation>(mutation_selection),
+                     std::forward<Reproduction>(reproduction_selection));
             }
             
             /**
              * takes in a lambda for the fitness evaluation function (must return a value convertable to double)
              * The lambda must accept a tree for evaluation, container for evaluation context, and a index into that container (current tree)
              *
+             * tree_t&, Container&, blt::size_t
+             *
              * Container must be concurrently accessible from multiple threads using operator[]
              *
              * NOTE: 0 is considered the best, in terms of standardized and adjusted fitness
              */
-            template<typename Return, typename Class, typename Container, typename Lambda = Return(Class::*)(tree_t, Container, blt::size_t) const>
-            void evaluate_fitness(Lambda&& fitness_function, Container& result_storage)
+            template<typename Container, typename Callable>
+            void evaluate_fitness(Callable&& fitness_function, Container& result_storage)
             {
                 for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                     ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
@@ -366,25 +326,41 @@ namespace blt::gp
                 current_generation++;
             }
             
-            [[nodiscard]] inline std::mt19937_64& get_random()
+            template<blt::size_t size>
+            std::array<blt::size_t, size> get_best_indexes()
+            {
+                std::array<blt::size_t, size> arr;
+                
+                std::vector<std::pair<blt::size_t, double>> values;
+                values.reserve(current_pop.get_individuals().size());
+                
+                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                    values.emplace_back(ind.first, ind.second.adjusted_fitness);
+                
+                std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
+                    return a.second < b.second;
+                });
+                
+                for (blt::size_t i = 0; i < size; i++)
+                    arr[i] = values[i].first;
+                
+                return arr;
+            }
+            
+            template<blt::size_t size>
+            std::array<std::reference_wrapper<tree_t>, size> get_best()
+            {
+                return convert_array(get_best_indexes<size>(), std::make_integer_sequence<blt::size_t, size>());
+            }
+            
+            [[nodiscard]] bool should_terminate() const
+            {
+                return current_generation >= config.max_generations;
+            }
+            
+            [[nodiscard]] inline random_t& get_random()
             {
                 return engine;
-            }
-            
-            [[nodiscard]] inline bool choice()
-            {
-                static std::uniform_int_distribution dist(0, 1);
-                return dist(engine);
-            }
-            
-            /**
-             * @param cutoff percent in floating point form chance of the event happening.
-             * @return
-             */
-            [[nodiscard]] inline bool choice(double cutoff)
-            {
-                static std::uniform_real_distribution dist(0.0, 1.0);
-                return dist(engine) < cutoff;
             }
             
             [[nodiscard]] inline type_provider& get_typesystem()
@@ -397,20 +373,17 @@ namespace blt::gp
                 // we wanted a terminal, but could not find one, so we will select from a function that has a terminal
                 if (storage.terminals[id].empty())
                     return select_non_terminal_too_deep(id);
-                std::uniform_int_distribution<blt::size_t> dist(0, storage.terminals[id].size() - 1);
-                return storage.terminals[id][dist(engine)];
+                return storage.terminals[id][engine.get_size_t(0, storage.terminals[id].size())];
             }
             
             inline operator_id select_non_terminal(type_id id)
             {
-                std::uniform_int_distribution<blt::size_t> dist(0, storage.non_terminals[id].size() - 1);
-                return storage.non_terminals[id][dist(engine)];
+                return storage.non_terminals[id][engine.get_size_t(0, storage.non_terminals[id].size())];
             }
             
             inline operator_id select_non_terminal_too_deep(type_id id)
             {
-                std::uniform_int_distribution<blt::size_t> dist(0, storage.operators_ordered_terminals[id].size() - 1);
-                return storage.operators_ordered_terminals[id][dist(engine)].first;
+                return storage.operators_ordered_terminals[id][engine.get_size_t(0, storage.operators_ordered_terminals[id].size())].first;
             }
             
             inline operator_info& get_operator_info(operator_id id)
@@ -447,6 +420,11 @@ namespace blt::gp
             {
                 storage = std::move(op);
             }
+            
+            [[nodiscard]] inline auto get_current_generation() const
+            {
+                return current_generation;
+            }
         
         private:
             type_provider& system;
@@ -459,8 +437,20 @@ namespace blt::gp
             population_t next_pop;
             blt::size_t current_generation = 0;
             
-            std::mt19937_64 engine;
+            random_t engine;
             prog_config_t config;
+            
+            inline selector_args get_selector_args()
+            {
+                return {*this, next_pop, current_pop, current_stats, config, engine};
+            }
+            
+            template<blt::size_t size, blt::size_t... indexes>
+            inline std::array<std::reference_wrapper<tree_t>, size> convert_array(std::array<blt::size_t, size>&& arr,
+                                                                                  std::integer_sequence<blt::size_t, indexes...>)
+            {
+                return {current_pop.get_individuals()[arr[indexes]].tree...};
+            }
     };
     
 }

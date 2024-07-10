@@ -42,7 +42,7 @@ static constexpr long SEED = 41912;
 
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
+blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub"); // 1
@@ -61,8 +61,8 @@ blt::gp::operation_t op_not([](bool b) { return !b; }, "not"); // 12
 
 blt::gp::operation_t lit([]() { // 13
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
-    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
-    return dist(program.get_random());
+//    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
+    return program.get_random().get_float(0.0f, 10.0f);
 }, "lit");
 
 /**

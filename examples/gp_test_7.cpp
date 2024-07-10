@@ -23,8 +23,11 @@
 
 static constexpr long SEED = 41912;
 
+blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(0);
+
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
+blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}, config); // NOLINT
+std::array<float, 500> result_container;
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub"); // 1
@@ -43,9 +46,22 @@ blt::gp::operation_t op_not([](bool b) { return !b; }, "not"); // 12
 
 blt::gp::operation_t lit([]() { // 13
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
-    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
-    return dist(program.get_random());
+//    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
+    return program.get_random().get_float(0.0f, 10.0f);
 }, "lit");
+
+void print_best()
+{
+    BLT_TRACE("----{Current Gen: %ld}----", program.get_current_generation());
+    auto best = program.get_best<10>();
+    
+    for (auto& v : best)
+        BLT_TRACE(v.get().get_evaluation_value<float>(nullptr));
+    std::string small("--------------------------");
+    for (blt::size_t i = 0; i < std::to_string(program.get_current_generation()).size(); i++)
+        small += "-";
+    BLT_TRACE(small);
+}
 
 /**
  * This is a test using multiple types with blt::gp
@@ -75,58 +91,26 @@ int main()
     
     program.set_operations(builder.build());
     
-    blt::gp::ramped_half_initializer_t pop_init;
+    program.generate_population(type_system.get_type<float>().id());
     
-    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
-    
-    blt::gp::population_t new_pop;
-    blt::gp::mutation_t mutator;
-    blt::gp::grow_generator_t generator;
-    
-    std::vector<float> pre;
-    std::vector<float> pos;
-    
-    BLT_INFO("Pre-Mutation:");
-    for (auto& tree : pop.for_each_tree())
+    while (!program.should_terminate())
     {
-        auto f = tree.get_evaluation_value<float>(nullptr);
-        pre.push_back(f);
-        BLT_TRACE(f);
-    }
-    BLT_INFO("Mutation:");
-    for (auto& tree : pop.for_each_tree())
-    {
-        new_pop.get_individuals().emplace_back(mutator.apply(program, tree));
-    }
-    BLT_INFO("Post-Mutation");
-    for (auto& tree : new_pop.for_each_tree())
-    {
-        auto f = tree.get_evaluation_value<float>(nullptr);
-        pos.push_back(f);
-        BLT_TRACE(f);
+        program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
+            container[index] = current_tree.get_evaluation_value<float>(nullptr);
+            return container[index];
+        }, result_container);
+        print_best();
+        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{},
+                                       blt::gp::select_tournament_t{});
+        program.next_generation();
     }
     
-    BLT_INFO("Stats:");
-    blt::size_t eq = 0;
-    for (const auto& v : pos)
-    {
-        for (const auto m : pre)
-        {
-            if (v == m)
-            {
-                eq++;
-                break;
-            }
-        }
-    }
-    BLT_INFO("Equal values: %ld", eq);
+    program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
+        container[index] = current_tree.get_evaluation_value<float>(nullptr);
+        return container[index];
+    }, result_container);
     
-    blt::u32 seed = 691;
-    for (blt::size_t i = 0; i < 500; i++)
-    {
-        auto random = blt::random::pcg_int(seed);
-        BLT_INFO(random);
-    }
+    print_best();
     
     return 0;
 }

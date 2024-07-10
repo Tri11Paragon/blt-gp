@@ -42,13 +42,10 @@ namespace blt::gp
         if (c1_ops.size() < 5 || c2_ops.size() < 5)
             return blt::unexpected(error_t::TREE_TOO_SMALL);
         
-        std::uniform_int_distribution op_sel1(3ul, c1_ops.size() - 1);
-        std::uniform_int_distribution op_sel2(3ul, c2_ops.size() - 1);
-        
-        blt::size_t crossover_point = op_sel1(program.get_random());
+        blt::size_t crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
         
         while (config.avoid_terminals && program.get_operator_info(c1_ops[crossover_point].id).argc.is_terminal())
-            crossover_point = op_sel1(program.get_random());
+            crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
         
         blt::size_t attempted_point = 0;
         
@@ -83,7 +80,7 @@ namespace blt::gp
                 return blt::unexpected(error_t::NO_VALID_TYPE);
             } else
             {
-                attempted_point = op_sel2(program.get_random());
+                attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
                 attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id);
                 if (config.avoid_terminals && attempted_point_type->argc.is_terminal())
                     continue;
@@ -263,8 +260,7 @@ namespace blt::gp
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
         
-        std::uniform_int_distribution point_sel_dist(0ul, ops.size() - 1);
-        auto point = point_sel_dist(program.get_random());
+        auto point = program.get_random().get_size_t(0ul, ops.size());
         const auto& type_info = program.get_operator_info(ops[point].id);
         
         blt::i64 children_left = 0;

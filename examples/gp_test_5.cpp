@@ -44,7 +44,7 @@ static constexpr long SEED = 41912;
 
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, std::mt19937_64{SEED}); // NOLINT
+blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub"); // 1
@@ -63,8 +63,8 @@ blt::gp::operation_t op_not([](bool b) { return !b; }, "not"); // 12
 
 blt::gp::operation_t lit([]() { // 13
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
-    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
-    return dist(program.get_random());
+//    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
+    return program.get_random().get_float(0.0f, 10.f);
 }, "lit");
 
 /**
@@ -126,12 +126,11 @@ int main()
     while (new_pop.get_individuals().size() < pop.get_individuals().size())
     {
         auto& random = program.get_random();
-        std::uniform_int_distribution dist(0ul, pop.get_individuals().size() - 1);
-        blt::size_t first = dist(random);
+        blt::size_t first = random.get_size_t(0ul, pop.get_individuals().size());
         blt::size_t second;
         do
         {
-            second = dist(random);
+            second = random.get_size_t(0ul, pop.get_individuals().size());
         } while (second == first);
         
         auto results = crossover.apply(program, ind[first].tree, ind[second].tree);

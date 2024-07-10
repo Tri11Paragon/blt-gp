@@ -55,21 +55,18 @@ namespace blt::gp
     
     tree_t& select_random_t::select(gp_program& program, population_t& pop, population_stats&)
     {
-        // TODO: use a more generic randomness solution.
-        std::uniform_int_distribution dist(0ul, pop.get_individuals().size());
-        return pop.get_individuals()[dist(program.get_random())].tree;
+        return pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())].tree;
     }
     
     tree_t& select_tournament_t::select(gp_program& program, population_t& pop, population_stats&)
     {
-        std::uniform_int_distribution dist(0ul, pop.get_individuals().size());
         
-        auto& first = pop.get_individuals()[dist(program.get_random())];
+        auto& first = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
         individual* ind = &first;
         double best_guy = first.adjusted_fitness;
         for (blt::size_t i = 0; i < selection_size - 1; i++)
         {
-            auto& sel = pop.get_individuals()[dist(program.get_random())];
+            auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
             if (sel.adjusted_fitness < best_guy)
             {
                 best_guy = sel.adjusted_fitness;
@@ -82,8 +79,7 @@ namespace blt::gp
     
     tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats&)
     {
-        static std::uniform_real_distribution dist(0.0, 1.0);
-        auto choice = dist(program.get_random());
+        auto choice = program.get_random().get_double();
         for (const auto& ind : blt::enumerate(pop))
         {
             if (ind.first == pop.get_individuals().size()-1)

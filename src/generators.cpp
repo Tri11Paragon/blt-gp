@@ -93,7 +93,7 @@ namespace blt::gp
                     tree_generator.push({program.select_terminal(type), new_depth});
                 return;
             }
-            if (program.choice() || new_depth < args.min_depth)
+            if (program.get_random().choice() || new_depth < args.min_depth)
                 tree_generator.push({program.select_non_terminal(type), new_depth});
             else
                 tree_generator.push({program.select_terminal(type), new_depth});
@@ -141,7 +141,7 @@ namespace blt::gp
         
         for (auto i = 0ul; i < args.size; i++)
         {
-            if (args.program.choice())
+            if (args.program.get_random().choice())
                 pop.get_individuals().emplace_back(full.generate(args.to_gen_args()));
             else
                 pop.get_individuals().emplace_back(grow.generate(args.to_gen_args()));
@@ -161,7 +161,7 @@ namespace blt::gp
         {
             for (auto i = 0ul; i < per_step; i++)
             {
-                if (args.program.choice())
+                if (args.program.get_random().choice())
                     pop.get_individuals().emplace_back(full.generate({args.program, args.root_type, args.min_depth, depth}));
                 else
                     pop.get_individuals().emplace_back(grow.generate({args.program, args.root_type, args.min_depth, depth}));
@@ -170,7 +170,7 @@ namespace blt::gp
         
         for (auto i = 0ul; i < remainder; i++)
         {
-            if (args.program.choice())
+            if (args.program.get_random().choice())
                 pop.get_individuals().emplace_back(full.generate(args.to_gen_args()));
             else
                 pop.get_individuals().emplace_back(grow.generate(args.to_gen_args()));
