@@ -36,6 +36,15 @@ namespace blt::gp
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
         public:
+            struct size_data_t
+            {
+                blt::size_t total_size_bytes = 0;
+                blt::size_t total_used_bytes = 0;
+                blt::size_t total_remaining_bytes = 0;
+                blt::size_t total_no_meta_bytes = 0;
+            };
+            
+            
             /**
              * Pushes an instance of an object on to the stack
              * @tparam T type to push
@@ -121,9 +130,9 @@ namespace blt::gp
 #endif
                         return;
                     }
-    #if BLT_DEBUG_LEVEL >= 3
+#if BLT_DEBUG_LEVEL >= 3
                     counter++;
-    #endif
+#endif
 #endif
                     auto diff = head->used_bytes_in_block() - bytes;
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
@@ -168,8 +177,32 @@ namespace blt::gp
                 return head->used_bytes_in_block();
             }
             
+            /**
+             * Warning this function is slow!
+             * @return the size of the stack allocator in bytes
+             */
+            [[nodiscard]] size_data_t size()
+            {
+                size_data_t size_data;
+                auto next = head;
+                while (next != nullptr)
+                {
+                    size_data.total_size_bytes += next->metadata.size;
+                    size_data.total_no_meta_bytes += next->storage_size();
+                    size_data.total_remaining_bytes += next->remaining_bytes_in_block();
+                    size_data.total_used_bytes += next->used_bytes_in_block();
+                    next = next->metadata.next;
+                }
+                return size_data;
+            }
+            
             stack_allocator() = default;
             
+            // it should be possible to remove the complex copy contrusctor along with trasnfer functions
+            // simply keep track of the start of the stack, aloing with the current pointer and never dealloacted
+            // it adds another 8 bytes to each block but should prevent the need for copying when you can just reset the stack.
+            // (read copy)
+            // if you keep track of type size information you can memcpy between stack allocators as you already only allow trivially copyable types
             stack_allocator(const stack_allocator& copy)
             {
                 if (copy.empty())
@@ -241,6 +274,13 @@ namespace blt::gp
                 
                 explicit block(blt::size_t size)
                 {
+#if BLT_DEBUG_LEVEL > 0
+                    if (size < PAGE_SIZE)
+                    {
+                        BLT_WARN("Hey this block is too small, who allocated it?");
+                        std::abort();
+                    }
+#endif
                     metadata.size = size;
                     metadata.offset = buffer;
                 }
@@ -309,6 +349,16 @@ namespace blt::gp
             
             static block* allocate_block(blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes > 32000)
+                {
+                    BLT_WARN("Size too big!");
+                    std::abort();
+                }
+#endif
+#if BLT_DEBUG_LEVEL > 2
+                BLT_DEBUG("Allocating bytes %ld", bytes);
+#endif
                 auto size = to_nearest_page_size(bytes);
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 new(data) block{size};

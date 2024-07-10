@@ -56,7 +56,12 @@ void print_best()
     auto best = program.get_best<10>();
     
     for (auto& v : best)
-        BLT_TRACE("%lf (depth: %ld)", v.get().get_evaluation_value<float>(nullptr), v.get().get_depth(program));
+    {
+        auto size = v.get().get_values().size();
+        BLT_TRACE("%lf (depth: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%", v.get().get_evaluation_value<float>(nullptr),
+                  v.get().get_depth(program), size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes, size.total_remaining_bytes,
+                  static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
+    }
     //std::string small("--------------------------");
     //for (blt::size_t i = 0; i < std::to_string(program.get_current_generation()).size(); i++)
     //    small += "-";
@@ -96,6 +101,10 @@ int main()
     while (!program.should_terminate())
     {
         program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
+            auto size = current_tree.get_values().size();
+            BLT_DEBUG("(depth: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+                      current_tree.get_depth(program), size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
+                      size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
             container[index] = current_tree.get_evaluation_value<float>(nullptr);
             return container[index];
         }, result_container);
