@@ -149,4 +149,44 @@ namespace blt::gp
         
         out << '\n';
     }
+    
+    blt::size_t tree_t::get_depth(gp_program& program)
+    {
+        blt::size_t depth = 0;
+        
+        auto operations_stack = operations;
+        std::vector<blt::size_t> values_process;
+        std::vector<blt::size_t> value_stack;
+        
+        for (const auto& op : operations_stack)
+        {
+            if (op.is_value)
+                value_stack.push_back(1);
+        }
+        
+        while (!operations_stack.empty())
+        {
+            auto operation = operations_stack.back();
+            // keep the last value in the stack on the process stack stored in the eval context, this way it can be accessed easily.
+            operations_stack.pop_back();
+            if (operation.is_value)
+            {
+                auto d = value_stack.back();
+                depth = std::max(depth, d);
+                values_process.push_back(d);
+                value_stack.pop_back();
+                continue;
+            }
+            blt::size_t local_depth = 0;
+            for (blt::size_t i = 0; i < program.get_operator_info(operation.id).argc.argc; i++)
+            {
+                local_depth = std::max(local_depth, values_process.back());
+                values_process.pop_back();
+            }
+            value_stack.push_back(local_depth + 1);
+            operations_stack.emplace_back(empty_callable, operation.transfer, operation.id, true);
+        }
+        
+        return depth;
+    }
 }

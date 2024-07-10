@@ -50,13 +50,13 @@ namespace blt::gp
         if (config.elites > 0)
         {
             std::vector<std::pair<std::size_t, double>> values;
-            
+
             for (blt::size_t i = 0; i < config.elites; i++)
                 values.emplace_back(i, current_pop.get_individuals()[i].adjusted_fitness);
-            
+
             for (auto& ind : current_pop.get_individuals())
             {
-            
+
             }
         }
         

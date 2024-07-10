@@ -36,7 +36,6 @@
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
 #include <blt/std/memory.h>
-#include <blt/std/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/typesystem.h>
 #include <blt/gp/operations.h>
@@ -280,8 +279,8 @@ namespace blt::gp
             template<typename Container, typename Callable>
             void evaluate_fitness(Callable&& fitness_function, Container& result_storage)
             {
-                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                    ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
+               for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                   ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
                 double min = 0;
                 for (auto& ind : current_pop.get_individuals())
                 {

@@ -56,11 +56,11 @@ void print_best()
     auto best = program.get_best<10>();
     
     for (auto& v : best)
-        BLT_TRACE(v.get().get_evaluation_value<float>(nullptr));
-    std::string small("--------------------------");
-    for (blt::size_t i = 0; i < std::to_string(program.get_current_generation()).size(); i++)
-        small += "-";
-    BLT_TRACE(small);
+        BLT_TRACE("%lf (depth: %ld)", v.get().get_evaluation_value<float>(nullptr), v.get().get_depth(program));
+    //std::string small("--------------------------");
+    //for (blt::size_t i = 0; i < std::to_string(program.get_current_generation()).size(); i++)
+    //    small += "-";
+    //BLT_TRACE(small);
 }
 
 /**

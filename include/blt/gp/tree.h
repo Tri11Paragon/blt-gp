@@ -74,6 +74,8 @@ namespace blt::gp
             
             evaluation_context evaluate(void* context);
             
+            blt::size_t get_depth(gp_program& program);
+            
             /**
              * Helper template for returning the result of the last evaluation
              */
@@ -118,7 +120,7 @@ namespace blt::gp
         
         individual() = default;
         
-        explicit individual(tree_t&& tree): tree(tree)
+        explicit individual(tree_t&& tree): tree(std::move(tree))
         {}
         
         explicit individual(const tree_t& tree): tree(tree)
