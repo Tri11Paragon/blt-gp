@@ -104,9 +104,6 @@ namespace blt::gp
                 auto return_type_id = system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
                 
-                auto& operator_list = op.get_argc() == 0 ? storage.terminals : storage.non_terminals;
-                operator_list[return_type_id].push_back(operator_id);
-                
                 operator_info info;
                 
                 if constexpr (sizeof...(Args) > 0)
@@ -118,6 +115,9 @@ namespace blt::gp
                 info.return_type = system.get_type<Return>().id();
                 
                 ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
+                
+                auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
+                operator_list[return_type_id].push_back(operator_id);
                 
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
@@ -246,15 +246,9 @@ namespace blt::gp
                     system(system), engine(engine), config(config)
             {}
             
-            void generate_population(type_id root_type)
-            {
-                current_pop = config.pop_initializer.get().generate(
-                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
-            }
-            
-            template<typename Crossover, typename Mutation, typename Reproduction, typename Creation_Func = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
+            template<typename Crossover, typename Mutation, typename Reproduction, typename CreationFunc = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
             void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection,
-                                        Creation_Func& func = default_next_pop_creator<Crossover, Mutation, Reproduction>)
+                                        CreationFunc& func = default_next_pop_creator<Crossover, Mutation, Reproduction>)
             {
                 // should already be empty
                 next_pop.clear();
@@ -266,65 +260,30 @@ namespace blt::gp
                      std::forward<Reproduction>(reproduction_selection));
             }
             
+            void evaluate_fitness()
+            {
+                evaluate_fitness_func();
+            }
+            
             /**
-             * takes in a lambda for the fitness evaluation function (must return a value convertable to double)
-             * The lambda must accept a tree for evaluation, container for evaluation context, and a index into that container (current tree)
+             * takes in a reference to a function for the fitness evaluation function (must return a value convertable to double)
+             * The lambda must accept a tree for evaluation, and an index (current tree)
              *
-             * tree_t&, Container&, blt::size_t
+             * tree_t& current_tree, blt::size_t index_of_tree
              *
              * Container must be concurrently accessible from multiple threads using operator[]
              *
-             * NOTE: 0 is considered the best, in terms of standardized and adjusted fitness
+             * NOTE: 0 is considered the best, in terms of standardized fitness
              */
-            template<typename Container, typename Callable>
-            void evaluate_fitness(Callable&& fitness_function, Container& result_storage, bool larger_better = true)
+            template<typename FitnessFunc>
+            void generate_population(type_id root_type, FitnessFunc& fitness_function)
             {
-                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                    ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
-                double min = 0;
-                double max = 0;
-                for (auto& ind : current_pop.get_individuals())
-                {
-                    if (ind.raw_fitness < min)
-                        min = ind.raw_fitness;
-                    if (ind.raw_fitness > max)
-                        max = ind.raw_fitness;
-                }
-                
-                double overall_fitness = 0;
-                double best_fitness = 2;
-                double worst_fitness = 0;
-                individual* best = nullptr;
-                individual* worst = nullptr;
-                
-                auto diff = -min;
-                for (auto& ind : current_pop.get_individuals())
-                {
-                    // make standardized fitness [0, +inf)
-                    ind.standardized_fitness = ind.raw_fitness + diff;
-                    //BLT_WARN(ind.standardized_fitness);
-                    if (larger_better)
-                        ind.standardized_fitness = (max + diff) - ind.standardized_fitness;
-                    //BLT_WARN(ind.standardized_fitness);
-                    //ind.adjusted_fitness = (1.0 / (1.0 + ind.standardized_fitness));
-                    
-                    if (ind.standardized_fitness > worst_fitness)
-                    {
-                        worst_fitness = ind.standardized_fitness;
-                        worst = &ind;
-                    }
-                    
-                    if (ind.standardized_fitness < best_fitness)
-                    {
-                        best_fitness = ind.standardized_fitness;
-                        best = &ind;
-                    }
-                    
-                    overall_fitness += ind.standardized_fitness / static_cast<double>(config.population_size);
-                }
-                
-                current_stats = {overall_fitness, overall_fitness, best_fitness, worst_fitness, best,
-                                 worst};
+                current_pop = config.pop_initializer.get().generate(
+                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+                evaluate_fitness_func = [this, &fitness_function]() {
+                    evaluate_fitness_internal(fitness_function);
+                };
+                evaluate_fitness_func();
             }
             
             void next_generation()
@@ -347,10 +306,10 @@ namespace blt::gp
                 values.reserve(current_pop.get_individuals().size());
                 
                 for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                    values.emplace_back(ind.first, ind.second.standardized_fitness);
+                    values.emplace_back(ind.first, ind.second.fitness.adjusted_fitness);
                 
                 std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
-                    return a.second < b.second;
+                    return a.second > b.second;
                 });
                 
                 for (blt::size_t i = 0; i < size; i++)
@@ -360,9 +319,23 @@ namespace blt::gp
             }
             
             template<blt::size_t size>
-            std::array<std::reference_wrapper<tree_t>, size> get_best()
+            auto get_best_trees()
             {
-                return convert_array(get_best_indexes<size>(), std::make_integer_sequence<blt::size_t, size>());
+                return convert_array<std::array<std::reference_wrapper<tree_t>, size>>(get_best_indexes<size>(),
+                                                                                       [this](auto&& arr, blt::size_t index) -> tree_t& {
+                                                                                           return current_pop.get_individuals()[arr[index]].tree;
+                                                                                       },
+                                                                                       std::make_integer_sequence<blt::size_t, size>());
+            }
+            
+            template<blt::size_t size>
+            auto get_best_individuals()
+            {
+                return convert_array<std::array<std::reference_wrapper<individual>, size>>(get_best_indexes<size>(),
+                                                                                           [this](auto&& arr, blt::size_t index) -> individual& {
+                                                                                               return current_pop.get_individuals()[arr[index]];
+                                                                                           },
+                                                                                           std::make_integer_sequence<blt::size_t, size>());
             }
             
             [[nodiscard]] bool should_terminate() const
@@ -452,16 +425,87 @@ namespace blt::gp
             random_t engine;
             prog_config_t config;
             
+            // for convenience, shouldn't decrease performance too much
+            std::function<void()> evaluate_fitness_func;
+            
             inline selector_args get_selector_args()
             {
                 return {*this, next_pop, current_pop, current_stats, config, engine};
             }
             
-            template<blt::size_t size, blt::size_t... indexes>
-            inline std::array<std::reference_wrapper<tree_t>, size> convert_array(std::array<blt::size_t, size>&& arr,
-                                                                                  std::integer_sequence<blt::size_t, indexes...>)
+            template<typename Return, blt::size_t size, typename Accessor, blt::size_t... indexes>
+            inline Return convert_array(std::array<blt::size_t, size>&& arr, Accessor&& accessor,
+                                        std::integer_sequence<blt::size_t, indexes...>)
             {
-                return {current_pop.get_individuals()[arr[indexes]].tree...};
+                return Return{accessor(arr, indexes)...};
+            }
+            
+            template<typename Callable>
+            void evaluate_fitness_internal(Callable&& fitness_function)
+            {
+                current_stats = {};
+                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                {
+                    fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                    if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
+                    {
+                        current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
+                        current_stats.best_individual = &ind.second;
+                    }
+                    
+                    if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
+                    {
+                        current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
+                        current_stats.worst_individual = &ind.second;
+                    }
+                    
+                    current_stats.overall_fitness += ind.second.fitness.adjusted_fitness;
+                }
+                current_stats.average_fitness /= static_cast<double>(config.population_size);
+//                double min = 0;
+//                double max = 0;
+//                for (auto& ind : current_pop.get_individuals())
+//                {
+//                    if (ind.raw_fitness < min)
+//                        min = ind.raw_fitness;
+//                    if (ind.raw_fitness > max)
+//                        max = ind.raw_fitness;
+//                }
+//
+//                double overall_fitness = 0;
+//                double best_fitness = 2;
+//                double worst_fitness = 0;
+//                individual* best = nullptr;
+//                individual* worst = nullptr;
+//
+//                auto diff = -min;
+//                for (auto& ind : current_pop.get_individuals())
+//                {
+//                    // make standardized fitness [0, +inf)
+//                    ind.standardized_fitness = ind.raw_fitness + diff;
+//                    //BLT_WARN(ind.standardized_fitness);
+//                    if (larger_better)
+//                        ind.standardized_fitness = (max + diff) - ind.standardized_fitness;
+//                    //BLT_WARN(ind.standardized_fitness);
+//                    //ind.adjusted_fitness = (1.0 / (1.0 + ind.standardized_fitness));
+//
+//                    if (ind.standardized_fitness > worst_fitness)
+//                    {
+//                        worst_fitness = ind.standardized_fitness;
+//                        worst = &ind;
+//                    }
+//
+//                    if (ind.standardized_fitness < best_fitness)
+//                    {
+//                        best_fitness = ind.standardized_fitness;
+//                        best = &ind;
+//                    }
+//
+//                    overall_fitness += ind.standardized_fitness / static_cast<double>(config.population_size);
+//                }
+//
+//                current_stats = {overall_fitness, overall_fitness, best_fitness, worst_fitness, best,
+//                                 worst};
             }
     };
     

@@ -16,14 +16,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/program.h>
-#include <blt/gp/generators.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
-#include <blt/gp/transformers.h>
 
 static constexpr long SEED = 41912;
 
-blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(1);
+blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(2);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}, config); // NOLINT
@@ -72,6 +70,17 @@ void print_best()
     //BLT_TRACE(small);
 }
 
+constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t index) {
+    /*auto size = current_tree.get_values().size();
+    BLT_DEBUG("(depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+              current_tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
+              size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));*/
+    result_container[index] = current_tree.get_evaluation_value<float>(nullptr);
+    fitness.raw_fitness = result_container[index] / 1000000000.0;
+    fitness.standardized_fitness = fitness.raw_fitness;
+    fitness.adjusted_fitness = 1.0 - (1.0 / (1.0 + fitness.raw_fitness));
+};
+
 /**
  * This is a test using multiple types with blt::gp
  */
@@ -100,28 +109,15 @@ int main()
     
     program.set_operations(builder.build());
     
-    program.generate_population(type_system.get_type<float>().id());
+    program.generate_population(type_system.get_type<float>().id(), fitness_function);
     
     while (!program.should_terminate())
     {
-        program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
-            /*auto size = current_tree.get_values().size();
-            BLT_DEBUG("(depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
-                      current_tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
-                      size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));*/
-            container[index] = current_tree.get_evaluation_value<float>(nullptr);
-            return container[index] / 1000000000.0;
-        }, result_container);
         print_best();
-        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{},
-                                       blt::gp::select_tournament_t{});
+        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
         program.next_generation();
+        program.evaluate_fitness();
     }
-    
-    program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
-        container[index] = current_tree.get_evaluation_value<float>(nullptr);
-        return container[index] / 1000000000.0;
-    }, result_container);
     
     print_best();
     

@@ -24,13 +24,13 @@ namespace blt::gp
     tree_t& select_best_t::select(gp_program&, population_t& pop, population_stats&)
     {
         auto& first = pop.get_individuals()[0];
-        double best_fitness = first.standardized_fitness;
+        double best_fitness = first.fitness.adjusted_fitness;
         tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
-            if (ind.standardized_fitness < best_fitness)
+            if (ind.fitness.adjusted_fitness > best_fitness)
             {
-                best_fitness = ind.standardized_fitness;
+                best_fitness = ind.fitness.adjusted_fitness;
                 tree = &ind.tree;
             }
         }
@@ -40,13 +40,13 @@ namespace blt::gp
     tree_t& select_worst_t::select(gp_program&, population_t& pop, population_stats&)
     {
         auto& first = pop.get_individuals()[0];
-        double worst_fitness = first.standardized_fitness;
+        double worst_fitness = first.fitness.adjusted_fitness;
         tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
-            if (ind.standardized_fitness > worst_fitness)
+            if (ind.fitness.adjusted_fitness < worst_fitness)
             {
-                worst_fitness = ind.standardized_fitness;
+                worst_fitness = ind.fitness.adjusted_fitness;
                 tree = &ind.tree;
             }
         }
@@ -63,13 +63,13 @@ namespace blt::gp
         
         auto& first = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
         individual* ind = &first;
-        double best_guy = first.standardized_fitness;
+        double best_guy = first.fitness.adjusted_fitness;
         for (blt::size_t i = 0; i < selection_size - 1; i++)
         {
             auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-            if (sel.standardized_fitness < best_guy)
+            if (sel.fitness.adjusted_fitness > best_guy)
             {
-                best_guy = sel.standardized_fitness;
+                best_guy = sel.fitness.adjusted_fitness;
                 ind = &sel;
             }
         }
@@ -82,9 +82,9 @@ namespace blt::gp
         auto choice = program.get_random().get_double();
         for (const auto& ind : blt::enumerate(pop))
         {
-            if (ind.first == pop.get_individuals().size()-1)
+            if (ind.first == 0)
                 return ind.second.tree;
-            if (choice > ind.second.probability && pop.get_individuals()[ind.first+1].probability < choice)
+            if (choice >= probabilities[ind.first] && choice >= probabilities[ind.first - 1])
                 return ind.second.tree;
         }
         BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path!");
@@ -94,11 +94,13 @@ namespace blt::gp
     
     void select_fitness_proportionate_t::pre_process(gp_program&, population_t& pop, population_stats& stats)
     {
+        probabilities.clear();
         double sum_of_prob = 0;
         for (auto& ind : pop)
         {
-            ind.probability = sum_of_prob + (ind.standardized_fitness / stats.overall_fitness);
-            sum_of_prob += ind.probability;
+            auto prob = (ind.fitness.adjusted_fitness / stats.overall_fitness);
+            probabilities.push_back(sum_of_prob + prob);
+            sum_of_prob += prob;
         }
     }
 }

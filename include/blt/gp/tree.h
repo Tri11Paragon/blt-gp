@@ -111,13 +111,18 @@ namespace blt::gp
             blt::gp::stack_allocator values;
     };
     
+    struct fitness_t
+    {
+        double raw_fitness = 0;
+        double standardized_fitness = 0;
+        double adjusted_fitness = 0;
+        blt::i64 hits = 0;
+    };
+    
     struct individual
     {
         tree_t tree;
-        double raw_fitness = 0;
-        double standardized_fitness = 0;
-        //double adjusted_fitness = 0;
-        double probability = 0;
+        fitness_t fitness;
         
         individual() = default;
         
@@ -140,8 +145,8 @@ namespace blt::gp
     {
         double overall_fitness = 0;
         double average_fitness = 0;
-        double best_fitness = 1;
-        double worst_fitness = 0;
+        double best_fitness = 0;
+        double worst_fitness = 1;
         // these will never be null unless your pop is not initialized / fitness eval was not called!
         individual* best_individual = nullptr;
         individual* worst_individual = nullptr;

@@ -168,11 +168,6 @@ namespace blt::gp
                 };
             }
             
-            [[nodiscard]] inline constexpr blt::size_t get_argc() const
-            {
-                return sizeof...(Args);
-            }
-            
             [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
             {
                 return name;

@@ -52,14 +52,14 @@ namespace blt::gp
             std::vector<std::pair<std::size_t, double>> values;
             
             for (blt::size_t i = 0; i < config.elites; i++)
-                values.emplace_back(i, current_pop.get_individuals()[i].standardized_fitness);
+                values.emplace_back(i, current_pop.get_individuals()[i].fitness.adjusted_fitness);
             
             for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
 //                    BLT_INFO("%lf < %lf? // %lf", ind.second.standardized_fitness, values[i].second, ind.second.raw_fitness);
-                    if (ind.second.standardized_fitness < values[i].second)
+                    if (ind.second.fitness.adjusted_fitness > values[i].second)
                     {
                         bool doesnt_contain = true;
                         for (blt::size_t j = 0; j < config.elites; j++)
@@ -68,7 +68,7 @@ namespace blt::gp
                                 doesnt_contain = false;
                         }
                         if (doesnt_contain)
-                            values[i] = {ind.first, ind.second.standardized_fitness};
+                            values[i] = {ind.first, ind.second.fitness.adjusted_fitness};
                         break;
                     }
                 }
@@ -185,6 +185,8 @@ namespace blt::gp
             void pre_process(gp_program& program, population_t& pop, population_stats& stats) final;
             
             tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+        private:
+            std::vector<double> probabilities;
     };
     
 }

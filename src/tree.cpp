@@ -107,7 +107,10 @@ namespace blt::gp
                 if (print_literals)
                 {
                     create_indent(out, indent, pretty_print);
-                    program.get_print_func(v.id)(out, reversed);
+                    if (program.is_static(v.id))
+                        program.get_print_func(v.id)(out, reversed);
+                    else
+                        out << name;
                     out << return_type << end_indent(pretty_print);
                 } else
                     create_indent(out, indent, pretty_print) << name << return_type << end_indent(pretty_print);
