@@ -23,7 +23,7 @@
 
 static constexpr long SEED = 41912;
 
-blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(0);
+blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(1);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}, config); // NOLINT
@@ -53,13 +53,17 @@ blt::gp::operation_t lit([]() { // 13
 void print_best()
 {
     BLT_TRACE("----{Current Gen: %ld}----", program.get_current_generation());
-    auto best = program.get_best<10>();
+    auto best = program.get_best_indexes<10>();
     
-    for (auto& v : best)
+    for (auto& i : best)
     {
-        auto size = v.get().get_values().size();
-        BLT_TRACE("%lf (depth: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%", v.get().get_evaluation_value<float>(nullptr),
-                  v.get().get_depth(program), size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes, size.total_remaining_bytes,
+        auto& v = program.get_current_pop().get_individuals()[i];
+        auto& tree = v.tree;
+        auto size = tree.get_values().size();
+        BLT_TRACE("%lf (fitness: %lf, raw: %lf) (depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+                  tree.get_evaluation_value<float>(nullptr), v.adjusted_fitness, v.raw_fitness,
+                  tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
+                  size.total_remaining_bytes,
                   static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
     }
     //std::string small("--------------------------");
@@ -101,10 +105,10 @@ int main()
     while (!program.should_terminate())
     {
         program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
-            auto size = current_tree.get_values().size();
-            BLT_DEBUG("(depth: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
-                      current_tree.get_depth(program), size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
-                      size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
+            /*auto size = current_tree.get_values().size();
+            BLT_DEBUG("(depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+                      current_tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
+                      size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));*/
             container[index] = current_tree.get_evaluation_value<float>(nullptr);
             return container[index];
         }, result_container);

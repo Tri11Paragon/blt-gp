@@ -42,6 +42,7 @@ namespace blt::gp
                 blt::size_t total_used_bytes = 0;
                 blt::size_t total_remaining_bytes = 0;
                 blt::size_t total_no_meta_bytes = 0;
+                blt::size_t blocks = 0;
             };
             
             
@@ -78,9 +79,11 @@ namespace blt::gp
                 head->metadata.offset -= TYPE_SIZE;
                 if (head->used_bytes_in_block() == 0)
                 {
-                    auto ptr = head;
+                    auto old = head;
                     head = head->metadata.prev;
-                    std::free(ptr);
+                    if (head != nullptr)
+                        head->metadata.next = nullptr;
+                    std::free(old);
                 }
                 return t;
             }
@@ -142,7 +145,10 @@ namespace blt::gp
                         bytes -= head->used_bytes_in_block();
                         auto old = head;
                         head = head->metadata.prev;
-                        free(old);
+                        // required to prevent silly memory :3
+                        if (head != nullptr)
+                            head->metadata.next = nullptr;
+                        std::free(old);
                         if (diff == 0)
                             break;
                     } else
@@ -184,13 +190,14 @@ namespace blt::gp
             [[nodiscard]] size_data_t size()
             {
                 size_data_t size_data;
-                auto next = head;
+                auto* next = head;
                 while (next != nullptr)
                 {
                     size_data.total_size_bytes += next->metadata.size;
                     size_data.total_no_meta_bytes += next->storage_size();
                     size_data.total_remaining_bytes += next->remaining_bytes_in_block();
                     size_data.total_used_bytes += next->used_bytes_in_block();
+                    size_data.blocks++;
                     next = next->metadata.next;
                 }
                 return size_data;
@@ -325,7 +332,7 @@ namespace blt::gp
             template<typename T>
             void push_block_for()
             {
-                push_block(std::max(PAGE_SIZE, to_nearest_page_size(sizeof(T))));
+                push_block(aligned_size<T>());
             }
             
             void push_block(blt::size_t size)
@@ -349,16 +356,6 @@ namespace blt::gp
             
             static block* allocate_block(blt::size_t bytes)
             {
-#if BLT_DEBUG_LEVEL > 0
-                if (bytes > 32000)
-                {
-                    BLT_WARN("Size too big!");
-                    std::abort();
-                }
-#endif
-#if BLT_DEBUG_LEVEL > 2
-                BLT_DEBUG("Allocating bytes %ld", bytes);
-#endif
                 auto size = to_nearest_page_size(bytes);
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 new(data) block{size};

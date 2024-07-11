@@ -277,15 +277,18 @@ namespace blt::gp
              * NOTE: 0 is considered the best, in terms of standardized and adjusted fitness
              */
             template<typename Container, typename Callable>
-            void evaluate_fitness(Callable&& fitness_function, Container& result_storage)
+            void evaluate_fitness(Callable&& fitness_function, Container& result_storage, bool larger_better = true)
             {
-               for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                   ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
+                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                    ind.second.raw_fitness = static_cast<double>(fitness_function(ind.second.tree, result_storage, ind.first));
                 double min = 0;
+                double max = 0;
                 for (auto& ind : current_pop.get_individuals())
                 {
                     if (ind.raw_fitness < min)
                         min = ind.raw_fitness;
+                    if (larger_better && ind.raw_fitness > max)
+                        max = ind.raw_fitness;
                 }
                 
                 double overall_fitness = 0;
@@ -297,8 +300,13 @@ namespace blt::gp
                 auto diff = -min;
                 for (auto& ind : current_pop.get_individuals())
                 {
+                    // make standardized fitness [0, +inf)
                     auto standardized_fitness = ind.raw_fitness + diff;
-                    ind.adjusted_fitness = 1.0 / (1.0 + standardized_fitness);
+                    BLT_WARN(standardized_fitness);
+                    if (larger_better)
+                        standardized_fitness = (max + diff) - standardized_fitness;
+                    BLT_WARN(standardized_fitness);
+                    ind.adjusted_fitness = (1.0 / (1.0 + standardized_fitness));
                     
                     if (ind.adjusted_fitness > worst_fitness)
                     {
@@ -323,6 +331,11 @@ namespace blt::gp
             {
                 current_pop = std::move(next_pop);
                 current_generation++;
+            }
+            
+            inline auto& get_current_pop()
+            {
+                return current_pop;
             }
             
             template<blt::size_t size>

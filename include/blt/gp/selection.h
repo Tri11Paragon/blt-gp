@@ -50,13 +50,34 @@ namespace blt::gp
         if (config.elites > 0)
         {
             std::vector<std::pair<std::size_t, double>> values;
-
+            
             for (blt::size_t i = 0; i < config.elites; i++)
                 values.emplace_back(i, current_pop.get_individuals()[i].adjusted_fitness);
-
-            for (auto& ind : current_pop.get_individuals())
+            
+            for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
             {
-
+                blt::i64 largest = -1;
+                double largest_fit = 0;
+                for (blt::size_t i = 0; i < config.elites; i++)
+                {
+                    BLT_INFO("%lf < %lf? // %lf", ind.second.adjusted_fitness, values[i].second, ind.second.raw_fitness);
+                    if (ind.second.adjusted_fitness < values[i].second && values[i].second > largest_fit)
+                    {
+                        largest = static_cast<blt::i64>(i);
+                        largest_fit = values[i].second;
+                    }
+                }
+                if (largest > 0)
+                {
+                    BLT_INFO("%ld %lf", largest, largest_fit);
+                    values[largest] = {ind.first, ind.second.adjusted_fitness};
+                }
+            }
+            
+            for (blt::size_t i = 0; i < config.elites; i++)
+            {
+                BLT_DEBUG("%lf %lf", values[i].second, current_pop.get_individuals()[values[i].first].tree.get_evaluation_value<float>(nullptr));
+                next_pop.get_individuals().push_back(current_pop.get_individuals()[values[i].first]);
             }
         }
         
