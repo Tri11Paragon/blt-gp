@@ -77,29 +77,29 @@ namespace blt::gp
         return ind->tree;
     }
     
-    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats&)
+    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)
     {
         auto choice = program.get_random().get_double();
         for (const auto& ind : blt::enumerate(pop))
         {
-            if (ind.first == 0)
+            if (ind.first == 0 && choice <= stats.normalized_fitness[ind.first])
                 return ind.second.tree;
-            if (choice >= probabilities[ind.first] && choice >= probabilities[ind.first - 1])
+            if (choice > stats.normalized_fitness[ind.first - 1] && choice <= stats.normalized_fitness[ind.first])
                 return ind.second.tree;
         }
-        BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path!");
+        BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path! (%lf)", choice);
         return pop.get_individuals()[0].tree;
         //BLT_ABORT("Unable to find individual");
     }
     
     void select_fitness_proportionate_t::pre_process(gp_program&, population_t& pop, population_stats& stats)
     {
-        probabilities.clear();
+        stats.normalized_fitness.clear();
         double sum_of_prob = 0;
         for (auto& ind : pop)
         {
             auto prob = (ind.fitness.adjusted_fitness / stats.overall_fitness);
-            probabilities.push_back(sum_of_prob + prob);
+            stats.normalized_fitness.push_back(sum_of_prob + prob);
             sum_of_prob += prob;
         }
     }

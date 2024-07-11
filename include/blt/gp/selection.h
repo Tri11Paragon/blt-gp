@@ -58,8 +58,8 @@ namespace blt::gp
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
-//                    BLT_INFO("%lf < %lf? // %lf", ind.second.standardized_fitness, values[i].second, ind.second.raw_fitness);
-                    if (ind.second.fitness.adjusted_fitness > values[i].second)
+//                    BLT_INFO("%lf >= %lf? // %lf", ind.second.fitness.adjusted_fitness, values[i].second, ind.second.fitness.raw_fitness);
+                    if (ind.second.fitness.adjusted_fitness >= values[i].second)
                     {
                         bool doesnt_contain = true;
                         for (blt::size_t j = 0; j < config.elites; j++)
@@ -76,8 +76,7 @@ namespace blt::gp
             
             for (blt::size_t i = 0; i < config.elites; i++)
             {
-//                BLT_DEBUG("%lf at %ld produces %lf", values[i].second, values[i].first,
-//                          current_pop.get_individuals()[values[i].first].tree.get_evaluation_value<float>(nullptr));
+//                BLT_DEBUG("%lf at %ld", values[i].second, values[i].first);
                 next_pop.get_individuals().push_back(current_pop.get_individuals()[values[i].first]);
             }
         }
@@ -176,7 +175,7 @@ namespace blt::gp
             tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
         
         private:
-            blt::size_t selection_size;
+            const blt::size_t selection_size;
     };
     
     class select_fitness_proportionate_t : public selection_t
@@ -185,8 +184,6 @@ namespace blt::gp
             void pre_process(gp_program& program, population_t& pop, population_stats& stats) final;
             
             tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
-        private:
-            std::vector<double> probabilities;
     };
     
 }

@@ -110,7 +110,7 @@ int main()
     
     while (!program.should_terminate())
     {
-        program.create_next_generation(blt::gp::select_fitness_proportionate_t{}, blt::gp::select_fitness_proportionate_t{}, blt::gp::select_fitness_proportionate_t{});
+        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
         program.next_generation();
         program.evaluate_fitness();
     }
@@ -125,6 +125,8 @@ int main()
         i.tree.print(program, std::cout);
         std::cout << "\n";
     }
+    BLT_INFO("");
+    // TODO: make stats helper
     
     return 0;
 }

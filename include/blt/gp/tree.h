@@ -150,6 +150,7 @@ namespace blt::gp
         // these will never be null unless your pop is not initialized / fitness eval was not called!
         individual* best_individual = nullptr;
         individual* worst_individual = nullptr;
+        std::vector<double> normalized_fitness;
     };
     
     class population_t
