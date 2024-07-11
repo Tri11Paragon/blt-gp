@@ -24,13 +24,13 @@ namespace blt::gp
     tree_t& select_best_t::select(gp_program&, population_t& pop, population_stats&)
     {
         auto& first = pop.get_individuals()[0];
-        double best_fitness = first.adjusted_fitness;
+        double best_fitness = first.standardized_fitness;
         tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
-            if (ind.adjusted_fitness < best_fitness)
+            if (ind.standardized_fitness < best_fitness)
             {
-                best_fitness = ind.adjusted_fitness;
+                best_fitness = ind.standardized_fitness;
                 tree = &ind.tree;
             }
         }
@@ -40,13 +40,13 @@ namespace blt::gp
     tree_t& select_worst_t::select(gp_program&, population_t& pop, population_stats&)
     {
         auto& first = pop.get_individuals()[0];
-        double worst_fitness = first.adjusted_fitness;
+        double worst_fitness = first.standardized_fitness;
         tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
-            if (ind.adjusted_fitness > worst_fitness)
+            if (ind.standardized_fitness > worst_fitness)
             {
-                worst_fitness = ind.adjusted_fitness;
+                worst_fitness = ind.standardized_fitness;
                 tree = &ind.tree;
             }
         }
@@ -63,13 +63,13 @@ namespace blt::gp
         
         auto& first = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
         individual* ind = &first;
-        double best_guy = first.adjusted_fitness;
+        double best_guy = first.standardized_fitness;
         for (blt::size_t i = 0; i < selection_size - 1; i++)
         {
             auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-            if (sel.adjusted_fitness < best_guy)
+            if (sel.standardized_fitness < best_guy)
             {
-                best_guy = sel.adjusted_fitness;
+                best_guy = sel.standardized_fitness;
                 ind = &sel;
             }
         }
@@ -97,7 +97,7 @@ namespace blt::gp
         double sum_of_prob = 0;
         for (auto& ind : pop)
         {
-            ind.probability = sum_of_prob + (ind.adjusted_fitness / stats.overall_fitness);
+            ind.probability = sum_of_prob + (ind.standardized_fitness / stats.overall_fitness);
             sum_of_prob += ind.probability;
         }
     }

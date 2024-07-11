@@ -115,7 +115,8 @@ namespace blt::gp
     {
         tree_t tree;
         double raw_fitness = 0;
-        double adjusted_fitness = 0;
+        double standardized_fitness = 0;
+        //double adjusted_fitness = 0;
         double probability = 0;
         
         individual() = default;

@@ -60,8 +60,8 @@ void print_best()
         auto& v = program.get_current_pop().get_individuals()[i];
         auto& tree = v.tree;
         auto size = tree.get_values().size();
-        BLT_TRACE("%lf (fitness: %lf, raw: %lf) (depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
-                  tree.get_evaluation_value<float>(nullptr), v.adjusted_fitness, v.raw_fitness,
+        BLT_TRACE("%lf [index %ld] (fitness: %lf, raw: %lf) (depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+                  tree.get_evaluation_value<float>(nullptr), i, v.standardized_fitness, v.raw_fitness,
                   tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
                   size.total_remaining_bytes,
                   static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
@@ -110,7 +110,7 @@ int main()
                       current_tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
                       size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));*/
             container[index] = current_tree.get_evaluation_value<float>(nullptr);
-            return container[index];
+            return container[index] / 1000000000.0;
         }, result_container);
         print_best();
         program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{},
@@ -120,7 +120,7 @@ int main()
     
     program.evaluate_fitness([](blt::gp::tree_t& current_tree, decltype(result_container)& container, blt::size_t index) {
         container[index] = current_tree.get_evaluation_value<float>(nullptr);
-        return container[index];
+        return container[index] / 1000000000.0;
     }, result_container);
     
     print_best();

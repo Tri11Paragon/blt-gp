@@ -287,7 +287,7 @@ namespace blt::gp
                 {
                     if (ind.raw_fitness < min)
                         min = ind.raw_fitness;
-                    if (larger_better && ind.raw_fitness > max)
+                    if (ind.raw_fitness > max)
                         max = ind.raw_fitness;
                 }
                 
@@ -301,29 +301,29 @@ namespace blt::gp
                 for (auto& ind : current_pop.get_individuals())
                 {
                     // make standardized fitness [0, +inf)
-                    auto standardized_fitness = ind.raw_fitness + diff;
-                    BLT_WARN(standardized_fitness);
+                    ind.standardized_fitness = ind.raw_fitness + diff;
+                    //BLT_WARN(ind.standardized_fitness);
                     if (larger_better)
-                        standardized_fitness = (max + diff) - standardized_fitness;
-                    BLT_WARN(standardized_fitness);
-                    ind.adjusted_fitness = (1.0 / (1.0 + standardized_fitness));
+                        ind.standardized_fitness = (max + diff) - ind.standardized_fitness;
+                    //BLT_WARN(ind.standardized_fitness);
+                    //ind.adjusted_fitness = (1.0 / (1.0 + ind.standardized_fitness));
                     
-                    if (ind.adjusted_fitness > worst_fitness)
+                    if (ind.standardized_fitness > worst_fitness)
                     {
-                        worst_fitness = ind.adjusted_fitness;
+                        worst_fitness = ind.standardized_fitness;
                         worst = &ind;
                     }
                     
-                    if (ind.adjusted_fitness < best_fitness)
+                    if (ind.standardized_fitness < best_fitness)
                     {
-                        best_fitness = ind.adjusted_fitness;
+                        best_fitness = ind.standardized_fitness;
                         best = &ind;
                     }
                     
-                    overall_fitness += ind.adjusted_fitness;
+                    overall_fitness += ind.standardized_fitness / static_cast<double>(config.population_size);
                 }
                 
-                current_stats = {overall_fitness, overall_fitness / static_cast<double>(config.population_size), best_fitness, worst_fitness, best,
+                current_stats = {overall_fitness, overall_fitness, best_fitness, worst_fitness, best,
                                  worst};
             }
             
@@ -347,7 +347,7 @@ namespace blt::gp
                 values.reserve(current_pop.get_individuals().size());
                 
                 for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                    values.emplace_back(ind.first, ind.second.adjusted_fitness);
+                    values.emplace_back(ind.first, ind.second.standardized_fitness);
                 
                 std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
                     return a.second < b.second;
