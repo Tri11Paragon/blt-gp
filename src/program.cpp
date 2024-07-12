@@ -53,13 +53,16 @@ namespace blt::gp
     void gp_program::create_threads()
     {
         if (config.threads == 0)
-            config.set_thread_count(std::thread::hardware_concurrency() - 1);
-        for (blt::size_t i = 0; i < config.threads; i++)
+            config.set_thread_count(std::thread::hardware_concurrency());
+        // main thread is thread0
+        for (blt::size_t i = 1; i < config.threads; i++)
         {
             thread_helper.threads.emplace_back(new std::thread([this]() {
                 while (!should_thread_terminate())
                 {
-                    execute_thread();
+                    if (thread_execution_service != nullptr)
+                        (*thread_execution_service)();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }));
         }
@@ -69,7 +72,7 @@ namespace blt::gp
     {
         if (thread_helper.evaluation_left > 0)
         {
-            //std::cout << "Thread beginning" << std::endl;
+            std::cout << "Thread beginning" << std::endl;
             while (thread_helper.evaluation_left > 0)
             {
                 blt::size_t begin = 0;
@@ -81,12 +84,12 @@ namespace blt::gp
                     begin = thread_helper.evaluation_left - size;
                     thread_helper.evaluation_left -= size;
                 }
-                //std::cout << "Processing " << begin << " to " << end << " with " << thread_helper.evaluation_left << " left" << std::endl;
+                std::cout << "Processing " << begin << " to " << end << " with " << thread_helper.evaluation_left << " left" << std::endl;
                 for (blt::size_t i = begin; i < end; i++)
                 {
                     auto& ind = current_pop.get_individuals()[i];
                     
-                    evaluate_fitness_func(ind.tree, ind.fitness, i);
+                    //evaluate_fitness_func(ind.tree, ind.fitness, i);
                     
                     auto old_best = current_stats.best_fitness.load();
                     while (ind.fitness.adjusted_fitness > old_best &&
@@ -104,7 +107,7 @@ namespace blt::gp
                 }
             }
             thread_helper.threads_left--;
-            //std::cout << "thread finished!" << std::endl;
+            std::cout << "thread finished!" << std::endl;
         }
     }
 }
