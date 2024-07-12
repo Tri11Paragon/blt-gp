@@ -309,7 +309,11 @@ namespace blt::gp
                                 } while (!thread_helper.evaluation_left.compare_exchange_weak(end, end - size,
                                                                                               std::memory_order::memory_order_release,
                                                                                               std::memory_order::memory_order_acquire));
-
+                                
+                                auto old_begin = begin;
+                                begin = config.population_size - end;
+                                end = config.population_size - old_begin;
+                                
                                 for (blt::size_t i = begin; i < end; i++)
                                 {
                                     auto& ind = current_pop.get_individuals()[i];
