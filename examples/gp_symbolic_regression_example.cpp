@@ -16,9 +16,11 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/program.h>
+#include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 #include <iostream>
+#include <thread>
 
 static constexpr long SEED = 41912;
 
@@ -34,10 +36,11 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_max_tree_size(6)
         .set_elite_count(0)
         .set_max_generations(50)
-        .set_pop_size(500);
+        .set_pop_size(500)
+        .set_thread_count(0);
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}, config); // NOLINT
+blt::gp::gp_program program{type_system, SEED, config};
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add");
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub");
@@ -55,7 +58,7 @@ blt::gp::operation_t op_x([](const context& context) {
     return context.x;
 }, "x");
 
-constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t index) {
+constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
@@ -80,6 +83,7 @@ float example_function(float x)
 
 int main()
 {
+    BLT_START_INTERVAL("Symbolic Regression", "Main");
     for (auto& fitness_case : fitness_cases)
     {
         constexpr float range = 10;
@@ -110,10 +114,16 @@ int main()
     
     while (!program.should_terminate())
     {
+        BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
+        BLT_END_INTERVAL("Symbolic Regression", "Gen");
+        BLT_START_INTERVAL("Symbolic Regression", "Fitness");
         program.next_generation();
         program.evaluate_fitness();
+        BLT_END_INTERVAL("Symbolic Regression", "Fitness");
     }
+    
+    BLT_END_INTERVAL("Symbolic Regression", "Main");
     
     auto best = program.get_best_individuals<3>();
     
@@ -125,8 +135,15 @@ int main()
         i.tree.print(program, std::cout);
         std::cout << "\n";
     }
-    BLT_INFO("");
+    auto& stats = program.get_population_stats();
+    BLT_INFO("Stats:");
+    BLT_INFO("Average fitness: %lf", stats.average_fitness.load());
+    BLT_INFO("Best fitness: %lf", stats.best_fitness.load());
+    BLT_INFO("Worst fitness: %lf", stats.worst_fitness.load());
+    BLT_INFO("Overall fitness: %lf", stats.overall_fitness.load());
     // TODO: make stats helper
+    
+    BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
     
     return 0;
 }

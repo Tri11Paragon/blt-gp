@@ -27,6 +27,7 @@
 #include <utility>
 #include <stack>
 #include <ostream>
+#include <atomic>
 
 namespace blt::gp
 {
@@ -143,14 +144,20 @@ namespace blt::gp
     
     struct population_stats
     {
-        double overall_fitness = 0;
-        double average_fitness = 0;
-        double best_fitness = 0;
-        double worst_fitness = 1;
-        // these will never be null unless your pop is not initialized / fitness eval was not called!
-        individual* best_individual = nullptr;
-        individual* worst_individual = nullptr;
+        std::atomic<double> overall_fitness = 0;
+        std::atomic<double> average_fitness = 0;
+        std::atomic<double> best_fitness = 0;
+        std::atomic<double> worst_fitness = 1;
         std::vector<double> normalized_fitness;
+        
+        void clear()
+        {
+            overall_fitness = 0;
+            average_fitness = 0;
+            best_fitness = 0;
+            worst_fitness = 0;
+            normalized_fitness.clear();
+        }
     };
     
     class population_t

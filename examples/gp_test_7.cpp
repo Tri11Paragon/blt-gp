@@ -24,7 +24,7 @@ static constexpr long SEED = 41912;
 blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(2);
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}, config); // NOLINT
+blt::gp::gp_program program(type_system, SEED, config); // NOLINT
 std::array<float, 500> result_container;
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
@@ -59,7 +59,7 @@ void print_best()
         auto& tree = v.tree;
         auto size = tree.get_values().size();
         BLT_TRACE("%lf [index %ld] (fitness: %lf, raw: %lf) (depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
-                  tree.get_evaluation_value<float>(nullptr), i, v.standardized_fitness, v.raw_fitness,
+                  tree.get_evaluation_value<float>(nullptr), i, v.fitness.adjusted_fitness, v.fitness.raw_fitness,
                   tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
                   size.total_remaining_bytes,
                   static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));

@@ -20,6 +20,7 @@
 #define BLT_GP_CONFIG_H
 
 #include <utility>
+#include <thread>
 #include <blt/std/types.h>
 #include <blt/gp/generators.h>
 #include <blt/gp/transformers.h>
@@ -47,7 +48,11 @@ namespace blt::gp
         std::reference_wrapper<crossover_t> crossover;
         std::reference_wrapper<population_initializer_t> pop_initializer;
         
-        // default config (ramped half-and-half init) or for buildering
+        blt::size_t threads = std::thread::hardware_concurrency() - 1;
+        // number of elements each thread should pull per execution. this is for granularity performance and can be optimized for better results!
+        blt::size_t evaluation_size = 4;
+                
+                // default config (ramped half-and-half init) or for buildering
         prog_config_t();
         
         // default config with a user specified initializer
@@ -60,6 +65,7 @@ namespace blt::gp
         prog_config_t& set_pop_size(blt::size_t pop)
         {
             population_size = pop;
+            //evaluation_size = (population_size / threads) / 2;
             return *this;
         }
         
@@ -120,6 +126,19 @@ namespace blt::gp
         prog_config_t& set_try_mutation_on_crossover_failure(bool new_try_mutation_on_crossover_failure)
         {
             try_mutation_on_crossover_failure = new_try_mutation_on_crossover_failure;
+            return *this;
+        }
+        
+        prog_config_t& set_thread_count(blt::size_t t)
+        {
+            threads = t;
+            //evaluation_size = (population_size / threads) / 2;
+            return *this;
+        }
+        
+        prog_config_t& set_evaluation_size(blt::size_t s)
+        {
+            evaluation_size = s;
             return *this;
         }
     };

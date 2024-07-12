@@ -44,7 +44,7 @@ static constexpr long SEED = 41912;
 
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, blt::gp::random_t{SEED}); // NOLINT
+blt::gp::gp_program program(type_system, SEED); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub"); // 1

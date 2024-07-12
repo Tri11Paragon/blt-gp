@@ -30,6 +30,9 @@
 #include <algorithm>
 #include <memory>
 #include <array>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 #include <blt/std/ranges.h>
 #include <blt/std/hashmap.h>
@@ -235,16 +238,16 @@ namespace blt::gp
              * call to one of the evaluator functions. This was the nicest way to provide this as C++ lacks reflection
              *
              * @param system type system to use in tree generation
-             * @param engine random engine to use throughout the program. TODO replace this with something better
+             * @param engine random engine to use throughout the program.
              * @param context_size number of arguments which are always present as "context" to the GP system / operators
              */
-            explicit gp_program(type_provider& system, random_t engine):
-                    system(system), engine(engine)
-            {}
+            explicit gp_program(type_provider& system, blt::u64 seed):
+                    system(system), seed(seed)
+            { create_threads(); }
             
-            explicit gp_program(type_provider& system, random_t engine, prog_config_t config):
-                    system(system), engine(engine), config(config)
-            {}
+            explicit gp_program(type_provider& system, blt::u64 seed, prog_config_t config):
+                    system(system), seed(seed), config(config)
+            { create_threads(); }
             
             template<typename Crossover, typename Mutation, typename Reproduction, typename CreationFunc = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
             void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection,
@@ -262,7 +265,7 @@ namespace blt::gp
             
             void evaluate_fitness()
             {
-                evaluate_fitness_func();
+                evaluate_fitness_internal();
             }
             
             /**
@@ -280,10 +283,10 @@ namespace blt::gp
             {
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
-                evaluate_fitness_func = [this, &fitness_function]() {
-                    evaluate_fitness_internal(fitness_function);
+                evaluate_fitness_func = [&fitness_function](tree_t& current_tree, fitness_t& fitness, blt::size_t index) {
+                    fitness_function(current_tree, fitness, index);
                 };
-                evaluate_fitness_func();
+                evaluate_fitness_internal();
             }
             
             void next_generation()
@@ -343,10 +346,12 @@ namespace blt::gp
                 return current_generation >= config.max_generations;
             }
             
-            [[nodiscard]] inline random_t& get_random()
+            [[nodiscard]] bool should_thread_terminate() const
             {
-                return engine;
+                return should_terminate() && thread_helper.lifetime_over;
             }
+            
+            [[nodiscard]] random_t& get_random() const;
             
             [[nodiscard]] inline type_provider& get_typesystem()
             {
@@ -358,17 +363,17 @@ namespace blt::gp
                 // we wanted a terminal, but could not find one, so we will select from a function that has a terminal
                 if (storage.terminals[id].empty())
                     return select_non_terminal_too_deep(id);
-                return storage.terminals[id][engine.get_size_t(0, storage.terminals[id].size())];
+                return get_random().select(storage.terminals[id]);
             }
             
             inline operator_id select_non_terminal(type_id id)
             {
-                return storage.non_terminals[id][engine.get_size_t(0, storage.non_terminals[id].size())];
+                return get_random().select(storage.non_terminals[id]);
             }
             
             inline operator_id select_non_terminal_too_deep(type_id id)
             {
-                return storage.operators_ordered_terminals[id][engine.get_size_t(0, storage.operators_ordered_terminals[id].size())].first;
+                return get_random().select(storage.operators_ordered_terminals[id]).first;
             }
             
             inline operator_info& get_operator_info(operator_id id)
@@ -408,29 +413,52 @@ namespace blt::gp
             
             [[nodiscard]] inline auto get_current_generation() const
             {
-                return current_generation;
+                return current_generation.load();
+            }
+            
+            [[nodiscard]] inline auto& get_population_stats()
+            {
+                return current_stats;
+            }
+            
+            ~gp_program()
+            {
+                thread_helper.lifetime_over = true;
+                for (auto& thread : thread_helper.threads)
+                {
+                    if (thread->joinable())
+                        thread->join();
+                }
             }
         
         private:
             type_provider& system;
             
-            blt::gp::stack_allocator alloc;
-            
             operator_storage storage;
             population_t current_pop;
             population_stats current_stats;
             population_t next_pop;
-            blt::size_t current_generation = 0;
+            std::atomic_uint64_t current_generation = 0;
             
-            random_t engine;
+            blt::u64 seed;
             prog_config_t config;
             
+            struct concurrency_storage
+            {
+                std::vector<std::unique_ptr<std::thread>> threads;
+                std::mutex evaluation_control;
+                std::atomic_uint64_t evaluation_left = 0;
+                std::atomic_uint64_t threads_left = 0;
+                
+                std::atomic_bool lifetime_over = false;
+            } thread_helper;
+            
             // for convenience, shouldn't decrease performance too much
-            std::function<void()> evaluate_fitness_func;
+            std::function<void(tree_t&, fitness_t&, blt::size_t)> evaluate_fitness_func;
             
             inline selector_args get_selector_args()
             {
-                return {*this, next_pop, current_pop, current_stats, config, engine};
+                return {*this, next_pop, current_pop, current_stats, config, get_random()};
             }
             
             template<typename Return, blt::size_t size, typename Accessor, blt::size_t... indexes>
@@ -440,10 +468,46 @@ namespace blt::gp
                 return Return{accessor(arr, indexes)...};
             }
             
-            template<typename Callable>
-            void evaluate_fitness_internal(Callable&& fitness_function)
+            void create_threads();
+            
+            void execute_thread();
+            
+            void evaluate_fitness_internal()
             {
-                current_stats = {};
+                current_stats.clear();
+                {
+                    std::scoped_lock lock(thread_helper.evaluation_control);
+                    thread_helper.evaluation_left = current_pop.get_individuals().size();
+                    thread_helper.threads_left = config.threads + 1;
+                }
+                
+                while (thread_helper.threads_left > 0)
+                    execute_thread();
+                
+//                for (auto& ind : current_pop.get_individuals())
+//                {
+//                    if (ind.fitness.adjusted_fitness > current_stats.best_fitness)
+//                    {
+//                        current_stats.best_fitness = ind.fitness.adjusted_fitness;
+//                    }
+//
+//                    if (ind.fitness.adjusted_fitness < current_stats.worst_fitness)
+//                    {
+//                        current_stats.worst_fitness = ind.fitness.adjusted_fitness;
+//                    }
+//
+//                    current_stats.overall_fitness = current_stats.overall_fitness + ind.fitness.adjusted_fitness;
+//                }
+                
+                current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);
+//
+//                BLT_INFO("Stats:");
+//                BLT_INFO("Average fitness: %lf", current_stats.average_fitness.load());
+//                BLT_INFO("Best fitness: %lf", current_stats.best_fitness.load());
+//                BLT_INFO("Worst fitness: %lf", current_stats.worst_fitness.load());
+//                BLT_INFO("Overall fitness: %lf", current_stats.overall_fitness.load());
+                
+                /*current_stats = {};
                 for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                 {
                     fitness_function(ind.second.tree, ind.second.fitness, ind.first);
@@ -461,51 +525,7 @@ namespace blt::gp
                     
                     current_stats.overall_fitness += ind.second.fitness.adjusted_fitness;
                 }
-                current_stats.average_fitness /= static_cast<double>(config.population_size);
-//                double min = 0;
-//                double max = 0;
-//                for (auto& ind : current_pop.get_individuals())
-//                {
-//                    if (ind.raw_fitness < min)
-//                        min = ind.raw_fitness;
-//                    if (ind.raw_fitness > max)
-//                        max = ind.raw_fitness;
-//                }
-//
-//                double overall_fitness = 0;
-//                double best_fitness = 2;
-//                double worst_fitness = 0;
-//                individual* best = nullptr;
-//                individual* worst = nullptr;
-//
-//                auto diff = -min;
-//                for (auto& ind : current_pop.get_individuals())
-//                {
-//                    // make standardized fitness [0, +inf)
-//                    ind.standardized_fitness = ind.raw_fitness + diff;
-//                    //BLT_WARN(ind.standardized_fitness);
-//                    if (larger_better)
-//                        ind.standardized_fitness = (max + diff) - ind.standardized_fitness;
-//                    //BLT_WARN(ind.standardized_fitness);
-//                    //ind.adjusted_fitness = (1.0 / (1.0 + ind.standardized_fitness));
-//
-//                    if (ind.standardized_fitness > worst_fitness)
-//                    {
-//                        worst_fitness = ind.standardized_fitness;
-//                        worst = &ind;
-//                    }
-//
-//                    if (ind.standardized_fitness < best_fitness)
-//                    {
-//                        best_fitness = ind.standardized_fitness;
-//                        best = &ind;
-//                    }
-//
-//                    overall_fitness += ind.standardized_fitness / static_cast<double>(config.population_size);
-//                }
-//
-//                current_stats = {overall_fitness, overall_fitness, best_fitness, worst_fitness, best,
-//                                 worst};
+                current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);*/
             }
     };
     
