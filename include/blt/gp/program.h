@@ -448,7 +448,7 @@ namespace blt::gp
                 std::vector<std::unique_ptr<std::thread>> threads;
                 std::mutex evaluation_control;
                 std::atomic_uint64_t evaluation_left = 0;
-                std::atomic_uint64_t threads_left = 0;
+                std::atomic_int64_t threads_left = 0;
                 
                 std::atomic_bool lifetime_over = false;
             } thread_helper;
@@ -478,11 +478,14 @@ namespace blt::gp
                 {
                     std::scoped_lock lock(thread_helper.evaluation_control);
                     thread_helper.evaluation_left = current_pop.get_individuals().size();
-                    thread_helper.threads_left = config.threads + 1;
+                    thread_helper.threads_left = static_cast<blt::i64>(config.threads) + 1;
                 }
                 
+                //std::cout << "Wait" << std::endl;
+                execute_thread();
                 while (thread_helper.threads_left > 0)
-                    execute_thread();
+                    std::this_thread::yield();
+                //std::cout << "Finished" << std::endl;
                 
 //                for (auto& ind : current_pop.get_individuals())
 //                {

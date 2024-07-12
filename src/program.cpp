@@ -61,7 +61,6 @@ namespace blt::gp
                 {
                     execute_thread();
                 }
-                std::cout << "Ending Thread!" << std::endl;
             }));
         }
     }
@@ -70,6 +69,7 @@ namespace blt::gp
     {
         if (thread_helper.evaluation_left > 0)
         {
+            //std::cout << "Thread beginning" << std::endl;
             while (thread_helper.evaluation_left > 0)
             {
                 blt::size_t begin = 0;
@@ -91,8 +91,7 @@ namespace blt::gp
                     auto old_best = current_stats.best_fitness.load();
                     while (ind.fitness.adjusted_fitness > old_best &&
                            !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
-                                                                             std::memory_order_release,
-                                                                             std::memory_order_relaxed));
+                                                                             std::memory_order_release, std::memory_order_relaxed));
                     
                     auto old_worst = current_stats.worst_fitness.load();
                     while (ind.fitness.adjusted_fitness < old_worst &&
@@ -105,6 +104,7 @@ namespace blt::gp
                 }
             }
             thread_helper.threads_left--;
+            //std::cout << "thread finished!" << std::endl;
         }
     }
 }
