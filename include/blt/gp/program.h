@@ -283,54 +283,60 @@ namespace blt::gp
             {
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
-                thread_execution_service = new std::function([this, &fitness_function]() {
-                    if (thread_helper.evaluation_left > 0)
-                    {
-                        std::cout << "Thread Incrementing " << thread_helper.threads_left << std::endl;
-                        auto old_value_start = thread_helper.threads_left.load(std::memory_order::memory_order_acquire);
-                        while (!thread_helper.threads_left.compare_exchange_weak(old_value_start, old_value_start + 1, std::memory_order_release,
-                                                                                 std::memory_order_relaxed));
-                        std::cout << "Thread beginning " << thread_helper.threads_left << std::endl;
-                        while (thread_helper.evaluation_left > 0)
+                if (config.threads == 1)
+                {
+                    thread_execution_service = new std::function([this, &fitness_function]() {
+                        if (thread_helper.evaluation_left > 0)
                         {
-                            blt::size_t begin = 0;
-                            blt::size_t end = 0;
-                            {
-                                std::scoped_lock lock(thread_helper.evaluation_control);
-                                end = thread_helper.evaluation_left;
-                                auto size = std::min(thread_helper.evaluation_left.load(), config.evaluation_size);
-                                begin = thread_helper.evaluation_left - size;
-                                thread_helper.evaluation_left -= size;
-                            }
-                            //std::cout << "Processing " << begin << " to " << end << " with " << thread_helper.evaluation_left << " left" << std::endl;
-                            for (blt::size_t i = begin; i < end; i++)
-                            {
-                                auto& ind = current_pop.get_individuals()[i];
-                                
-                                fitness_function(ind.tree, ind.fitness, i);
-                                
-                                auto old_best = current_stats.best_fitness.load();
-                                while (ind.fitness.adjusted_fitness > old_best &&
-                                       !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
-                                                                                         std::memory_order_release, std::memory_order_relaxed));
-                                
-                                auto old_worst = current_stats.worst_fitness.load();
-                                while (ind.fitness.adjusted_fitness < old_worst &&
-                                       !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
-                                                                                          std::memory_order_release, std::memory_order_relaxed));
-                                
-                                auto old_overall = current_stats.overall_fitness.load();
-                                while (!current_stats.overall_fitness.compare_exchange_weak(old_overall, ind.fitness.adjusted_fitness + old_overall,
-                                                                                            std::memory_order_release, std::memory_order_relaxed));
-                            }
+                        
                         }
-                        std::cout << "Thread Decrementing " << thread_helper.threads_left << std::endl;
-                        auto old_value = thread_helper.threads_left.load(std::memory_order::memory_order_acquire);
-                        while (!thread_helper.threads_left.compare_exchange_weak(old_value, old_value - 1, std::memory_order_release,
-                                                                                 std::memory_order_relaxed));
-                        std::cout << "Thread Ending " << thread_helper.threads_left << std::endl;
-                    }
-                });
+                    });
+                } else
+                {
+                    thread_execution_service = new std::function([this, &fitness_function]() {
+                        if (thread_helper.evaluation_left > 0)
+                        {
+                            thread_helper.threads_left.fetch_add(1, std::memory_order::memory_order_relaxed);
+                            while (thread_helper.evaluation_left > 0)
+                            {
+                                blt::size_t begin = 0;
+                                blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_acquire);
+                                blt::size_t size = 0;
+                                do
+                                {
+                                    size = std::min(end, config.evaluation_size);
+                                    begin = end - size;
+                                } while (!thread_helper.evaluation_left.compare_exchange_weak(end, end - size,
+                                                                                              std::memory_order::memory_order_release,
+                                                                                              std::memory_order::memory_order_acquire));
+
+                                for (blt::size_t i = begin; i < end; i++)
+                                {
+                                    auto& ind = current_pop.get_individuals()[i];
+                                    
+                                    fitness_function(ind.tree, ind.fitness, i);
+                                    
+                                    auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
+                                    while (ind.fitness.adjusted_fitness > old_best &&
+                                           !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
+                                                                                             std::memory_order_release, std::memory_order_relaxed));
+                                    
+                                    auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
+                                    while (ind.fitness.adjusted_fitness < old_worst &&
+                                           !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
+                                                                                              std::memory_order_release, std::memory_order_relaxed));
+                                    
+                                    auto old_overall = current_stats.overall_fitness.load(std::memory_order_relaxed);
+                                    while (!current_stats.overall_fitness.compare_exchange_weak(old_overall,
+                                                                                                ind.fitness.adjusted_fitness + old_overall,
+                                                                                                std::memory_order_release,
+                                                                                                std::memory_order_relaxed));
+                                }
+                            }
+                            thread_helper.threads_left.fetch_sub(1, std::memory_order::memory_order_relaxed);
+                        }
+                    });
+                }
                 evaluate_fitness_internal();
             }
             
@@ -494,7 +500,7 @@ namespace blt::gp
             struct concurrency_storage
             {
                 std::vector<std::unique_ptr<std::thread>> threads;
-                std::mutex evaluation_control;
+                //std::mutex evaluation_control;
                 std::atomic_uint64_t evaluation_left = 0;
                 std::atomic_int64_t threads_left = 0;
                 
@@ -518,8 +524,6 @@ namespace blt::gp
             
             void create_threads();
             
-            void execute_thread();
-            
             void evaluate_fitness_internal()
             {
                 current_stats.clear();
@@ -529,22 +533,22 @@ namespace blt::gp
                 } else
                 {
                     {
-                        std::scoped_lock lock(thread_helper.evaluation_control);
-                        thread_helper.evaluation_left = current_pop.get_individuals().size();
+                        //std::scoped_lock lock(thread_helper.evaluation_control);
+                        thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
                     }
                     
-                    std::cout << "Func" << std::endl;
+                    //std::cout << "Func" << std::endl;
                     while (thread_execution_service == nullptr)
                         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    std::cout << "Wait" << std::endl;
+                    //std::cout << "Wait" << std::endl;
                     (*thread_execution_service)();
-                    std::cout << "FINSIHED WAITING!!!!!!!! " << thread_helper.threads_left << std::endl;
+                    //std::cout << "FINSIHED WAITING!!!!!!!! " << thread_helper.threads_left << std::endl;
                     while (thread_helper.threads_left > 0)
                     {
                         //std::cout << thread_helper.threads_left << std::endl;
                         std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     }
-                    std::cout << "Finished" << std::endl;
+                    //std::cout << "Finished" << std::endl;
                 }
                 
                 current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);

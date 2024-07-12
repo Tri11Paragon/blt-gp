@@ -67,47 +67,4 @@ namespace blt::gp
             }));
         }
     }
-    
-    void gp_program::execute_thread()
-    {
-        if (thread_helper.evaluation_left > 0)
-        {
-            std::cout << "Thread beginning" << std::endl;
-            while (thread_helper.evaluation_left > 0)
-            {
-                blt::size_t begin = 0;
-                blt::size_t end = 0;
-                {
-                    std::scoped_lock lock(thread_helper.evaluation_control);
-                    end = thread_helper.evaluation_left;
-                    auto size = std::min(thread_helper.evaluation_left.load(), config.evaluation_size);
-                    begin = thread_helper.evaluation_left - size;
-                    thread_helper.evaluation_left -= size;
-                }
-                std::cout << "Processing " << begin << " to " << end << " with " << thread_helper.evaluation_left << " left" << std::endl;
-                for (blt::size_t i = begin; i < end; i++)
-                {
-                    auto& ind = current_pop.get_individuals()[i];
-                    
-                    //evaluate_fitness_func(ind.tree, ind.fitness, i);
-                    
-                    auto old_best = current_stats.best_fitness.load();
-                    while (ind.fitness.adjusted_fitness > old_best &&
-                           !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
-                                                                             std::memory_order_release, std::memory_order_relaxed));
-                    
-                    auto old_worst = current_stats.worst_fitness.load();
-                    while (ind.fitness.adjusted_fitness < old_worst &&
-                           !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
-                                                                              std::memory_order_release, std::memory_order_relaxed));
-                    
-                    auto old_overall = current_stats.overall_fitness.load();
-                    while (!current_stats.overall_fitness.compare_exchange_weak(old_overall, ind.fitness.adjusted_fitness + old_overall,
-                                                                                std::memory_order_release, std::memory_order_relaxed));
-                }
-            }
-            thread_helper.threads_left--;
-            std::cout << "thread finished!" << std::endl;
-        }
-    }
 }
