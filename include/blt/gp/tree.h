@@ -34,12 +34,16 @@ namespace blt::gp
     
     struct op_container_t
     {
-        op_container_t(detail::callable_t& func, detail::transfer_t& transfer, operator_id id, bool is_value):
-                func(func), transfer(transfer), id(id), is_value(is_value)
+//        op_container_t(detail::callable_t& func, detail::transfer_t& transfer, operator_id id, bool is_value):
+//                func(func), transfer(transfer), id(id), is_value(is_value)
+//        {}
+        op_container_t(detail::callable_t& func, blt::size_t type_size, operator_id id, bool is_value):
+                func(func), type_size(type_size), id(id), is_value(is_value)
         {}
         
         std::reference_wrapper<detail::callable_t> func;
-        std::reference_wrapper<detail::transfer_t> transfer;
+        blt::size_t type_size;
+        //std::reference_wrapper<detail::transfer_t> transfer;
         operator_id id;
         bool is_value;
     };

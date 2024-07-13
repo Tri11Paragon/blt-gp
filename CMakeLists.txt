@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.69)
+project(blt-gp VERSION 0.0.74)
 
 include(CTest)
 
@@ -11,6 +11,9 @@ option(DEBUG_LEVEL "Enable debug features which prints extra information to the 
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 add_subdirectory(lib/blt)
 
 include_directories(include/)
@@ -21,7 +24,7 @@ add_library(blt-gp ${PROJECT_BUILD_FILES})
 target_compile_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
 target_link_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
 
-target_link_libraries(blt-gp PRIVATE BLT)
+target_link_libraries(blt-gp PRIVATE BLT Threads::Threads)
 target_compile_definitions(blt-gp PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
 
 if (${ENABLE_ADDRSAN} MATCHES ON)
@@ -46,7 +49,7 @@ if (${BUILD_EXAMPLES})
 
         add_executable(${name}-example ${source})
 
-        target_link_libraries(${name}-example PRIVATE BLT blt-gp)
+        target_link_libraries(${name}-example PRIVATE BLT blt-gp Threads::Threads)
 
         target_compile_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
         target_link_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)

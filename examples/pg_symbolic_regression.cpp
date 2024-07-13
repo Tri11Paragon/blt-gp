@@ -36,8 +36,8 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_max_tree_size(6)
         .set_elite_count(0)
         .set_max_generations(50)
-        .set_pop_size(500)
-        .set_thread_count(1);
+        .set_pop_size(5000)
+        .set_thread_count(0);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
@@ -83,7 +83,9 @@ float example_function(float x)
 
 int main()
 {
+    BLT_INFO("Starting BLT-GP Symbolic Regression Example");
     BLT_START_INTERVAL("Symbolic Regression", "Main");
+    BLT_DEBUG("Setup Fitness cases");
     for (auto& fitness_case : fitness_cases)
     {
         constexpr float range = 10;
@@ -93,6 +95,7 @@ int main()
         fitness_case = {x, y};
     }
     
+    BLT_DEBUG("Setup Types and Operators");
     type_system.register_type<float>();
     
     blt::gp::operator_builder<context> builder{type_system};
@@ -110,17 +113,24 @@ int main()
     
     program.set_operations(builder.build());
     
+    BLT_DEBUG("Generate Initial Population");
     program.generate_population(type_system.get_type<float>().id(), fitness_function);
     
+    BLT_DEBUG("Begin Generation Loop");
     while (!program.should_terminate())
     {
+        BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
+        BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");
         program.next_generation();
+        BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         BLT_END_INTERVAL("Symbolic Regression", "Fitness");
+        BLT_TRACE("----------------------------------------------");
+        std::cout << std::endl;
     }
     
     BLT_END_INTERVAL("Symbolic Regression", "Main");

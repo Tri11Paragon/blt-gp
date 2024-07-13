@@ -6,3 +6,5 @@ out/
 ./out/
 massif.*
 callgrind.*
+*.out.*
+heaptrack.*

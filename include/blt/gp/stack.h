@@ -73,15 +73,14 @@ namespace blt::gp
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
+                if (head->used_bytes_in_block() == 0)
+                    move_back();
                 // make copy
                 T t = *reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE);
                 // call destructor
                 reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE)->~T();
+                // move offset back
                 head->metadata.offset -= TYPE_SIZE;
-                if (head->used_bytes_in_block() == 0)
-                {
-                    move_back();
-                }
                 return t;
             }
             
@@ -140,9 +139,9 @@ namespace blt::gp
                     if (diff <= 0)
                     {
                         bytes -= head->used_bytes_in_block();
-                        move_back();
                         if (diff == 0)
                             break;
+                        move_back();
                     } else
                     {
                         // otherwise update the offset pointer
@@ -164,13 +163,15 @@ namespace blt::gp
                     throw std::runtime_error("This stack is empty!");
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
                     BLT_ABORT("This stack doesn't contain enough data for this type! This is an invalid runtime state!");
+                
+                if (head->used_bytes_in_block() == 0)
+                    move_back();
+                
                 auto type_size = aligned_size(bytes);
                 auto ptr = to.allocate_bytes(bytes);
                 to.head->metadata.offset = static_cast<blt::u8*>(ptr) + type_size;
                 std::memcpy(ptr, head->metadata.offset - type_size, type_size);
                 head->metadata.offset -= type_size;
-                if (head->used_bytes_in_block() == 0)
-                    move_back();
             }
             
             template<typename... Args>
@@ -218,10 +219,7 @@ namespace blt::gp
             
             stack_allocator() = default;
             
-            // it should be possible to remove the complex copy contrusctor along with trasnfer functions
-            // simply keep track of the start of the stack, aloing with the current pointer and never dealloacted
-            // it adds another 8 bytes to each block but should prevent the need for copying when you can just reset the stack.
-            // (read copy)
+            // TODO: cleanup this allocator!
             // if you keep track of type size information you can memcpy between stack allocators as you already only allow trivially copyable types
             stack_allocator(const stack_allocator& copy)
             {
@@ -401,7 +399,10 @@ namespace blt::gp
                 auto old = head;
                 head = head->metadata.prev;
                 if (head == nullptr)
+                {
                     head = old;
+                    head->reset();
+                }
                     //free_chain(old);
                 // required to prevent silly memory :3
 //                if (head != nullptr)

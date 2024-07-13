@@ -131,6 +131,8 @@ namespace blt::gp
         
         prog_config_t& set_thread_count(blt::size_t t)
         {
+            if (t == 0)
+                t = std::thread::hardware_concurrency();
             threads = t;
             //evaluation_size = (population_size / threads) / 2;
             return *this;

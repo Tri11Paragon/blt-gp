@@ -57,11 +57,19 @@ namespace blt::gp
         // main thread is thread0
         for (blt::size_t i = 1; i < config.threads; i++)
         {
-            thread_helper.threads.emplace_back(new std::thread([this]() {
+            thread_helper.threads.emplace_back(new std::thread([i, this]() {
+                std::function<void(blt::size_t)>* execution_function = nullptr;
                 while (!should_thread_terminate())
                 {
-                    if (thread_execution_service != nullptr)
-                        (*thread_execution_service)();
+                    if (execution_function == nullptr)
+                    {
+                        std::scoped_lock lock(thread_helper.thread_function_control);
+                        if (thread_execution_service != nullptr)
+                            execution_function = thread_execution_service.load(std::memory_order_acquire);
+                        std::cout.flush();
+                    }
+                    if (execution_function != nullptr)
+                        (*execution_function)(i);
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }));

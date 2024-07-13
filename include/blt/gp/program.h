@@ -33,6 +33,8 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
+#include <stdexcept>
 
 #include <blt/std/ranges.h>
 #include <blt/std/hashmap.h>
@@ -51,6 +53,79 @@
 
 namespace blt::gp
 {
+    
+    namespace detail
+    {
+        // Author: Kirk Saunders (ks825016@ohio.edu)
+        // Description: Simple implementation of a thread barrier
+        //              using C++ condition variables.
+        // Date: 2/17/2020
+        
+        // https://github.com/kirksaunders/barrier/blob/master/barrier.hpp
+        class barrier
+        {
+            public:
+                // Construct barrier for use with num threads.
+                explicit barrier(std::atomic_bool& exit_cond, std::size_t num)
+                        : num_threads(num),
+                          wait_count(0),
+                          instance(0),
+                          mut(),
+                          cv(),
+                          exit_cond(exit_cond)
+                {
+                    if (num == 0)
+                    {
+                        throw std::invalid_argument("Barrier thread count cannot be 0");
+                    }
+                }
+                
+                // disable copying of barrier
+                barrier(const barrier&) = delete;
+                
+                barrier& operator=(const barrier&) = delete;
+                
+                // This function blocks the calling thread until
+                // all threads (specified by num_threads) have
+                // called it. Blocking is achieved using a
+                // call to condition_variable.wait().
+                void wait()
+                {
+                    std::unique_lock<std::mutex> lock(mut); // acquire lock
+                    std::size_t inst = instance; // store current instance for comparison
+                    // in predicate
+                    
+                    if (++wait_count == num_threads)
+                    { // all threads reached barrier
+                        wait_count = 0; // reset wait_count
+                        instance++; // increment instance for next use of barrier and to
+                        // pass condition variable predicate
+                        cv.notify_all();
+                    } else
+                    { // not all threads have reached barrier
+                        cv.wait(lock, [this, &inst]() { return (instance != inst || exit_cond); });
+                        // NOTE: The predicate lambda here protects against spurious
+                        //       wakeups of the thread. As long as this->instance is
+                        //       equal to inst, the thread will not wake.
+                        //       this->instance will only increment when all threads
+                        //       have reached the barrier and are ready to be unblocked.
+                    }
+                }
+                
+                void notify_all()
+                {
+                    cv.notify_all();
+                }
+            
+            private:
+                std::size_t num_threads; // number of threads using barrier
+                std::size_t wait_count; // counter to keep track of waiting threads
+                std::size_t instance; // counter to keep track of barrier use count
+                std::mutex mut; // mutex used to protect resources
+                std::condition_variable cv; // condition variable used to block threads
+                std::atomic_bool& exit_cond; // used to signal we should exit
+        };
+    }
     
     struct argc_t
     {
@@ -74,7 +149,7 @@ namespace blt::gp
         // function to call this operator
         detail::callable_t function;
         // function used to transfer values between stacks
-        detail::transfer_t transfer;
+        //detail::transfer_t transfer;
     };
     
     struct operator_storage
@@ -125,24 +200,24 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 info.function = op.template make_callable<Context>();
-                info.transfer = [](std::optional<std::reference_wrapper<stack_allocator>> to, stack_allocator& from) {
-#if BLT_DEBUG_LEVEL >= 3
-                    auto value = from.pop<Return>();
-                    //BLT_TRACE_STREAM << value << "\n";
-                    if (to){
-                        to->get().push(value);
-                    }
-#else
-                    if (to)
-                    {
-                        to->get().push(from.pop<Return>());
-                    } else
-                    {
-                        from.pop<Return>();
-                    }
-#endif
-                
-                };
+//                info.transfer = [](std::optional<std::reference_wrapper<stack_allocator>> to, stack_allocator& from) {
+//#if BLT_DEBUG_LEVEL >= 3
+//                    auto value = from.pop<Return>();
+//                    //BLT_TRACE_STREAM << value << "\n";
+//                    if (to){
+//                        to->get().push(value);
+//                    }
+//#else
+//                    if (to)
+//                    {
+//                        to->get().push(from.pop<Return>());
+//                    } else
+//                    {
+//                        from.pop<Return>();
+//                    }
+//#endif
+//
+//                };
                 storage.operators.push_back(info);
                 storage.print_funcs.push_back([](std::ostream& out, stack_allocator& stack) {
                     out << stack.pop<Return>();
@@ -285,7 +360,8 @@ namespace blt::gp
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 if (config.threads == 1)
                 {
-                    thread_execution_service = new std::function([this, &fitness_function]() {
+                    BLT_INFO("Starting with single thread variant!");
+                    thread_execution_service = new std::function([this, &fitness_function](blt::size_t) {
                         for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                         {
                             fitness_function(ind.second.tree, ind.second.fitness, ind.first);
@@ -300,23 +376,24 @@ namespace blt::gp
                     });
                 } else
                 {
-                    thread_execution_service = new std::function([this, &fitness_function]() {
+                    BLT_INFO("Starting thread execution service!");
+                    std::scoped_lock lock(thread_helper.thread_function_control);
+                    thread_execution_service = new std::function([this, &fitness_function](blt::size_t) {
+                        thread_helper.barrier.wait();
                         if (thread_helper.evaluation_left > 0)
                         {
-                            thread_helper.threads_left.fetch_add(1, std::memory_order::memory_order_relaxed);
                             while (thread_helper.evaluation_left > 0)
                             {
                                 blt::size_t size = 0;
                                 blt::size_t begin = 0;
-                                blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_acquire);
+                                blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_relaxed);
                                 do
                                 {
                                     size = std::min(end, config.evaluation_size);
                                     begin = end - size;
                                 } while (!thread_helper.evaluation_left.compare_exchange_weak(end, end - size,
-                                                                                              std::memory_order::memory_order_release,
-                                                                                              std::memory_order::memory_order_acquire));
-                                
+                                                                                              std::memory_order::memory_order_relaxed,
+                                                                                              std::memory_order::memory_order_relaxed));
                                 for (blt::size_t i = begin; i < end; i++)
                                 {
                                     auto& ind = current_pop.get_individuals()[i];
@@ -326,22 +403,22 @@ namespace blt::gp
                                     auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
                                     while (ind.fitness.adjusted_fitness > old_best &&
                                            !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
-                                                                                             std::memory_order_release, std::memory_order_relaxed));
+                                                                                             std::memory_order_relaxed, std::memory_order_relaxed));
                                     
                                     auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
                                     while (ind.fitness.adjusted_fitness < old_worst &&
                                            !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
-                                                                                              std::memory_order_release, std::memory_order_relaxed));
+                                                                                              std::memory_order_relaxed, std::memory_order_relaxed));
                                     
                                     auto old_overall = current_stats.overall_fitness.load(std::memory_order_relaxed);
                                     while (!current_stats.overall_fitness.compare_exchange_weak(old_overall,
                                                                                                 ind.fitness.adjusted_fitness + old_overall,
-                                                                                                std::memory_order_release,
+                                                                                                std::memory_order_relaxed,
                                                                                                 std::memory_order_relaxed));
                                 }
                             }
-                            thread_helper.threads_left.fetch_sub(1, std::memory_order::memory_order_relaxed);
                         }
+                        thread_helper.barrier.wait();
                     });
                 }
                 evaluate_fitness_internal();
@@ -482,6 +559,7 @@ namespace blt::gp
             ~gp_program()
             {
                 thread_helper.lifetime_over = true;
+                thread_helper.barrier.notify_all();
                 for (auto& thread : thread_helper.threads)
                 {
                     if (thread->joinable())
@@ -507,15 +585,18 @@ namespace blt::gp
             struct concurrency_storage
             {
                 std::vector<std::unique_ptr<std::thread>> threads;
-                //std::mutex evaluation_control;
+                std::mutex thread_function_control;
                 std::atomic_uint64_t evaluation_left = 0;
-                std::atomic_int64_t threads_left = 0;
                 
                 std::atomic_bool lifetime_over = false;
-            } thread_helper;
+                detail::barrier barrier;
+                
+                explicit concurrency_storage(blt::size_t threads): barrier(lifetime_over, threads)
+                {}
+            } thread_helper{config.threads};
             
             // for convenience, shouldn't decrease performance too much
-            std::atomic<std::function<void()>*> thread_execution_service = nullptr;
+            std::atomic<std::function<void(blt::size_t)>*> thread_execution_service = nullptr;
             
             inline selector_args get_selector_args()
             {
@@ -534,52 +615,11 @@ namespace blt::gp
             void evaluate_fitness_internal()
             {
                 current_stats.clear();
-                if (config.threads == 1)
-                {
-                    (*thread_execution_service)();
-                } else
-                {
-                    {
-                        //std::scoped_lock lock(thread_helper.evaluation_control);
-                        thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
-                    }
-                    
-                    //std::cout << "Func" << std::endl;
-                    while (thread_execution_service == nullptr)
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    //std::cout << "Wait" << std::endl;
-                    (*thread_execution_service)();
-                    //std::cout << "FINSIHED WAITING!!!!!!!! " << thread_helper.threads_left << std::endl;
-                    while (thread_helper.threads_left > 0)
-                    {
-                        //std::cout << thread_helper.threads_left << std::endl;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    }
-                    //std::cout << "Finished" << std::endl;
-                }
+                if (config.threads != 1)
+                    thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
+                (*thread_execution_service)(0);
                 
                 current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);
-                
-                
-                /*current_stats = {};
-                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                {
-                    fitness_function(ind.second.tree, ind.second.fitness, ind.first);
-                    if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
-                    {
-                        current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
-                        current_stats.best_individual = &ind.second;
-                    }
-                    
-                    if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
-                    {
-                        current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
-                        current_stats.worst_individual = &ind.second;
-                    }
-                    
-                    current_stats.overall_fitness += ind.second.fitness.adjusted_fitness;
-                }
-                current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);*/
             }
     };
     

@@ -42,11 +42,11 @@ namespace blt::gp
             operations_stack.pop_back();
             if (operation.is_value)
             {
-                operation.transfer(values_process, value_stack);
+                value_stack.transfer_bytes(values_process, operation.type_size);
                 continue;
             }
             operation.func(context, values_process, value_stack);
-            operations_stack.emplace_back(empty_callable, operation.transfer, operation.id, true);
+            operations_stack.emplace_back(empty_callable, operation.type_size, operation.id, true);
         }
         
         return results;
@@ -88,7 +88,7 @@ namespace blt::gp
             for (const auto& v : operations)
             {
                 if (v.is_value)
-                    v.transfer(reversed, copy);
+                    copy.transfer_bytes(reversed, v.type_size);
             }
         }
         for (const auto& v : operations)
@@ -187,7 +187,7 @@ namespace blt::gp
                 values_process.pop_back();
             }
             value_stack.push_back(local_depth + 1);
-            operations_stack.emplace_back(empty_callable, operation.transfer, operation.id, true);
+            operations_stack.emplace_back(empty_callable, operation.type_size, operation.id, true);
         }
         
         return depth;

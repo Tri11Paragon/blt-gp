@@ -169,7 +169,7 @@ namespace blt::gp
         for (auto it = c1_ops.end() - 1; it != crossover_point_end_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c1_stack_after_copy, c1_stack_init);
+                c1_stack_init.transfer_bytes(c1_stack_after_copy, it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -179,7 +179,7 @@ namespace blt::gp
         for (auto it = crossover_point_end_itr - 1; it != crossover_point_begin_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c1_stack_for_copy, c1_stack_init);
+                c1_stack_init.transfer_bytes(c1_stack_for_copy, it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -189,7 +189,7 @@ namespace blt::gp
         for (auto it = c2_ops.end() - 1; it != found_point_end_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c2_stack_after_copy, c2_stack_init);
+                c2_stack_init.transfer_bytes(c2_stack_after_copy, it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -198,7 +198,7 @@ namespace blt::gp
         for (auto it = found_point_end_itr - 1; it != found_point_begin_itr - 1; it--)
         {
             if (it->is_value)
-                it->transfer(c2_stack_for_copy, c2_stack_init);
+                c2_stack_init.transfer_bytes(c2_stack_for_copy, it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -208,7 +208,7 @@ namespace blt::gp
         for (auto it = found_point_begin_itr; it != found_point_end_itr; it++)
         {
             if (it->is_value)
-                it->transfer(c1.get_values(), c2_stack_for_copy);
+                c2_stack_for_copy.transfer_bytes(c1.get_values(), it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -217,7 +217,7 @@ namespace blt::gp
         for (auto it = crossover_point_begin_itr; it != crossover_point_end_itr; it++)
         {
             if (it->is_value)
-                it->transfer(c2.get_values(), c1_stack_for_copy);
+                c1_stack_for_copy.transfer_bytes(c2.get_values(), it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -227,7 +227,7 @@ namespace blt::gp
         for (auto it = crossover_point_end_itr; it != c1_ops.end(); it++)
         {
             if (it->is_value)
-                it->transfer(c1.get_values(), c1_stack_after_copy);
+                c1_stack_after_copy.transfer_bytes(c1.get_values(), it->type_size);
         }
 
 #if BLT_DEBUG_LEVEL > 1
@@ -236,7 +236,7 @@ namespace blt::gp
         for (auto it = found_point_end_itr; it != c2_ops.end(); it++)
         {
             if (it->is_value)
-                it->transfer(c2.get_values(), c2_stack_after_copy);
+                c2_stack_after_copy.transfer_bytes(c2.get_values(), it->type_size);
         }
         
         // now swap the operators
@@ -288,7 +288,7 @@ namespace blt::gp
         {
             if (it->is_value)
             {
-                it->transfer(after_stack, vals);
+                vals.transfer_bytes(after_stack, it->type_size);
                 //after_ops.push_back(*it);
             }
         }
@@ -296,7 +296,7 @@ namespace blt::gp
         for (auto it = end_p - 1; it != begin_p - 1; it--)
         {
             if (it->is_value)
-                it->transfer(std::optional<std::reference_wrapper<stack_allocator>>{}, vals);
+                vals.pop_bytes(static_cast<blt::ptrdiff_t>(it->type_size));
         }
         
         auto before = begin_p - 1;
@@ -313,7 +313,7 @@ namespace blt::gp
         for (const auto& op : new_ops)
         {
             if (op.is_value)
-                op.transfer(vals, new_vals);
+                new_vals.transfer_bytes(vals, op.type_size);
         }
         
         auto new_end_point = point + new_ops.size();
@@ -322,7 +322,7 @@ namespace blt::gp
         for (auto it = new_end_p; it != ops.end(); it++)
         {
             if (it->is_value)
-                it->transfer(vals, after_stack);
+                after_stack.transfer_bytes(vals, it->type_size);
         }
         
         return c;
