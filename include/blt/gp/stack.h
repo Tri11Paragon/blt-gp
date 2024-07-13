@@ -401,11 +401,12 @@ namespace blt::gp
                 auto old = head;
                 head = head->metadata.prev;
                 if (head == nullptr)
-                    free_chain(old);
+                    head = old;
+                    //free_chain(old);
                 // required to prevent silly memory :3
-                //if (head != nullptr)
-                //    head->metadata.next = nullptr;
-                //std::free(old);
+//                if (head != nullptr)
+//                    head->metadata.next = nullptr;
+//                std::free(old);
             }
         
         private:

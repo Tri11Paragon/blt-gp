@@ -286,9 +286,16 @@ namespace blt::gp
                 if (config.threads == 1)
                 {
                     thread_execution_service = new std::function([this, &fitness_function]() {
-                        if (thread_helper.evaluation_left > 0)
+                        for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                         {
-                        
+                            fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                            if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
+                                current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
+                            
+                            if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
+                                current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
+                            
+                            current_stats.overall_fitness = current_stats.overall_fitness + ind.second.fitness.adjusted_fitness;
                         }
                     });
                 } else

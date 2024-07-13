@@ -36,8 +36,8 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_max_tree_size(6)
         .set_elite_count(0)
         .set_max_generations(50)
-        .set_pop_size(5000)
-        .set_thread_count(0);
+        .set_pop_size(500)
+        .set_thread_count(1);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
