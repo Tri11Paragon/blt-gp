@@ -299,9 +299,9 @@ namespace blt::gp
                             thread_helper.threads_left.fetch_add(1, std::memory_order::memory_order_relaxed);
                             while (thread_helper.evaluation_left > 0)
                             {
+                                blt::size_t size = 0;
                                 blt::size_t begin = 0;
                                 blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_acquire);
-                                blt::size_t size = 0;
                                 do
                                 {
                                     size = std::min(end, config.evaluation_size);

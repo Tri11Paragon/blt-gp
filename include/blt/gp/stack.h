@@ -20,6 +20,7 @@
 #define BLT_GP_STACK_H
 
 #include <blt/std/types.h>
+#include <blt/std/assert.h>
 #include <blt/std/logging.h>
 #include <blt/gp/fwdecl.h>
 #include <utility>
@@ -79,11 +80,7 @@ namespace blt::gp
                 head->metadata.offset -= TYPE_SIZE;
                 if (head->used_bytes_in_block() == 0)
                 {
-                    auto old = head;
-                    head = head->metadata.prev;
-                    if (head != nullptr)
-                        head->metadata.next = nullptr;
-                    std::free(old);
+                    move_back();
                 }
                 return t;
             }
@@ -143,12 +140,7 @@ namespace blt::gp
                     if (diff <= 0)
                     {
                         bytes -= head->used_bytes_in_block();
-                        auto old = head;
-                        head = head->metadata.prev;
-                        // required to prevent silly memory :3
-                        if (head != nullptr)
-                            head->metadata.next = nullptr;
-                        std::free(old);
+                        move_back();
                         if (diff == 0)
                             break;
                     } else
@@ -158,6 +150,27 @@ namespace blt::gp
                         break;
                     }
                 }
+            }
+            
+            /**
+             * Warning this function should be used to transfer types, not arrays of types! It will produce an error if you attempt to pass more
+             * than one type # of bytes at a time~!
+             * @param to stack to push to
+             * @param bytes number of bytes to transfer out.
+             */
+            void transfer_bytes(stack_allocator& to, blt::size_t bytes)
+            {
+                if (empty())
+                    throw std::runtime_error("This stack is empty!");
+                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
+                    BLT_ABORT("This stack doesn't contain enough data for this type! This is an invalid runtime state!");
+                auto type_size = aligned_size(bytes);
+                auto ptr = to.allocate_bytes(bytes);
+                to.head->metadata.offset = static_cast<blt::u8*>(ptr) + type_size;
+                std::memcpy(ptr, head->metadata.offset - type_size, type_size);
+                head->metadata.offset -= type_size;
+                if (head->used_bytes_in_block() == 0)
+                    move_back();
             }
             
             template<typename... Args>
@@ -252,19 +265,18 @@ namespace blt::gp
             
             ~stack_allocator()
             {
-                block* current = head;
-                while (current != nullptr)
-                {
-                    block* ptr = current;
-                    current = current->metadata.prev;
-                    std::free(ptr);
-                }
+                free_chain(head);
             }
             
             template<typename T>
             static inline constexpr blt::size_t aligned_size() noexcept
             {
-                return (sizeof(T) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
+                return aligned_size(sizeof(T));
+            }
+            
+            static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
+            {
+                return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
             }
         
         private:
@@ -292,6 +304,11 @@ namespace blt::gp
                     metadata.offset = buffer;
                 }
                 
+                void reset()
+                {
+                    metadata.offset = buffer;
+                }
+                
                 [[nodiscard]] blt::ptrdiff_t storage_size() const
                 {
                     return static_cast<blt::ptrdiff_t>(metadata.size - sizeof(typename block::block_metadata_t));
@@ -311,10 +328,23 @@ namespace blt::gp
             template<typename T>
             void* allocate_bytes()
             {
-                auto ptr = get_aligned_pointer(sizeof(T));
+                return allocate_bytes(sizeof(T));
+            }
+            
+            void* allocate_bytes(blt::size_t size)
+            {
+                auto ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
-                    push_block_for<T>();
-                ptr = get_aligned_pointer(sizeof(T));
+                {
+                    if (head != nullptr && head->metadata.next != nullptr)
+                    {
+                        head = head->metadata.next;
+                        if (head != nullptr)
+                            head->reset();
+                    } else
+                        push_block(aligned_size(size));
+                }
+                ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
                     throw std::bad_alloc();
                 return ptr;
@@ -327,12 +357,6 @@ namespace blt::gp
                 blt::size_t remaining_bytes = head->remaining_bytes_in_block();
                 auto* pointer = static_cast<void*>(head->metadata.offset);
                 return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
-            }
-            
-            template<typename T>
-            void push_block_for()
-            {
-                push_block(aligned_size<T>());
             }
             
             void push_block(blt::size_t size)
@@ -360,6 +384,28 @@ namespace blt::gp
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 new(data) block{size};
                 return reinterpret_cast<block*>(data);
+            }
+            
+            static void free_chain(block* current)
+            {
+                while (current != nullptr)
+                {
+                    block* ptr = current;
+                    current = current->metadata.prev;
+                    std::free(ptr);
+                }
+            }
+            
+            inline void move_back()
+            {
+                auto old = head;
+                head = head->metadata.prev;
+                if (head == nullptr)
+                    free_chain(old);
+                // required to prevent silly memory :3
+                //if (head != nullptr)
+                //    head->metadata.next = nullptr;
+                //std::free(old);
             }
         
         private:
