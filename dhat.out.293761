@@ -1,0 +1,1374 @@
+{"dhatFileVersion":2
+,"mode":"heap","verb":"Allocated"
+,"bklt":true,"bkacc":true
+,"tu":"instrs","Mtu":"Minstr"
+,"tuth":500
+,"cmd":"./cmake-build-release/blt-SR-playground-example"
+,"pid":293761
+,"te":17805147400
+,"tg":5583553044
+,"pps":
+ [{"tb":73728,"tbk":1
+  ,"tl":17803008159
+  ,"mb":73728,"mbk":1
+  ,"gb":73728,"gbk":1
+  ,"eb":73728,"ebk":1
+  ,"rb":0,"wb":16
+  ,"fs":[1,2,3,4,5,6]
+  }
+ ,{"tb":248,"tbk":31
+  ,"tl":551892328493
+  ,"mb":248,"mbk":31
+  ,"gb":248,"gbk":31
+  ,"eb":248,"ebk":31
+  ,"rb":0,"wb":496
+  ,"acc":[-8,62]
+  ,"fs":[7,8,9,10,11,12]
+  }
+ ,{"tb":496,"tbk":31
+  ,"tl":551892327377
+  ,"mb":496,"mbk":31
+  ,"gb":496,"gbk":31
+  ,"eb":496,"ebk":31
+  ,"rb":0,"wb":496
+  ,"acc":[-16,31]
+  ,"fs":[7,13,9,10,11,12]
+  }
+ ,{"tb":9920,"tbk":31
+  ,"tl":551892314620
+  ,"mb":9920,"mbk":31
+  ,"gb":9920,"gbk":31
+  ,"eb":9920,"ebk":31
+  ,"rb":248,"wb":3472
+  ,"acc":[-8,62,-8,0,-8,31,-8,0,-8,62,-8,31,-8,62,-8,31,-8,62,-8,31,-8,62,-8,31,-224,0]
+  ,"fs":[14,15,16,17,18,19,20,21,9,10,11,12]
+  }
+ ,{"tb":504,"tbk":6
+  ,"tl":17802998277
+  ,"mb":384,"mbk":2
+  ,"gb":256,"gbk":1
+  ,"eb":256,"ebk":1
+  ,"rb":248,"wb":496
+  ,"fs":[7,22,23,9,10,11,12]
+  }
+ ,{"tb":114,"tbk":1
+  ,"tl":17802954345
+  ,"mb":114,"mbk":1
+  ,"gb":114,"gbk":1
+  ,"eb":114,"ebk":1
+  ,"rb":0,"wb":114
+  ,"acc":[-114,1]
+  ,"fs":[7,24,25,10,11,12]
+  }
+ ,{"tb":5512,"tbk":1
+  ,"tl":17714
+  ,"mb":5512,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":4716,"wb":5183
+  ,"fs":[26,27,28,10,11,12]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802938214
+  ,"mb":16,"mbk":1
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":1376,"wb":16
+  ,"acc":[-8,86,-8,88]
+  ,"fs":[7,29,30,10,11,12]
+  }
+ ,{"tb":5512,"tbk":1
+  ,"tl":17802938171
+  ,"mb":5512,"mbk":1
+  ,"gb":5512,"gbk":1
+  ,"eb":5512,"ebk":1
+  ,"rb":3608,"wb":7848
+  ,"fs":[26,31,30,10,11,12]
+  }
+ ,{"tb":20,"tbk":1
+  ,"tl":8999
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":38,"wb":20
+  ,"acc":[-19,3,1]
+  ,"fs":[7,32,33]
+  }
+ ,{"tb":104,"tbk":1
+  ,"tl":17802924838
+  ,"mb":0,"mbk":0
+  ,"gb":104,"gbk":1
+  ,"eb":104,"ebk":1
+  ,"rb":2809,"wb":204
+  ,"acc":[35,-2,34,-13,33,1,-7,0,-8,34,-8,32,-8,1,-8,0,-8,84,-8,57,-8,10,-8,81,-8,0,-8,11]
+  ,"fs":[7,34,35,36]
+  }
+ ,{"tb":20,"tbk":1
+  ,"tl":17802924731
+  ,"mb":0,"mbk":0
+  ,"gb":20,"gbk":1
+  ,"eb":20,"ebk":1
+  ,"rb":589,"wb":20
+  ,"acc":[-19,32,1]
+  ,"fs":[7,37,36]
+  }
+ ,{"tb":112,"tbk":1
+  ,"tl":17802924469
+  ,"mb":0,"mbk":0
+  ,"gb":112,"gbk":1
+  ,"eb":112,"ebk":1
+  ,"rb":16,"wb":157
+  ,"acc":[-8,2,-16,1,-8,2,-16,1,-8,2,-24,1,-8,4,-13,2,-11,1]
+  ,"fs":[7,38,36]
+  }
+ ,{"tb":64,"tbk":1
+  ,"tl":2974317269
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":176,"wb":57
+  ,"acc":[4,8,7,-14,6,-7,0,-16,5,-4,4,2,-11,0,-8,4]
+  ,"fs":[7,39,40,36]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":1282
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":11,"wb":6
+  ,"acc":[-5,3,2,-2,0]
+  ,"fs":[41,42,43,44,45,46]
+  }
+ ,{"tb":104,"tbk":1
+  ,"tl":17802901645
+  ,"mb":0,"mbk":0
+  ,"gb":104,"gbk":1
+  ,"eb":104,"ebk":1
+  ,"rb":2327,"wb":79
+  ,"acc":[37,-2,36,-13,35,1,-7,0,-16,34,35,1,-14,0,-34,34,-2,35,34,1,-10,0]
+  ,"fs":[7,47,48,49,46]
+  }
+ ,{"tb":776,"tbk":1
+  ,"tl":17802900407
+  ,"mb":0,"mbk":0
+  ,"gb":776,"gbk":1
+  ,"eb":776,"ebk":1
+  ,"rb":16,"wb":566
+  ,"acc":[-8,1,-16,2,-8,3,-9,2,-5,1,-10,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0,-33,1,-15,0]
+  ,"fs":[26,50,46]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":1536
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,53]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":2356
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":16,"wb":16
+  ,"acc":[-16,2]
+  ,"fs":[7,51,52,54]
+  }
+ ,{"tb":392,"tbk":1
+  ,"tl":17802897467
+  ,"mb":0,"mbk":0
+  ,"gb":392,"gbk":1
+  ,"eb":392,"ebk":1
+  ,"rb":303768,"wb":520
+  ,"acc":[-8,1,-8,18966,-8,18978,-8,16,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1]
+  ,"fs":[26,55,56]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":2482
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,57,58]
+  }
+ ,{"tb":104,"tbk":1
+  ,"tl":2744
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":120,"wb":216
+  ,"acc":[-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3]
+  ,"fs":[7,59,60]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802897087
+  ,"mb":0,"mbk":0
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":37648,"wb":16
+  ,"acc":[-16,2354]
+  ,"fs":[7,61,60]
+  }
+ ,{"tb":32,"tbk":1
+  ,"tl":2627
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":32,"wb":56
+  ,"acc":[-24,3,-8,2]
+  ,"fs":[7,62,63]
+  }
+ ,{"tb":24,"tbk":1
+  ,"tl":2666
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":24,"wb":24
+  ,"acc":[-24,2]
+  ,"fs":[7,64,65]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":542
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,66]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":1516
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":16,"wb":16
+  ,"acc":[-16,2]
+  ,"fs":[7,51,52,67]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":2768
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":16,"wb":16
+  ,"acc":[-16,2]
+  ,"fs":[7,57,68]
+  }
+ ,{"tb":208,"tbk":1
+  ,"tl":2967
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":240,"wb":408
+  ,"acc":[-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3]
+  ,"fs":[7,59,69]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802894619
+  ,"mb":0,"mbk":0
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":37152,"wb":16
+  ,"acc":[-16,2323]
+  ,"fs":[7,61,69]
+  }
+ ,{"tb":64,"tbk":1
+  ,"tl":2790
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":64,"wb":112
+  ,"acc":[-24,3,-8,2,-24,3,-8,2]
+  ,"fs":[7,62,70]
+  }
+ ,{"tb":48,"tbk":1
+  ,"tl":2780
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":48,"wb":48
+  ,"acc":[-48,2]
+  ,"fs":[7,64,71]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":542
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,72]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":1587
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":16,"wb":16
+  ,"acc":[-16,2]
+  ,"fs":[7,51,52,73]
+  }
+ ,{"tb":32,"tbk":1
+  ,"tl":4284
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":32,"wb":32
+  ,"acc":[-32,2]
+  ,"fs":[7,57,74]
+  }
+ ,{"tb":416,"tbk":1
+  ,"tl":4502
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":480,"wb":816
+  ,"acc":[-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3]
+  ,"fs":[7,59,75]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802891972
+  ,"mb":0,"mbk":0
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":38240,"wb":16
+  ,"acc":[-16,2391]
+  ,"fs":[7,61,75]
+  }
+ ,{"tb":128,"tbk":1
+  ,"tl":4309
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":128,"wb":224
+  ,"acc":[-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2]
+  ,"fs":[7,62,76]
+  }
+ ,{"tb":96,"tbk":1
+  ,"tl":4301
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":96,"wb":96
+  ,"acc":[-96,2]
+  ,"fs":[7,64,77]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":542
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,78]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":850
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":16,"wb":16
+  ,"acc":[-16,2]
+  ,"fs":[7,51,52,79]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802889544
+  ,"mb":0,"mbk":0
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":38816,"wb":16
+  ,"acc":[-16,2427]
+  ,"fs":[7,80,81]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":1546
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,82]
+  }
+ ,{"tb":64,"tbk":1
+  ,"tl":17802888145
+  ,"mb":0,"mbk":0
+  ,"gb":64,"gbk":1
+  ,"eb":64,"ebk":1
+  ,"rb":151776,"wb":64
+  ,"acc":[-8,2355,-8,2324,-8,2392,-8,2428,-8,2393,-8,2361,-8,2404,-8,2323]
+  ,"fs":[7,57,83]
+  }
+ ,{"tb":832,"tbk":1
+  ,"tl":6505
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":960,"wb":1632
+  ,"acc":[-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-8,4,-16,3,-16,2,-16,3,-8,5,-32,3,-8,2,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3,-16,5,-8,4,-16,2,-8,3,-8,2,-8,5,-8,4,-16,2,-16,3]
+  ,"fs":[7,59,84]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":17802887814
+  ,"mb":0,"mbk":0
+  ,"gb":8,"gbk":1
+  ,"eb":8,"ebk":1
+  ,"rb":19128,"wb":8
+  ,"acc":[-8,2392]
+  ,"fs":[7,61,84]
+  }
+ ,{"tb":256,"tbk":1
+  ,"tl":6344
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":256,"wb":448
+  ,"acc":[-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2,-24,3,-8,2]
+  ,"fs":[7,62,85]
+  }
+ ,{"tb":192,"tbk":1
+  ,"tl":6340
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":192,"wb":192
+  ,"acc":[-192,2]
+  ,"fs":[7,64,86]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":685
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,87]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":17802885842
+  ,"mb":0,"mbk":0
+  ,"gb":8,"gbk":1
+  ,"eb":8,"ebk":1
+  ,"rb":18872,"wb":8
+  ,"acc":[-8,2360]
+  ,"fs":[7,80,88]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":685
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,89]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":17802884452
+  ,"mb":0,"mbk":0
+  ,"gb":8,"gbk":1
+  ,"eb":8,"ebk":1
+  ,"rb":19216,"wb":8
+  ,"acc":[-8,2403]
+  ,"fs":[7,80,90]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":686
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,51,52,91]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":17802883060
+  ,"mb":0,"mbk":0
+  ,"gb":8,"gbk":1
+  ,"eb":8,"ebk":1
+  ,"rb":18568,"wb":8
+  ,"acc":[-8,2322]
+  ,"fs":[7,80,92]
+  }
+ ,{"tb":392,"tbk":1
+  ,"tl":17802882165
+  ,"mb":0,"mbk":0
+  ,"gb":392,"gbk":1
+  ,"eb":392,"ebk":1
+  ,"rb":486120,"wb":440
+  ,"acc":[-8,1,-8,30368,-8,30370,-8,6,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1,-16,2,-8,1]
+  ,"fs":[26,55,93]
+  }
+ ,{"tb":8,"tbk":1
+  ,"tl":2276
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":8,"wb":8
+  ,"acc":[-8,2]
+  ,"fs":[7,57,94]
+  }
+ ,{"tb":1664,"tbk":1
+  ,"tl":17802881828
+  ,"mb":0,"mbk":0
+  ,"gb":1664,"gbk":1
+  ,"eb":1664,"ebk":1
+  ,"rb":1213107656,"wb":1552
+  ,"fs":[7,59,95]
+  }
+ ,{"tb":512,"tbk":1
+  ,"tl":17802881263
+  ,"mb":0,"mbk":0
+  ,"gb":512,"gbk":1
+  ,"eb":512,"ebk":1
+  ,"rb":0,"wb":536
+  ,"acc":[-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-8,1,-24,2,-40,1,-192,0]
+  ,"fs":[7,62,96]
+  }
+ ,{"tb":384,"tbk":1
+  ,"tl":17802880987
+  ,"mb":0,"mbk":0
+  ,"gb":384,"gbk":1
+  ,"eb":384,"ebk":1
+  ,"rb":0,"wb":240
+  ,"acc":[-240,1,-144,0]
+  ,"fs":[7,64,97]
+  }
+ ,{"tb":32,"tbk":1
+  ,"tl":17802880732
+  ,"mb":0,"mbk":0
+  ,"gb":32,"gbk":1
+  ,"eb":32,"ebk":1
+  ,"rb":1215169,"wb":28
+  ,"acc":[44512,-15,65535,23767,-7,0,-8,15347]
+  ,"fs":[7,98,99,100,101]
+  }
+ ,{"tb":16,"tbk":1
+  ,"tl":17802879853
+  ,"mb":0,"mbk":0
+  ,"gb":16,"gbk":1
+  ,"eb":16,"ebk":1
+  ,"rb":121448,"wb":16
+  ,"acc":[-8,7674,-8,7509]
+  ,"fs":[7,57,102,103]
+  }
+ ,{"tb":32,"tbk":1
+  ,"tl":2037
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":305,"wb":28
+  ,"acc":[16,-2,15,-13,14,1,-7,0,-8,13]
+  ,"fs":[7,104,105,106,107]
+  }
+ ,{"tb":240,"tbk":4
+  ,"tl":1670
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":456,"wb":352
+  ,"fs":[7,108,109,107]
+  }
+ ,{"tb":392,"tbk":1
+  ,"tl":17802877749
+  ,"mb":0,"mbk":0
+  ,"gb":392,"gbk":1
+  ,"eb":392,"ebk":1
+  ,"rb":32,"wb":416
+  ,"acc":[-8,1,-8,4,-8,2,-8,4,-360,1]
+  ,"fs":[26,110,107]
+  }
+ ,{"tb":64,"tbk":1
+  ,"tl":17802877622
+  ,"mb":0,"mbk":0
+  ,"gb":64,"gbk":1
+  ,"eb":64,"ebk":1
+  ,"rb":0,"wb":64
+  ,"acc":[-64,1]
+  ,"fs":[7,111,107]
+  }
+ ,{"tb":159680,"tbk":2495
+  ,"tl":3646805
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":19960,"wb":19960
+  ,"acc":[-24,0,-8,4990,-32,0]
+  ,"fs":[7,112,113,114]
+  }
+ ,{"tb":1277440,"tbk":2495
+  ,"tl":3474650
+  ,"mb":512,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":155600,"wb":155600
+  ,"acc":[-16,12634,-16,5560,-16,1118,-16,128,-16,10,-432,0]
+  ,"fs":[7,115,113,114]
+  }
+ ,{"tb":715040,"tbk":7560
+  ,"tl":7434349973568
+  ,"mb":397472,"mbk":2496
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":62911648,"wb":560725
+  ,"fs":[7,116,117,113,114]
+  }
+ ,{"tb":7020544,"tbk":1714
+  ,"tl":5107023125610
+  ,"mb":7020544,"mbk":1714
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":1417275600,"wb":97936
+  ,"fs":[118,119,120,113,114]
+  }
+ ,{"tb":886848,"tbk":6
+  ,"tl":2982099553
+  ,"mb":786432,"mbk":2
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":48972800,"wb":8776720
+  ,"fs":[7,121,122,114]
+  }
+ ,{"tb":160320,"tbk":2505
+  ,"tl":5513392
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":20040,"wb":20040
+  ,"acc":[-24,0,-8,5010,-32,0]
+  ,"fs":[7,123,124,114]
+  }
+ ,{"tb":1282560,"tbk":2505
+  ,"tl":5340547
+  ,"mb":512,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":288832,"wb":288832
+  ,"acc":[-16,17572,-16,12604,-16,4918,-16,928,-16,82,-432,0]
+  ,"fs":[7,125,124,114]
+  }
+ ,{"tb":1475680,"tbk":9633
+  ,"tl":7464057905097
+  ,"mb":778048,"mbk":2506
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":116729248,"wb":1149060
+  ,"fs":[7,116,126,124,114]
+  }
+ ,{"tb":7999488,"tbk":1953
+  ,"tl":5818566805461
+  ,"mb":7999488,"mbk":1953
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":1613757000,"wb":125712
+  ,"fs":[118,119,127,124,114]
+  }
+ ,{"tb":161664,"tbk":8
+  ,"tl":1884334
+  ,"mb":131072,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":161664,"wb":161664
+  ,"fs":[7,121,128,114]
+  }
+ ,{"tb":32,"tbk":1
+  ,"tl":17793018776
+  ,"mb":0,"mbk":0
+  ,"gb":32,"gbk":1
+  ,"eb":32,"ebk":1
+  ,"rb":907832,"wb":32
+  ,"acc":[-8,65535,-8,1,-16,10]
+  ,"fs":[7,129]
+  }
+ ,{"tb":6008012800,"tbk":733400
+  ,"tl":2536160259
+  ,"mb":8192,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":115777600,"wb":3099382400
+  ,"fs":[118,130,131,132,133]
+  }
+ ,{"tb":177772800,"tbk":1000000
+  ,"tl":1470034429
+  ,"mb":160,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":314496000,"wb":284587800
+  ,"fs":[7,134,131,132,133]
+  }
+ ,{"tb":2051276800,"tbk":500800
+  ,"tl":673091823
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":104296000,"wb":65553600
+  ,"fs":[118,135,136,131,132,133]
+  }
+ ,{"tb":2044723200,"tbk":499200
+  ,"tl":667889206
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":103952800,"wb":65365600
+  ,"fs":[118,137,136,131,132,133]
+  }
+ ,{"tb":1091993600,"tbk":266600
+  ,"tl":243853970
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":22983200,"wb":28604000
+  ,"fs":[118,138,139,131,132,133]
+  }
+ ,{"tb":160,"tbk":8
+  ,"tl":5800
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":304,"wb":168
+  ,"acc":[-15,24,32,-3,24,8]
+  ,"fs":[7,140]
+  }
+ ,{"tb":112,"tbk":1
+  ,"tl":14828607445
+  ,"mb":0,"mbk":0
+  ,"gb":112,"gbk":1
+  ,"eb":112,"ebk":1
+  ,"rb":592,"wb":772
+  ,"acc":[-32,17,-8,9,-40,17,-8,4,-12,2,-12,1]
+  ,"fs":[7,38,141]
+  }
+ ,{"tb":144,"tbk":1
+  ,"tl":14828607132
+  ,"mb":0,"mbk":0
+  ,"gb":144,"gbk":1
+  ,"eb":144,"ebk":1
+  ,"rb":2009,"wb":131
+  ,"acc":[3,27,53,-4,52,-10,51,26,1,-5,0,-8,24,-15,23,1,-8,0,-8,17,-21,1,-11,0,-8,1,-8,25,-11,24,1,-12,0,-8,18]
+  ,"fs":[7,142,40,141]
+  }
+ ,{"tb":646336,"tbk":4002
+  ,"tl":533628902088
+  ,"mb":12896,"mbk":47
+  ,"gb":12608,"gbk":46
+  ,"eb":44160,"ebk":110
+  ,"rb":12411942,"wb":730880
+  ,"fs":[7,143,144,145]
+  }
+ ,{"tb":628960,"tbk":4002
+  ,"tl":560596321152
+  ,"mb":15712,"mbk":56
+  ,"gb":15616,"gbk":55
+  ,"eb":48608,"ebk":126
+  ,"rb":12077176,"wb":710464
+  ,"fs":[7,146,144,145]
+  }
+ ,{"tb":9560064,"tbk":1167
+  ,"tl":495331194517
+  ,"mb":581632,"mbk":71
+  ,"gb":573440,"gbk":70
+  ,"eb":1048576,"ebk":128
+  ,"rb":138571200,"wb":4813268
+  ,"fs":[118,147,144,145]
+  }
+ ,{"tb":435936,"tbk":3156
+  ,"tl":5927684124041
+  ,"mb":0,"mbk":0
+  ,"gb":107200,"gbk":804
+  ,"eb":66528,"ebk":277
+  ,"rb":77897280,"wb":435936
+  ,"fs":[7,148,145]
+  }
+ ,{"tb":1358400,"tbk":10
+  ,"tl":3341839625
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":97846064,"wb":17457984
+  ,"fs":[7,149,150,145]
+  }
+ ,{"tb":428512,"tbk":3158
+  ,"tl":5942852988971
+  ,"mb":101536,"mbk":815
+  ,"gb":101760,"gbk":818
+  ,"eb":58464,"ebk":274
+  ,"rb":78120256,"wb":428512
+  ,"fs":[7,151,145]
+  }
+ ,{"tb":6438912,"tbk":786
+  ,"tl":1672548726682
+  ,"mb":3694592,"mbk":451
+  ,"gb":3694592,"gbk":451
+  ,"eb":507904,"ebk":62
+  ,"rb":615818912,"wb":3238320
+  ,"fs":[118,152,145]
+  }
+ ,{"tb":151680,"tbk":5
+  ,"tl":2129274
+  ,"mb":131072,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":151680,"wb":151680
+  ,"fs":[7,149,153,145]
+  }
+ ,{"tb":5199968,"tbk":31996
+  ,"tl":59345673169517
+  ,"mb":1128768,"mbk":8002
+  ,"gb":1128768,"gbk":8002
+  ,"eb":1142880,"ebk":4034
+  ,"rb":873128928,"wb":5199968
+  ,"fs":[7,154,145]
+  }
+ ,{"tb":79020032,"tbk":9646
+  ,"tl":19180852850567
+  ,"mb":37314560,"mbk":4555
+  ,"gb":37314560,"gbk":4555
+  ,"eb":14508032,"ebk":1771
+  ,"rb":6875513312,"wb":39741520
+  ,"fs":[118,155,145]
+  }
+ ,{"tb":5466944,"tbk":89
+  ,"tl":8381195308
+  ,"mb":786432,"mbk":2
+  ,"gb":524288,"gbk":1
+  ,"eb":0,"ebk":0
+  ,"rb":198370096,"wb":37593536
+  ,"fs":[7,149,156,145]
+  }
+ ,{"tb":9904128,"tbk":1209
+  ,"tl":519506034063
+  ,"mb":524288,"mbk":64
+  ,"gb":516096,"gbk":63
+  ,"eb":1105920,"ebk":135
+  ,"rb":143563044,"wb":4986112
+  ,"fs":[118,157,144,145]
+  }
+ ,{"tb":6430720,"tbk":785
+  ,"tl":1637341432249
+  ,"mb":0,"mbk":0
+  ,"gb":3563520,"gbk":435
+  ,"eb":712704,"ebk":87
+  ,"rb":594888624,"wb":3234200
+  ,"fs":[118,158,145]
+  }
+ ,{"tb":44512,"tbk":346
+  ,"tl":31817345506
+  ,"mb":832,"mbk":6
+  ,"gb":768,"gbk":5
+  ,"eb":576,"ebk":2
+  ,"rb":470955,"wb":52704
+  ,"fs":[7,159,160,145]
+  }
+ ,{"tb":663552,"tbk":81
+  ,"tl":178366113359
+  ,"mb":425984,"mbk":52
+  ,"gb":434176,"gbk":53
+  ,"eb":49152,"ebk":6
+  ,"rb":55989368,"wb":336444
+  ,"fs":[118,161,160,145]
+  }
+ ,{"tb":22144,"tbk":346
+  ,"tl":1046103
+  ,"mb":64,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":2768,"wb":2768
+  ,"acc":[-24,0,-8,692,-32,0]
+  ,"fs":[7,112,162,163,160,145]
+  }
+ ,{"tb":177152,"tbk":346
+  ,"tl":1022229
+  ,"mb":512,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":52496,"wb":52496
+  ,"acc":[-16,2796,-16,2310,-16,1070,-16,314,-16,62,-16,10,-416,0]
+  ,"fs":[7,115,162,163,160,145]
+  }
+ ,{"tb":281536,"tbk":1533
+  ,"tl":1306829
+  ,"mb":768,"mbk":2
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":248601,"wb":217257
+  ,"fs":[7,116,117,162,163,160,145]
+  }
+ ,{"tb":48544,"tbk":348
+  ,"tl":45106862921
+  ,"mb":0,"mbk":0
+  ,"gb":1536,"gbk":7
+  ,"eb":448,"ebk":1
+  ,"rb":827333,"wb":58624
+  ,"fs":[7,159,164,145]
+  }
+ ,{"tb":851968,"tbk":104
+  ,"tl":225396473305
+  ,"mb":0,"mbk":0
+  ,"gb":524288,"gbk":64
+  ,"eb":57344,"ebk":7
+  ,"rb":77388832,"wb":431940
+  ,"fs":[118,161,164,145]
+  }
+ ,{"tb":110592,"tbk":27
+  ,"tl":121036
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":624,"wb":1680
+  ,"fs":[118,135,165,164,145]
+  }
+ ,{"tb":22272,"tbk":348
+  ,"tl":996790
+  ,"mb":64,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":2784,"wb":2784
+  ,"acc":[-24,0,-8,696,-32,0]
+  ,"fs":[7,112,162,163,164,145]
+  }
+ ,{"tb":178176,"tbk":348
+  ,"tl":972778
+  ,"mb":512,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":49264,"wb":49264
+  ,"acc":[-16,2704,-16,2126,-16,1002,-16,260,-16,58,-16,8,-416,0]
+  ,"fs":[7,115,162,163,164,145]
+  }
+ ,{"tb":264064,"tbk":1505
+  ,"tl":1248366
+  ,"mb":1536,"mbk":2
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":233047,"wb":203439
+  ,"fs":[7,116,117,162,163,164,145]
+  }
+ ,{"tb":121696,"tbk":327
+  ,"tl":630300406514
+  ,"mb":14240,"mbk":38
+  ,"gb":39680,"gbk":109
+  ,"eb":12512,"ebk":24
+  ,"rb":22208050,"wb":119136
+  ,"fs":[7,166,167,164,145]
+  }
+ ,{"tb":1196032,"tbk":292
+  ,"tl":544513
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":15080,"wb":24120
+  ,"fs":[118,119,120,162,163,164,145]
+  }
+ ,{"tb":839680,"tbk":205
+  ,"tl":379229456172
+  ,"mb":180224,"mbk":44
+  ,"gb":180224,"gbk":44
+  ,"eb":65536,"ebk":16
+  ,"rb":159612632,"wb":13540
+  ,"fs":[118,135,168,164,145]
+  }
+ ,{"tb":1196032,"tbk":292
+  ,"tl":573454
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":15500,"wb":24420
+  ,"fs":[118,119,120,162,163,160,145]
+  }
+ ,{"tb":127936,"tbk":329
+  ,"tl":628417549357
+  ,"mb":18112,"mbk":46
+  ,"gb":39456,"gbk":97
+  ,"eb":12352,"ebk":26
+  ,"rb":23156710,"wb":125280
+  ,"fs":[7,166,167,160,145]
+  }
+ ,{"tb":72576,"tbk":991
+  ,"tl":838746
+  ,"mb":32,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":65984,"wb":65984
+  ,"fs":[7,169,170,144,145]
+  }
+ ,{"tb":75456,"tbk":1024
+  ,"tl":687339
+  ,"mb":32,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":68800,"wb":68800
+  ,"fs":[7,169,171,144,145]
+  }
+ ,{"tb":434176,"tbk":106
+  ,"tl":139710
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":2680,"wb":6760
+  ,"fs":[118,135,172,144,145]
+  }
+ ,{"tb":589824,"tbk":144
+  ,"tl":174269
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":3356,"wb":8980
+  ,"fs":[118,135,173,144,145]
+  }
+ ,{"tb":487424,"tbk":119
+  ,"tl":130202
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":3052,"wb":7620
+  ,"fs":[118,135,174,144,145]
+  }
+ ,{"tb":83008,"tbk":162
+  ,"tl":270395405015
+  ,"mb":9088,"mbk":24
+  ,"gb":9088,"gbk":24
+  ,"eb":35648,"ebk":55
+  ,"rb":8313056,"wb":62400
+  ,"fs":[7,166,175,144,145]
+  }
+ ,{"tb":61440,"tbk":15
+  ,"tl":66862
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":328,"wb":920
+  ,"fs":[118,135,165,160,145]
+  }
+ ,{"tb":917504,"tbk":224
+  ,"tl":407946793737
+  ,"mb":163840,"mbk":40
+  ,"gb":163840,"gbk":40
+  ,"eb":69632,"ebk":17
+  ,"rb":171940840,"wb":14744
+  ,"fs":[118,135,168,160,145]
+  }
+ ,{"tb":225280,"tbk":55
+  ,"tl":94401285341
+  ,"mb":16384,"mbk":4
+  ,"gb":24576,"gbk":6
+  ,"eb":49152,"ebk":12
+  ,"rb":38764232,"wb":2908
+  ,"fs":[118,135,176,144,145]
+  }
+ ,{"tb":483328,"tbk":118
+  ,"tl":142099
+  ,"mb":4096,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":3060,"wb":7580
+  ,"fs":[118,135,177,144,145]
+  }
+ ,{"tb":97856,"tbk":179
+  ,"tl":297365545532
+  ,"mb":13728,"mbk":33
+  ,"gb":13728,"gbk":33
+  ,"eb":47264,"ebk":71
+  ,"rb":9046912,"wb":72160
+  ,"fs":[7,166,178,144,145]
+  }
+ ,{"tb":147456,"tbk":36
+  ,"tl":60626354931
+  ,"mb":8192,"mbk":2
+  ,"gb":28672,"gbk":7
+  ,"eb":49152,"ebk":12
+  ,"rb":22229744,"wb":1932
+  ,"fs":[118,135,179,144,145]
+  }
+ ,{"tb":160,"tbk":8
+  ,"tl":3808
+  ,"mb":20,"mbk":1
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":304,"wb":168
+  ,"acc":[-15,24,32,-3,24,8]
+  ,"fs":[7,180]
+  }
+ ,{"tb":160,"tbk":8
+  ,"tl":6325
+  ,"mb":20,"mbk":1
+  ,"gb":20,"gbk":1
+  ,"eb":0,"ebk":0
+  ,"rb":304,"wb":168
+  ,"acc":[-15,24,32,-3,24,8]
+  ,"fs":[7,181]
+  }
+ ,{"tb":112,"tbk":1
+  ,"tl":14819306204
+  ,"mb":112,"mbk":1
+  ,"gb":112,"gbk":1
+  ,"eb":112,"ebk":1
+  ,"rb":520,"wb":720
+  ,"acc":[-8,16,-16,15,-8,16,-8,8,-8,15,-8,16,-24,15,-8,4,-16,2,-8,1]
+  ,"fs":[7,38,182]
+  }
+ ,{"tb":17636016128,"tbk":2152834
+  ,"tl":8359516924
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":8192,"ebk":1
+  ,"rb":436677404,"wb":9167304672
+  ,"fs":[118,130,131,183]
+  }
+ ,{"tb":1110656992,"tbk":7246233
+  ,"tl":9656395808
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":2110484128,"wb":1891771942
+  ,"fs":[7,134,131,183]
+  }
+ ,{"tb":5240557568,"tbk":1279433
+  ,"tl":1775107927
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":274974444,"wb":171393148
+  ,"fs":[118,135,136,131,183]
+  }
+ ,{"tb":20862566400,"tbk":5093400
+  ,"tl":4750744387
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":456208000,"wb":558704000
+  ,"fs":[118,138,139,131,183]
+  }
+ ,{"tb":24440012800,"tbk":5966800
+  ,"tl":6655554410
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":1006702400,"wb":683080000
+  ,"fs":[118,137,136,131,183]
+  }
+ ,{"tb":140,"tbk":7
+  ,"tl":3696
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":266,"wb":147
+  ,"acc":[-15,21,28,-3,21,7]
+  ,"fs":[7,184]
+  }
+ ,{"tb":655360,"tbk":2
+  ,"tl":2295809497
+  ,"mb":524288,"mbk":1
+  ,"gb":524288,"gbk":1
+  ,"eb":0,"ebk":0
+  ,"rb":48749264,"wb":8549664
+  ,"fs":[7,185,186,145]
+  }
+ ,{"tb":623616,"tbk":4
+  ,"tl":845088714
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":524288,"ebk":1
+  ,"rb":12025208,"wb":2486032
+  ,"fs":[7,185,187,145]
+  }
+ ,{"tb":132096,"tbk":2
+  ,"tl":1030890
+  ,"mb":0,"mbk":0
+  ,"gb":0,"gbk":0
+  ,"eb":0,"ebk":0
+  ,"rb":132096,"wb":132096
+  ,"fs":[7,185,188,145]
+  }
+ ]
+,"ftbl":
+ ["[root]"
+ ,"0x4840808: malloc (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x492B77D: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)"
+ ,"0x4004E7D: call_init (dl-init.c:74)"
+ ,"0x4004E7D: call_init (dl-init.c:26)"
+ ,"0x4004F63: _dl_init (dl-init.c:121)"
+ ,"0x401A83F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)"
+ ,"0x4840F83: operator new(unsigned long) (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x15318C: blt::gp::gp_program::create_threads() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1256C5: _GLOBAL__sub_I_fitness_cases (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x4C18DB5: call_init (libc-start.c:145)"
+ ,"0x4C18DB5: __libc_start_main@@GLIBC_2.34 (libc-start.c:347)"
+ ,"0x1263D0: (below main) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1531A0: blt::gp::gp_program::create_threads() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x48459F3: calloc (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x40112A2: calloc (rtld-malloc.h:44)"
+ ,"0x40112A2: allocate_dtv (dl-tls.c:370)"
+ ,"0x4011CCD: _dl_allocate_tls (dl-tls.c:629)"
+ ,"0x4C7B99F: allocate_stack (allocatestack.c:429)"
+ ,"0x4C7B99F: pthread_create@@GLIBC_2.34 (pthread_create.c:652)"
+ ,"0x495BEF8: std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)"
+ ,"0x1531BA: blt::gp::gp_program::create_threads() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15339B: void std::vector<std::unique_ptr<std::thread, std::default_delete<std::thread> >, std::allocator<std::unique_ptr<std::thread, std::default_delete<std::thread> > > >::_M_realloc_insert<std::thread*>(__gnu_cxx::__normal_iterator<std::unique_ptr<std::thread, std::default_delete<std::thread> >*, std::vector<std::unique_ptr<std::thread, std::default_delete<std::thread> >, std::allocator<std::unique_ptr<std::thread, std::default_delete<std::thread> > > > >, std::thread*&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1531EC: blt::gp::gp_program::create_threads() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x125760: std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1257B8: __static_initialization_and_destruction_0() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x4842263: operator new[](unsigned long) (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x13FA87: blt::logging::tag_map::tag_map(std::initializer_list<blt::logging::tag>) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x126059: __static_initialization_and_destruction_0() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x13FDBF: std::__detail::_MakeUniq<blt::logging::tag_map>::__single_object std::make_unique<blt::logging::tag_map, blt::logging::tag_map>(blt::logging::tag_map&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12606B: __static_initialization_and_destruction_0() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x13FDF2: std::__detail::_MakeUniq<blt::logging::tag_map>::__single_object std::make_unique<blt::logging::tag_map, blt::logging::tag_map>(blt::logging::tag_map&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x126710: std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122536: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x14A2A3: phmap::priv::raw_hash_set<phmap::priv::FlatHashMapPolicy<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, phmap::flat_hash_map<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::interval_t*, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::interval_t*> > > >, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, phmap::flat_hash_map<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::interval_t*, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::interval_t*> > > > > >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x14472B: blt::_internal::startInterval(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122541: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x144DFB: blt::_internal::startInterval(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x14495C: blt::_internal::startInterval(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x14AB84: phmap::priv::raw_hash_set<phmap::priv::FlatHashMapPolicy<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::interval_t*>, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::interval_t*> > >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x144A6C: blt::_internal::startInterval(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x4840718: malloc (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x4931502: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)"
+ ,"0x493B355: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)"
+ ,"0x493BCE7: __cxa_demangle (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)"
+ ,"0x130F7E: blt::gp::type blt::gp::type_provider::register_type<float>() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122643: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12FB21: phmap::priv::raw_hash_set<phmap::priv::FlatHashMapPolicy<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::gp::type>, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::gp::type> > >::resize(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x130A04: phmap::priv::raw_hash_set<phmap::priv::FlatHashMapPolicy<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::gp::type>, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::gp::type> > >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x13130B: blt::gp::type blt::gp::type_provider::register_type<float>() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x13167F: blt::gp::type blt::gp::type_provider::register_type<float>() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12FA1D: void std::vector<blt::gp::type_id, std::allocator<blt::gp::type_id> >::_M_realloc_insert<blt::gp::type_id>(__gnu_cxx::__normal_iterator<blt::gp::type_id*, std::vector<blt::gp::type_id, std::allocator<blt::gp::type_id> > >, blt::gp::type_id&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x128283: void blt::gp::operator_builder<context>::add_non_context_argument<float>(std::vector<blt::gp::type_id, std::allocator<blt::gp::type_id> >&) [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1227BF: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1227CE: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12CF14: blt::expanding_buffer<std::vector<blt::gp::operator_id, std::allocator<blt::gp::operator_id> >, true>::expand(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122836: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12E6ED: void std::vector<blt::gp::operator_id, std::allocator<blt::gp::operator_id> >::_M_realloc_insert<blt::gp::operator_id const&>(__gnu_cxx::__normal_iterator<blt::gp::operator_id*, std::vector<blt::gp::operator_id, std::allocator<blt::gp::operator_id> > >, blt::gp::operator_id const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12284D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12EB76: void std::vector<blt::gp::operator_info, std::allocator<blt::gp::operator_info> >::_M_realloc_insert<blt::gp::operator_info const&>(__gnu_cxx::__normal_iterator<blt::gp::operator_info*, std::vector<blt::gp::operator_info, std::allocator<blt::gp::operator_info> > >, blt::gp::operator_info const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12294C: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12E897: void std::vector<blt::gp::operator_info, std::allocator<blt::gp::operator_info> >::_M_realloc_insert<blt::gp::operator_info const&>(__gnu_cxx::__normal_iterator<blt::gp::operator_info*, std::vector<blt::gp::operator_info, std::allocator<blt::gp::operator_info> > >, blt::gp::operator_info const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12F1FA: void std::vector<std::function<void (std::ostream&, blt::gp::stack_allocator&)>, std::allocator<std::function<void (std::ostream&, blt::gp::stack_allocator&)> > >::_M_realloc_insert<std::function<void (std::ostream&, blt::gp::stack_allocator&)> >(__gnu_cxx::__normal_iterator<std::function<void (std::ostream&, blt::gp::stack_allocator&)>*, std::vector<std::function<void (std::ostream&, blt::gp::stack_allocator&)>, std::allocator<std::function<void (std::ostream&, blt::gp::stack_allocator&)> > > >, std::function<void (std::ostream&, blt::gp::stack_allocator&)>&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12298F: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12F3EB: void std::vector<std::optional<std::basic_string_view<char, std::char_traits<char> > >, std::allocator<std::optional<std::basic_string_view<char, std::char_traits<char> > > > >::_M_realloc_insert<std::optional<std::basic_string_view<char, std::char_traits<char> > > >(__gnu_cxx::__normal_iterator<std::optional<std::basic_string_view<char, std::char_traits<char> > >*, std::vector<std::optional<std::basic_string_view<char, std::char_traits<char> > >, std::allocator<std::optional<std::basic_string_view<char, std::char_traits<char> > > > > >, std::optional<std::basic_string_view<char, std::char_traits<char> > >&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1229E0: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122AC1: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122ACC: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122B39: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122C30: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122C6B: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122CB1: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122D88: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122D93: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122E00: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122EF7: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122F32: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x122F78: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123052: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12305D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12ED14: std::vector<blt::gp::operator_info, std::allocator<blt::gp::operator_info> >::push_back(blt::gp::operator_info const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1231C6: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123321: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123390: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123489: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1234C4: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12350A: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1235E9: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12374F: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1238AF: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123A15: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123B75: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123CE1: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12512D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123E95: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123F8C: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x123FC7: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12400D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x131F84: phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::operator_id>, phmap::Hash<blt::gp::operator_id>, phmap::EqualTo<blt::gp::operator_id>, std::allocator<blt::gp::operator_id> >::resize(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x132424: phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::operator_id>, phmap::Hash<blt::gp::operator_id>, phmap::EqualTo<blt::gp::operator_id>, std::allocator<blt::gp::operator_id> >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12832F: std::pair<phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::operator_id>, phmap::Hash<blt::gp::operator_id>, phmap::EqualTo<blt::gp::operator_id>, std::allocator<blt::gp::operator_id> >::iterator, bool> phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::operator_id>, phmap::Hash<blt::gp::operator_id>, phmap::EqualTo<blt::gp::operator_id>, std::allocator<blt::gp::operator_id> >::emplace_decomposable<blt::gp::operator_id, blt::gp::operator_id const&>(blt::gp::operator_id const&, unsigned long, blt::gp::operator_id const&) [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x124037: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1329C9: blt::gp::operator_builder<context>& blt::gp::operator_builder<context>::add_operator<op_x::{lambda(context const&)#1}, float, context const>(blt::gp::operation_t<op_x::{lambda(context const&)#1}, float (context const)> const&, bool) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x124052: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x132BB4: phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::type_id>, phmap::Hash<blt::gp::type_id>, phmap::EqualTo<blt::gp::type_id>, std::allocator<blt::gp::type_id> >::resize(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x133054: phmap::priv::raw_hash_set<phmap::priv::FlatHashSetPolicy<blt::gp::type_id>, phmap::Hash<blt::gp::type_id>, phmap::EqualTo<blt::gp::type_id>, std::allocator<blt::gp::type_id> >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1338E0: blt::gp::operator_builder<context>::build() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12405C: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12EFD2: void std::vector<std::pair<blt::gp::operator_id, unsigned long>, std::allocator<std::pair<blt::gp::operator_id, unsigned long> > >::_M_realloc_insert<blt::gp::operator_id const&, unsigned long&>(__gnu_cxx::__normal_iterator<std::pair<blt::gp::operator_id, unsigned long>*, std::vector<std::pair<blt::gp::operator_id, unsigned long>, std::allocator<std::pair<blt::gp::operator_id, unsigned long> > > >, blt::gp::operator_id const&, unsigned long&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x133487: blt::gp::operator_builder<context>::build() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x13366E: blt::gp::operator_builder<context>::build() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1333BA: blt::gp::operator_builder<context>::build() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x158360: blt::gp::tree_t blt::gp::create_tree<blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15CA88: blt::gp::ramped_half_initializer_t::generate(blt::gp::initializer_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x124335: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x158375: blt::gp::tree_t blt::gp::create_tree<blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15D27A: void std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> >::_M_realloc_insert<std::function<void (void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&)>&, std::function<void (std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&)>&, blt::gp::operator_id&, bool>(__gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > >, std::function<void (void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&)>&, std::function<void (std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&)>&, blt::gp::operator_id&, bool&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x158702: blt::gp::tree_t blt::gp::create_tree<blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x4845DA0: memalign (in /usr/libexec/valgrind/vgpreload_dhat-amd64-linux.so)"
+ ,"0x129674: std::_Function_handler<void (void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&), blt::gp::operation_t<lit::{lambda()#1}, float ()>::make_callable<context>() const::{lambda(void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&)#1}>::_M_invoke(std::_Any_data const&, void*&&, blt::gp::stack_allocator&, blt::gp::stack_allocator&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x158664: blt::gp::tree_t blt::gp::create_tree<blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15D0C0: void std::vector<blt::gp::individual, std::allocator<blt::gp::individual> >::_M_realloc_insert<blt::gp::tree_t>(__gnu_cxx::__normal_iterator<blt::gp::individual*, std::vector<blt::gp::individual, std::allocator<blt::gp::individual> > >, blt::gp::tree_t&&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15CCFA: blt::gp::ramped_half_initializer_t::generate(blt::gp::initializer_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15A9F0: blt::gp::tree_t blt::gp::create_tree<blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15C977: blt::gp::ramped_half_initializer_t::generate(blt::gp::initializer_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15AA05: blt::gp::tree_t blt::gp::create_tree<blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15AD92: blt::gp::tree_t blt::gp::create_tree<blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15ACF4: blt::gp::tree_t blt::gp::create_tree<blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}>(blt::gp::full_generator_t::generate(blt::gp::generator_arguments const&)::{lambda(blt::gp::gp_program&, std::stack<blt::gp::stack, std::deque<blt::gp::stack, std::allocator<blt::gp::stack> > >&, blt::gp::type_id, unsigned long)#1}&&, blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15CCA2: blt::gp::ramped_half_initializer_t::generate(blt::gp::initializer_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1243B3: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1564A0: blt::gp::tree_t::evaluate(void*) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x126CDC: std::_Function_handler<void (), blt::gp::gp_program::generate_population<fitness_function::{lambda(blt::gp::tree_t&, blt::gp::fitness_t&, unsigned long)#1} const>(blt::gp::type_id, fitness_function::{lambda(blt::gp::tree_t&, blt::gp::fitness_t&, unsigned long)#1} const&)::{lambda()#2}>::_M_invoke(std::_Any_data const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12C8D9: blt::gp::gp_program::evaluate_fitness_internal() (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x124401: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x156546: blt::gp::tree_t::evaluate(void*) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12E004: std::_Function_handler<void (std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&), blt::gp::operator_builder<context>::add_operator<lit::{lambda()#1}, float>(blt::gp::operation_t<lit::{lambda()#1}, float ()> const&, bool)::{lambda(std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&)#1}>::_M_invoke(std::_Any_data const&, std::optional<std::reference_wrapper<blt::gp::stack_allocator> >&&, blt::gp::stack_allocator&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15667D: blt::gp::tree_t::evaluate(void*) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12E1B4: std::_Function_handler<void (std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&), blt::gp::operator_builder<context>::add_operator<op_x::{lambda(context const&)#1}, float, context const>(blt::gp::operation_t<op_x::{lambda(context const&)#1}, float (context const)> const&, bool)::{lambda(std::optional<std::reference_wrapper<blt::gp::stack_allocator> >, blt::gp::stack_allocator&)#1}>::_M_invoke(std::_Any_data const&, std::optional<std::reference_wrapper<blt::gp::stack_allocator> >&&, blt::gp::stack_allocator&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x129454: std::_Function_handler<void (void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&), blt::gp::operation_t<op_x::{lambda(context const&)#1}, float (context const)>::make_callable<op_x>() const::{lambda(void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&)#1}>::_M_invoke(std::_Any_data const&, void*&&, blt::gp::stack_allocator&, blt::gp::stack_allocator&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1565E6: blt::gp::tree_t::evaluate(void*) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12446D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1244D2: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x14AA32: phmap::priv::raw_hash_set<phmap::priv::FlatHashMapPolicy<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, blt::interval_t*>, phmap::priv::StringHashEqT<char>::Hash, phmap::priv::StringHashEqT<char>::Eq, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, blt::interval_t*> > >::prepare_insert(unsigned long) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x154708: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127946: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12462D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1548AB: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1549A7: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127C77: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1268EF: blt::gp::individual& std::vector<blt::gp::individual, std::allocator<blt::gp::individual> >::emplace_back<blt::gp::individual>(blt::gp::individual&&) [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127DDE: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127F26: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127FE6: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12807E: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127731: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1277F7: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12789B: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1547E8: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127D3F: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x154077: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127ADE: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15412E: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15A831: blt::gp::grow_generator_t::generate(blt::gp::generator_arguments const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x154426: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1279ED: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x154340: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x153DBC: void std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> >::_M_range_insert<__gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > > >(__gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > >, __gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > >, __gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > >, std::forward_iterator_tag) [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15443B: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x154498: blt::gp::mutation_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155AA6: void std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> >::_M_realloc_insert<blt::gp::op_container_t const&>(__gnu_cxx::__normal_iterator<blt::gp::op_container_t*, std::vector<blt::gp::op_container_t, std::allocator<blt::gp::op_container_t> > >, blt::gp::op_container_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1550E5: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155161: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1551F8: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155267: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155335: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155625: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155408: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1552D2: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x15560D: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x155399: blt::gp::crossover_t::apply(blt::gp::gp_program&, blt::gp::tree_t const&, blt::gp::tree_t const&) (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12467A: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12475B: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x1247AC: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x12497D: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x124A4A: main (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x126AFC: blt::gp::individual& std::vector<blt::gp::individual, std::allocator<blt::gp::individual> >::emplace_back<blt::gp::tree_t>(blt::gp::tree_t&&) [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127AE9: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127E76: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ,"0x127EAF: blt::gp::default_next_pop_creator<blt::gp::select_tournament_t, blt::gp::select_tournament_t, blt::gp::select_tournament_t>::{lambda(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&)#1}::operator()(blt::gp::selector_args&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&, blt::gp::select_tournament_t&&) const [clone .isra.0] (in /home/brett/Documents/code/c++/blt-gp/cmake-build-release/blt-SR-playground-example)"
+ ]
+}
