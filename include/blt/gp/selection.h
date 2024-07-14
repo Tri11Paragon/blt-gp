@@ -75,10 +75,7 @@ namespace blt::gp
             }
             
             for (blt::size_t i = 0; i < config.elites; i++)
-            {
-//                BLT_DEBUG("%lf at %ld", values[i].second, values[i].first);
                 next_pop.get_individuals().push_back(current_pop.get_individuals()[values[i].first]);
-            }
         }
         
         while (next_pop.get_individuals().size() < config.population_size)

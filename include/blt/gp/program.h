@@ -41,6 +41,7 @@
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
 #include <blt/std/memory.h>
+#include <blt/std/thread.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/typesystem.h>
 #include <blt/gp/operations.h>
@@ -53,79 +54,6 @@
 
 namespace blt::gp
 {
-    
-    namespace detail
-    {
-        // Author: Kirk Saunders (ks825016@ohio.edu)
-        // Description: Simple implementation of a thread barrier
-        //              using C++ condition variables.
-        // Date: 2/17/2020
-        
-        // https://github.com/kirksaunders/barrier/blob/master/barrier.hpp
-        class barrier
-        {
-            public:
-                // Construct barrier for use with num threads.
-                explicit barrier(std::atomic_bool& exit_cond, std::size_t num)
-                        : num_threads(num),
-                          wait_count(0),
-                          instance(0),
-                          mut(),
-                          cv(),
-                          exit_cond(exit_cond)
-                {
-                    if (num == 0)
-                    {
-                        throw std::invalid_argument("Barrier thread count cannot be 0");
-                    }
-                }
-                
-                // disable copying of barrier
-                barrier(const barrier&) = delete;
-                
-                barrier& operator=(const barrier&) = delete;
-                
-                // This function blocks the calling thread until
-                // all threads (specified by num_threads) have
-                // called it. Blocking is achieved using a
-                // call to condition_variable.wait().
-                void wait()
-                {
-                    std::unique_lock<std::mutex> lock(mut); // acquire lock
-                    std::size_t inst = instance; // store current instance for comparison
-                    // in predicate
-                    
-                    if (++wait_count == num_threads)
-                    { // all threads reached barrier
-                        wait_count = 0; // reset wait_count
-                        instance++; // increment instance for next use of barrier and to
-                        // pass condition variable predicate
-                        cv.notify_all();
-                    } else
-                    { // not all threads have reached barrier
-                        cv.wait(lock, [this, &inst]() { return (instance != inst || exit_cond); });
-                        // NOTE: The predicate lambda here protects against spurious
-                        //       wakeups of the thread. As long as this->instance is
-                        //       equal to inst, the thread will not wake.
-                        //       this->instance will only increment when all threads
-                        //       have reached the barrier and are ready to be unblocked.
-                    }
-                }
-                
-                void notify_all()
-                {
-                    cv.notify_all();
-                }
-            
-            private:
-                std::size_t num_threads; // number of threads using barrier
-                std::size_t wait_count; // counter to keep track of waiting threads
-                std::size_t instance; // counter to keep track of barrier use count
-                std::mutex mut; // mutex used to protect resources
-                std::condition_variable cv; // condition variable used to block threads
-                std::atomic_bool& exit_cond; // used to signal we should exit
-        };
-    }
     
     struct argc_t
     {
@@ -420,6 +348,7 @@ namespace blt::gp
                         }
                         thread_helper.barrier.wait();
                     });
+                    thread_helper.thread_function_condition.notify_all();
                 }
                 evaluate_fitness_internal();
             }
@@ -585,13 +514,16 @@ namespace blt::gp
             struct concurrency_storage
             {
                 std::vector<std::unique_ptr<std::thread>> threads;
+                
                 std::mutex thread_function_control;
+                std::condition_variable thread_function_condition {};
+                
                 std::atomic_uint64_t evaluation_left = 0;
                 
                 std::atomic_bool lifetime_over = false;
-                detail::barrier barrier;
+                blt::barrier barrier;
                 
-                explicit concurrency_storage(blt::size_t threads): barrier(lifetime_over, threads)
+                explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
                 {}
             } thread_helper{config.threads};
             

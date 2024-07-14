@@ -63,14 +63,12 @@ namespace blt::gp
                 {
                     if (execution_function == nullptr)
                     {
-                        std::scoped_lock lock(thread_helper.thread_function_control);
-                        if (thread_execution_service != nullptr)
-                            execution_function = thread_execution_service.load(std::memory_order_acquire);
-                        std::cout.flush();
+                        std::unique_lock lock(thread_helper.thread_function_control);
+                        thread_helper.thread_function_condition.wait(lock, [this]() { return thread_execution_service != nullptr; });
+                        execution_function = thread_execution_service.load(std::memory_order_acquire);
                     }
                     if (execution_function != nullptr)
                         (*execution_function)(i);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }));
         }
