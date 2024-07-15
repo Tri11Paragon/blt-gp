@@ -412,7 +412,7 @@ namespace blt::gp
             
             [[nodiscard]] bool should_thread_terminate() const
             {
-                return should_terminate() && thread_helper.lifetime_over;
+                return should_terminate() || thread_helper.lifetime_over;
             }
             
             [[nodiscard]] random_t& get_random() const;
