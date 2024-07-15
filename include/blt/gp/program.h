@@ -262,7 +262,8 @@ namespace blt::gp
                 mutation_selection.pre_process(*this, current_pop, current_stats);
                 reproduction_selection.pre_process(*this, current_pop, current_stats);
                 
-                func(get_selector_args(), std::forward<Crossover>(crossover_selection), std::forward<Mutation>(mutation_selection),
+                auto args = get_selector_args();
+                func(args, std::forward<Crossover>(crossover_selection), std::forward<Mutation>(mutation_selection),
                      std::forward<Reproduction>(reproduction_selection));
             }
             

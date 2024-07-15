@@ -38,6 +38,8 @@ namespace blt::gp
         double crossover_chance = 0.8;
         // percent chance that we will do mutation
         double mutation_chance = 0.1;
+        // percent chance we will do reproduction (copy individual)
+        double reproduction_chance = 0;
         // everything else will just be selected
         
         blt::size_t elites = 0;
@@ -51,8 +53,8 @@ namespace blt::gp
         blt::size_t threads = std::thread::hardware_concurrency();
         // number of elements each thread should pull per execution. this is for granularity performance and can be optimized for better results!
         blt::size_t evaluation_size = 4;
-                
-                // default config (ramped half-and-half init) or for buildering
+        
+        // default config (ramped half-and-half init) or for buildering
         prog_config_t();
         
         // default config with a user specified initializer
@@ -141,6 +143,12 @@ namespace blt::gp
         prog_config_t& set_evaluation_size(blt::size_t s)
         {
             evaluation_size = s;
+            return *this;
+        }
+        
+        prog_config_t& set_reproduction_chance(double chance)
+        {
+            reproduction_chance = chance;
             return *this;
         }
     };
