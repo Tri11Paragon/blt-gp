@@ -283,7 +283,7 @@ namespace blt::gp
              * NOTE: 0 is considered the best, in terms of standardized fitness
              */
             template<typename FitnessFunc>
-            void generate_population(type_id root_type, FitnessFunc& fitness_function)
+            void generate_population(type_id root_type, FitnessFunc& fitness_function, bool eval_fitness_now = true)
             {
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
@@ -351,7 +351,8 @@ namespace blt::gp
                     });
                     thread_helper.thread_function_condition.notify_all();
                 }
-                evaluate_fitness_internal();
+                if (eval_fitness_now)
+                    evaluate_fitness_internal();
             }
             
             void next_generation()

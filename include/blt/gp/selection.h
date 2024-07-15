@@ -52,7 +52,7 @@ namespace blt::gp
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
-//                    BLT_INFO("%lf >= %lf? // %lf", ind.second.fitness.adjusted_fitness, values[i].second, ind.second.fitness.raw_fitness);
+                    //BLT_INFO("%lf >= %lf? // %lf", ind.second.fitness.adjusted_fitness, values[i].second, ind.second.fitness.raw_fitness);
                     if (ind.second.fitness.adjusted_fitness >= values[i].second)
                     {
                         bool doesnt_contain = true;
@@ -74,7 +74,7 @@ namespace blt::gp
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>
-    constexpr inline auto default_next_pop_creator = [](
+    constexpr inline auto proportionate_next_pop_creator = [](
             const selector_args& args, Crossover crossover_selection, Mutation mutation_selection, Reproduction reproduction_selection) {
         auto& [program, next_pop, current_pop, current_stats, config, random] = args;
         
@@ -132,7 +132,7 @@ namespace blt::gp
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>
-    constexpr inline auto non_deterministic_next_pop_creator = [](
+    constexpr inline auto default_next_pop_creator = [](
             const blt::gp::selector_args& args, Crossover crossover_selection, Mutation mutation_selection, Reproduction reproduction_selection) {
         auto& [program, next_pop, current_pop, current_stats, config, random] = args;
         
@@ -140,39 +140,46 @@ namespace blt::gp
         
         while (next_pop.get_individuals().size() < config.population_size)
         {
-            // everyone gets a chance once per loop.
-            if (random.choice(config.crossover_chance))
-            {
-                // crossover
-                auto& p1 = crossover_selection.select(program, current_pop, current_stats);
-                auto& p2 = crossover_selection.select(program, current_pop, current_stats);
-                
-                auto results = config.crossover.get().apply(program, p1, p2);
-                
-                // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
-                if (results)
-                {
-                    next_pop.get_individuals().emplace_back(std::move(results->child1));
-                    // annoying check
-                    if (next_pop.get_individuals().size() < config.population_size)
-                        next_pop.get_individuals().emplace_back(std::move(results->child2));
-                }
-            }
-            if (next_pop.get_individuals().size() >= config.population_size)
-                break;
-            if (random.choice(config.mutation_chance))
-            {
-                // mutation
-                auto& p = mutation_selection.select(program, current_pop, current_stats);
-                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p)));
-            }
-            if (next_pop.get_individuals().size() >= config.population_size)
-                break;
-            if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
-            {
-                // reproduction
-                auto& p = reproduction_selection.select(program, current_pop, current_stats);
-                next_pop.get_individuals().push_back(individual{p});
+            int sel = random.get_i32(0, 3);
+            switch (sel){
+                case 0:
+                    // everyone gets a chance once per loop.
+                    if (random.choice(config.crossover_chance))
+                    {
+                        // crossover
+                        auto& p1 = crossover_selection.select(program, current_pop, current_stats);
+                        auto& p2 = crossover_selection.select(program, current_pop, current_stats);
+                        
+                        auto results = config.crossover.get().apply(program, p1, p2);
+                        
+                        // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
+                        if (results)
+                        {
+                            next_pop.get_individuals().emplace_back(std::move(results->child1));
+                            // annoying check
+                            if (next_pop.get_individuals().size() < config.population_size)
+                                next_pop.get_individuals().emplace_back(std::move(results->child2));
+                        }
+                    }
+                    break;
+                case 1:
+                    if (random.choice(config.mutation_chance))
+                    {
+                        // mutation
+                        auto& p = mutation_selection.select(program, current_pop, current_stats);
+                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p)));
+                    }
+                    break;
+                case 2:
+                    if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
+                    {
+                        // reproduction
+                        auto& p = reproduction_selection.select(program, current_pop, current_stats);
+                        next_pop.get_individuals().push_back(individual{p});
+                    }
+                    break;
+                default:
+                    BLT_ABORT("This is not possible!");
             }
         }
     };
