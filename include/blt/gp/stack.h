@@ -22,6 +22,7 @@
 #include <blt/std/types.h>
 #include <blt/std/assert.h>
 #include <blt/std/logging.h>
+#include <blt/std/allocator.h>
 #include <blt/gp/fwdecl.h>
 #include <utility>
 #include <stdexcept>
@@ -32,6 +33,110 @@
 
 namespace blt::gp
 {
+    class huge_allocator
+    {
+        public:
+            constexpr static blt::size_t HUGE_PAGE_SIZE = BLT_2MB_SIZE;
+            static_assert(((HUGE_PAGE_SIZE & (HUGE_PAGE_SIZE - 1)) == 0) && "Must be a power of two!");
+            
+            void* allocate(blt::size_t bytes)
+            {
+                std::scoped_lock lock(mutex);
+                if (bytes > HUGE_PAGE_SIZE)
+                    throw std::runtime_error("Unable to allocate more than 2mb of space at a time!");
+                if (head == nullptr || head.load()->remaining_bytes() < bytes)
+                    push_block();
+                auto ptr = head.load()->metadata.offset;
+                head.load()->metadata.offset += bytes;
+                head.load()->metadata.allocated_objects++;
+                return ptr;
+            }
+            
+            void deallocate(void* ptr)
+            {
+                std::scoped_lock lock(mutex);
+                auto block = to_block(ptr);
+                block->metadata.allocated_objects--;
+                if (block->metadata.allocated_objects == 0)
+                    delete_block(block);
+            }
+        
+        private:
+            struct block
+            {
+                struct block_metadata_t
+                {
+                    blt::ptrdiff_t allocated_objects = 0;
+                    block* next = nullptr;
+                    block* prev = nullptr;
+                    blt::u8* offset = nullptr;
+                } metadata;
+                blt::u8 buffer[HUGE_PAGE_SIZE - sizeof(block_metadata_t)]{};
+                
+                block()
+                {
+                    metadata.offset = buffer;
+                }
+                
+                void reset()
+                {
+                    metadata.allocated_objects = 0;
+                    metadata.offset = buffer;
+                    metadata.next = nullptr;
+                    metadata.prev = nullptr;
+                }
+                
+                blt::size_t remaining_bytes()
+                {
+                    static constexpr blt::size_t BLOCK_REMAINDER = HUGE_PAGE_SIZE - sizeof(block_metadata_t);
+                    return BLOCK_REMAINDER - static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
+                }
+            };
+            
+            template<typename T>
+            static inline block* to_block(T* p)
+            {
+                return reinterpret_cast<block*>(reinterpret_cast<std::uintptr_t>(p) & static_cast<std::uintptr_t>(~(HUGE_PAGE_SIZE - 1)));
+            }
+            
+            void delete_block(block* b)
+            {
+                if (b->metadata.prev != nullptr)
+                    b->metadata.prev->metadata.next = b->metadata.next;
+                deallocated_blocks.push_back(b);
+            }
+            
+            void push_block()
+            {
+                block * block;
+                if (deallocated_blocks.empty())
+                    block = allocate_block();
+                else
+                {
+                    block = deallocated_blocks.back();
+                    deallocated_blocks.pop_back();
+                    block->reset();
+                }
+                block->metadata.prev = head;
+                if (head != nullptr)
+                    head.load()->metadata.next = block;
+                head = block;
+            }
+            
+            static block* allocate_block()
+            {
+                auto* buffer = reinterpret_cast<block*>(std::aligned_alloc(HUGE_PAGE_SIZE, HUGE_PAGE_SIZE));
+                new(buffer) block{};
+                return buffer;
+            }
+            
+            std::atomic<block*> head = nullptr;
+            std::mutex mutex;
+            std::vector<block*> deallocated_blocks;
+    };
+    
+    huge_allocator& get_allocator();
+    
     class stack_allocator
     {
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
@@ -380,6 +485,7 @@ namespace blt::gp
             {
                 auto size = to_nearest_page_size(bytes);
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
+                //auto* data = get_allocator().allocate(size);
                 new(data) block{size};
                 return reinterpret_cast<block*>(data);
             }
@@ -391,6 +497,7 @@ namespace blt::gp
                     block* ptr = current;
                     current = current->metadata.prev;
                     std::free(ptr);
+                    //get_allocator().deallocate(ptr);
                 }
             }
             
@@ -403,7 +510,7 @@ namespace blt::gp
                     head = old;
                     head->reset();
                 }
-                    //free_chain(old);
+                //free_chain(old);
                 // required to prevent silly memory :3
 //                if (head != nullptr)
 //                    head->metadata.next = nullptr;
