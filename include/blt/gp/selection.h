@@ -52,7 +52,8 @@ namespace blt::gp
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
-                    //BLT_INFO("%lf >= %lf? // %lf", ind.second.fitness.adjusted_fitness, values[i].second, ind.second.fitness.raw_fitness);
+                    BLT_INFO("%lf >= %lf? // %lf (indexes: %ld %ld)", ind.second.fitness.adjusted_fitness, values[i].second,
+                             ind.second.fitness.raw_fitness, ind.first, values[i].first);
                     if (ind.second.fitness.adjusted_fitness >= values[i].second)
                     {
                         bool doesnt_contain = true;
@@ -141,7 +142,8 @@ namespace blt::gp
         while (next_pop.get_individuals().size() < config.population_size)
         {
             int sel = random.get_i32(0, 3);
-            switch (sel){
+            switch (sel)
+            {
                 case 0:
                     // everyone gets a chance once per loop.
                     if (random.choice(config.crossover_chance))

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.81)
+project(blt-gp VERSION 0.0.82)
 
 include(CTest)
 
@@ -14,7 +14,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-add_subdirectory(lib/blt)
+if (NOT TARGET BLT)
+    add_subdirectory(lib/blt)
+endif()
 
 include_directories(include/)
 file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")

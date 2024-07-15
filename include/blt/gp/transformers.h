@@ -77,8 +77,8 @@ namespace blt::gp
         public:
             struct config_t
             {
-                blt::size_t replacement_min_depth = 3;
-                blt::size_t replacement_max_depth = 7;
+                blt::size_t replacement_min_depth = 2;
+                blt::size_t replacement_max_depth = 6;
                 
                 std::reference_wrapper<tree_generator_t> generator;
                 
