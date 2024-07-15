@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.77)
+project(blt-gp VERSION 0.0.78)
 
 include(CTest)
 
@@ -23,6 +23,8 @@ add_library(blt-gp ${PROJECT_BUILD_FILES})
 
 target_compile_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
 target_link_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
+
+target_include_directories(blt-gp PUBLIC include/)
 
 target_link_libraries(blt-gp PRIVATE BLT Threads::Threads)
 target_compile_definitions(blt-gp PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
