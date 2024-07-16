@@ -52,8 +52,8 @@ namespace blt::gp
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
-                    BLT_INFO("%lf >= %lf? // %lf (indexes: %ld %ld)", ind.second.fitness.adjusted_fitness, values[i].second,
-                             ind.second.fitness.raw_fitness, ind.first, values[i].first);
+//                    BLT_INFO("%lf >= %lf? // %lf (indexes: %ld %ld)", ind.second.fitness.adjusted_fitness, values[i].second,
+//                             ind.second.fitness.raw_fitness, ind.first, values[i].first);
                     if (ind.second.fitness.adjusted_fitness >= values[i].second)
                     {
                         bool doesnt_contain = true;

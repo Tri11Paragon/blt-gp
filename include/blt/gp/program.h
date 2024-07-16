@@ -114,7 +114,7 @@ namespace blt::gp
                 
                 if constexpr (sizeof...(Args) > 0)
                 {
-                    (add_non_context_argument<Args>(info.argument_types), ...);
+                    (add_non_context_argument<detail::remove_cv_ref<Args>>(info.argument_types), ...);
                 }
                 
                 info.argc.argc_context = info.argc.argc = sizeof...(Args);

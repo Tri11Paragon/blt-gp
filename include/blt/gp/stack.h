@@ -108,7 +108,7 @@ namespace blt::gp
             
             void push_block()
             {
-                block * block;
+                block* block;
                 if (deallocated_blocks.empty())
                     block = allocate_block();
                 else
@@ -141,6 +141,8 @@ namespace blt::gp
     {
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
+            template<typename T>
+            using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
         public:
             struct size_data_t
             {
@@ -160,30 +162,30 @@ namespace blt::gp
             template<typename T>
             void push(T&& value)
             {
-                using NO_REF_T = std::remove_reference_t<T>;
+                using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
                 static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
-                auto ptr = allocate_bytes<T>();
-                head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<T>();
+                auto ptr = allocate_bytes<NO_REF_T>();
+                head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<NO_REF_T>();
                 new(ptr) NO_REF_T(std::forward<T>(value));
             }
             
             template<typename T>
             T pop()
             {
-                using NO_REF_T = std::remove_reference_t<T>;
+                using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
                 static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
-                constexpr static auto TYPE_SIZE = aligned_size<T>();
+                constexpr static auto TYPE_SIZE = aligned_size<NO_REF_T>();
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
-                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
+                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
                 if (head->used_bytes_in_block() == 0)
                     move_back();
                 // make copy
-                T t = *reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE);
+                NO_REF_T t = *reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE);
                 // call destructor
-                reinterpret_cast<T*>(head->metadata.offset - TYPE_SIZE)->~T();
+                reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE)->~NO_REF_T();
                 // move offset back
                 head->metadata.offset -= TYPE_SIZE;
                 return t;
@@ -192,7 +194,8 @@ namespace blt::gp
             template<typename T>
             T& from(blt::size_t bytes)
             {
-                constexpr static auto TYPE_SIZE = aligned_size<T>();
+                using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
+                constexpr static auto TYPE_SIZE = aligned_size<NO_REF_T>();
                 auto remaining_bytes = static_cast<blt::i64>(bytes);
                 blt::i64 bytes_into_block = 0;
                 block* blk = head;
@@ -211,10 +214,10 @@ namespace blt::gp
                 }
                 if (blk == nullptr)
                     throw std::runtime_error("Some nonsense is going on. This function already smells");
-                if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
+                if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(TYPE_SIZE))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
-                            blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(T))).c_str());
-                return *reinterpret_cast<T*>((blk->metadata.offset - bytes_into_block) - TYPE_SIZE);
+                            blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
+                return *reinterpret_cast<NO_REF_T*>((blk->metadata.offset - bytes_into_block) - TYPE_SIZE);
             }
             
             void pop_bytes(blt::ptrdiff_t bytes)
@@ -264,13 +267,13 @@ namespace blt::gp
              */
             void transfer_bytes(stack_allocator& to, blt::size_t bytes)
             {
+                while (!empty() && head->used_bytes_in_block() == 0)
+                    move_back();
                 if (empty())
                     throw std::runtime_error("This stack is empty!");
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
-                    BLT_ABORT("This stack doesn't contain enough data for this type! This is an invalid runtime state!");
-                
-                if (head->used_bytes_in_block() == 0)
-                    move_back();
+                    BLT_ABORT(("This stack doesn't contain enough data for this type! " + std::to_string(head->used_bytes_in_block()) + " / " +
+                               std::to_string(bytes) + " This is an invalid runtime state!").c_str());
                 
                 auto type_size = aligned_size(bytes);
                 auto ptr = to.allocate_bytes(bytes);
@@ -283,7 +286,8 @@ namespace blt::gp
             void call_destructors()
             {
                 blt::size_t offset = 0;
-                ((from<Args>(offset).~Args(), offset += stack_allocator::aligned_size<Args>()), ...);
+                
+                ((from<NO_REF_T<Args>>(offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T<Args>>()), ...);
             }
             
             [[nodiscard]] bool empty() const
@@ -374,7 +378,7 @@ namespace blt::gp
             template<typename T>
             static inline constexpr blt::size_t aligned_size() noexcept
             {
-                return aligned_size(sizeof(T));
+                return aligned_size(sizeof(NO_REF_T<T>));
             }
             
             static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
@@ -431,7 +435,7 @@ namespace blt::gp
             template<typename T>
             void* allocate_bytes()
             {
-                return allocate_bytes(sizeof(T));
+                return allocate_bytes(sizeof(NO_REF_T<T>));
             }
             
             void* allocate_bytes(blt::size_t size)
@@ -506,10 +510,7 @@ namespace blt::gp
                 auto old = head;
                 head = head->metadata.prev;
                 if (head == nullptr)
-                {
                     head = old;
-                    head->reset();
-                }
                 //free_chain(old);
                 // required to prevent silly memory :3
 //                if (head != nullptr)

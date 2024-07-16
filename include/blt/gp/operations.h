@@ -78,7 +78,7 @@ namespace blt::gp
         {
             blt::size_t offset = 0;
             blt::size_t current_index = 0;
-            ((offset += (current_index++ > index ? stack_allocator::aligned_size<Args>() : 0)), ...);
+            ((offset += (current_index++ > index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
             return offset;
         }
         
@@ -87,7 +87,8 @@ namespace blt::gp
                                                                 ExtraArgs&& ... args)
         {
             // expands Args and indices, providing each argument with its index calculating the current argument byte offset
-            return std::forward<Func>(func)(std::forward<ExtraArgs>(args)..., allocator.from<Args>(getByteOffset<indices>())...);
+            return std::forward<Func>(func)(std::forward<ExtraArgs>(args)...,
+                                            allocator.from<detail::remove_cv_ref<Args>>(getByteOffset<indices>())...);
         }
         
         template<typename Func, typename... ExtraArgs>
@@ -95,8 +96,8 @@ namespace blt::gp
         {
             constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
             Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
-            read_allocator.call_destructors<Args...>();
-            read_allocator.pop_bytes((stack_allocator::aligned_size<Args>() + ...));
+            read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
+            read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
             return ret;
         }
     };
