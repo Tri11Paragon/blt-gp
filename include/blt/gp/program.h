@@ -506,7 +506,7 @@ namespace blt::gp
             
             operator_storage storage;
             population_t current_pop;
-            population_stats current_stats;
+            population_stats current_stats {};
             population_t next_pop;
             std::atomic_uint64_t current_generation = 0;
             

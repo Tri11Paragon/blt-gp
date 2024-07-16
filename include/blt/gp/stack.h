@@ -164,6 +164,7 @@ namespace blt::gp
             {
                 using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
                 static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
+                static_assert(alignof(NO_REF_T) <= MAX_ALIGNMENT && "Type must not be greater than the max alignment!");
                 auto ptr = allocate_bytes<NO_REF_T>();
                 head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<NO_REF_T>();
                 new(ptr) NO_REF_T(std::forward<T>(value));
@@ -487,7 +488,7 @@ namespace blt::gp
             
             static block* allocate_block(blt::size_t bytes)
             {
-                auto size = to_nearest_page_size(bytes);
+                auto size = to_nearest_page_size(bytes + sizeof(typename block::block_metadata_t));
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 //auto* data = get_allocator().allocate(size);
                 new(data) block{size};

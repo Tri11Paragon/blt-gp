@@ -152,7 +152,7 @@ namespace blt::gp
         std::atomic<double> average_fitness = 0;
         std::atomic<double> best_fitness = 0;
         std::atomic<double> worst_fitness = 1;
-        std::vector<double> normalized_fitness;
+        std::vector<double> normalized_fitness{};
         
         void clear()
         {
