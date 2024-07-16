@@ -279,26 +279,31 @@ float nyah(float a, int b, bool c)
     return a + static_cast<float>(b) * c;
 }
 
-struct silly
+struct bytes_16_struct
 {
     unsigned long bruh;
     int nya;
     
-    friend std::ostream& operator<<(std::ostream& out, const silly& s)
+    friend std::ostream& operator<<(std::ostream& out, const bytes_16_struct& s)
     {
         out << "[" << s.bruh << " " << s.nya << "]";
         return out;
     }
 };
 
-struct large
+struct bytes_256_struct
 {
     unsigned char data[256];
 };
 
-struct super_large
+struct bytes_5129_struct
 {
     unsigned char data[5129];
+};
+
+struct bytes_4096_page_struct
+{
+    unsigned char data[4096 - 32];
 };
 
 struct context
@@ -330,8 +335,8 @@ int main()
 {
     constexpr blt::size_t MAX_ALIGNMENT = 8;
     test();
-    std::cout << alignof(silly) << " " << sizeof(silly) << std::endl;
-    std::cout << alignof(super_large) << " " << sizeof(super_large) << " " << ((sizeof(super_large) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
+    std::cout << alignof(bytes_16_struct) << " " << sizeof(bytes_16_struct) << std::endl;
+    std::cout << alignof(bytes_5129_struct) << " " << sizeof(bytes_5129_struct) << " " << ((sizeof(bytes_5129_struct) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1))
               << std::endl;
     std::cout << ((sizeof(char) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << " "
               << ((sizeof(short) + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1)) << std::endl;
@@ -359,33 +364,53 @@ int main()
     std::cout << std::endl;
     
     std::cout << "Is empty? " << alloc.empty() << std::endl;
-    alloc.push(silly{});
-    alloc.push(large{});
-    alloc.push(super_large{});
-    alloc.push(silly{25, 24});
-    alloc.push(large{});
+    
+    alloc.push(bytes_4096_page_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.push(bytes_16_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.pop<bytes_16_struct>();
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.pop<bytes_4096_page_struct>();
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
     
     std::cout << std::endl;
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
-    alloc.pop<large>();
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
-    std::cout << alloc.pop<silly>() << std::endl;
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
-    alloc.pop<super_large>();
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
-    alloc.pop<large>();
-    std::cout << "Is empty? " << alloc.empty() << std::endl;
-    std::cout << alloc.pop<silly>() << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
     std::cout << std::endl;
+    
+    alloc.push(bytes_16_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.push(bytes_256_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.push(bytes_5129_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.push(bytes_16_struct{25, 24});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    alloc.push(bytes_256_struct{});
+    std::cout << "Used bytes: " << alloc.size() << std::endl;
+    
+    std::cout << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
+    alloc.pop<bytes_256_struct>();
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
+    std::cout << alloc.pop<bytes_16_struct>() << std::endl;
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
+    alloc.pop<bytes_5129_struct>();
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
+    alloc.pop<bytes_256_struct>();
+    std::cout << "Is empty? " << alloc.empty() << " " << alloc.size() << std::endl;
+    std::cout << alloc.pop<bytes_16_struct>() << std::endl;
+    std::cout << std::endl;
+    
     
     std::cout << "Is empty? " << alloc.empty() << " bytes left: " << alloc.bytes_in_head() << std::endl;
     std::cout << std::endl;
     
-    alloc.push(silly{2, 5});
-    alloc.push(large{});
-    alloc.push(super_large{});
-    alloc.push(silly{80, 10});
-    alloc.push(large{});
+    alloc.push(bytes_16_struct{2, 5});
+    alloc.push(bytes_256_struct{});
+    alloc.push(bytes_5129_struct{});
+    alloc.push(bytes_16_struct{80, 10});
+    alloc.push(bytes_256_struct{});
     alloc.push(50);
     alloc.push(550.3f);
     alloc.push(20.1230345);

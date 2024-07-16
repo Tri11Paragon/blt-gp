@@ -30,6 +30,7 @@
 #include <memory>
 #include <type_traits>
 #include <cstring>
+#include <iostream>
 
 namespace blt::gp
 {
@@ -150,7 +151,36 @@ namespace blt::gp
                 blt::size_t total_used_bytes = 0;
                 blt::size_t total_remaining_bytes = 0;
                 blt::size_t total_no_meta_bytes = 0;
+                
+                blt::size_t total_dealloc = 0;
+                blt::size_t total_dealloc_used = 0;
+                blt::size_t total_dealloc_remaining = 0;
+                blt::size_t total_dealloc_no_meta = 0;
+                
                 blt::size_t blocks = 0;
+                
+                friend std::ostream& operator<<(std::ostream& stream, const size_data_t& data)
+                {
+                    stream << "[";
+                    stream << data.total_used_bytes << "/";
+                    stream << data.total_size_bytes << "(";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes)) << "%), ";
+                    stream << data.total_used_bytes << "/";
+                    stream << data.total_no_meta_bytes << "(";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes)) << "%), (empty space: ";
+                    stream << data.total_remaining_bytes << ") blocks: " << data.blocks << " || unallocated space: ";
+                    stream << data.total_dealloc_used << "/";
+                    stream << data.total_dealloc;
+                    if (static_cast<double>(data.total_dealloc) > 0)
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc)) << "%)";
+                    stream << ", ";
+                    stream << data.total_dealloc_used << "/";
+                    stream << data.total_dealloc_no_meta;
+                    if (data.total_dealloc_no_meta > 0)
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta)) << "%)";
+                    stream << ", (empty space: " << data.total_dealloc_remaining << ")]";
+                    return stream;
+                }
             };
             
             
@@ -178,11 +208,11 @@ namespace blt::gp
                 constexpr static auto TYPE_SIZE = aligned_size<NO_REF_T>();
                 if (head == nullptr)
                     throw std::runtime_error("Silly boi the stack is empty!");
-                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<T>()))
-                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
-                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
                 if (head->used_bytes_in_block() == 0)
                     move_back();
+                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<NO_REF_T>()))
+                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
+                            head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
                 // make copy
                 NO_REF_T t = *reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE);
                 // call destructor
@@ -288,7 +318,8 @@ namespace blt::gp
             {
                 blt::size_t offset = 0;
                 
-                ((from<NO_REF_T<Args>>(offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T<Args>>()), ...);
+                ((from < NO_REF_T < Args >> (offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T < Args>>
+                ()), ...);
             }
             
             [[nodiscard]] bool empty() const
@@ -314,15 +345,28 @@ namespace blt::gp
             [[nodiscard]] size_data_t size()
             {
                 size_data_t size_data;
-                auto* next = head;
-                while (next != nullptr)
+                auto* prev = head;
+                while (prev != nullptr)
                 {
-                    size_data.total_size_bytes += next->metadata.size;
-                    size_data.total_no_meta_bytes += next->storage_size();
-                    size_data.total_remaining_bytes += next->remaining_bytes_in_block();
-                    size_data.total_used_bytes += next->used_bytes_in_block();
+                    size_data.total_size_bytes += prev->metadata.size;
+                    size_data.total_no_meta_bytes += prev->storage_size();
+                    size_data.total_remaining_bytes += prev->remaining_bytes_in_block();
+                    size_data.total_used_bytes += prev->used_bytes_in_block();
                     size_data.blocks++;
-                    next = next->metadata.next;
+                    prev = prev->metadata.prev;
+                }
+                if (head != nullptr)
+                {
+                    auto next = head->metadata.next;
+                    while (next != nullptr)
+                    {
+                        size_data.total_dealloc += next->metadata.size;
+                        size_data.total_dealloc_no_meta += next->storage_size();
+                        size_data.total_dealloc_remaining += next->remaining_bytes_in_block();
+                        size_data.total_dealloc_used += next->used_bytes_in_block();
+                        size_data.blocks++;
+                        next = next->metadata.next;
+                    }
                 }
                 return size_data;
             }
@@ -436,7 +480,7 @@ namespace blt::gp
             template<typename T>
             void* allocate_bytes()
             {
-                return allocate_bytes(sizeof(NO_REF_T<T>));
+                return allocate_bytes(sizeof(NO_REF_T < T > ));
             }
             
             void* allocate_bytes(blt::size_t size)
