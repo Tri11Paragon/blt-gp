@@ -491,6 +491,7 @@ namespace blt::gp
             {
                 thread_helper.lifetime_over = true;
                 thread_helper.barrier.notify_all();
+                thread_helper.thread_function_condition.notify_all();
                 for (auto& thread : thread_helper.threads)
                 {
                     if (thread->joinable())

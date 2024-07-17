@@ -64,7 +64,12 @@ namespace blt::gp
                     if (execution_function == nullptr)
                     {
                         std::unique_lock lock(thread_helper.thread_function_control);
-                        thread_helper.thread_function_condition.wait(lock, [this]() { return thread_execution_service != nullptr; });
+                        while (thread_execution_service == nullptr)
+                        {
+                            thread_helper.thread_function_condition.wait(lock);
+                            if (should_thread_terminate())
+                                return;
+                        }
                         execution_function = thread_execution_service.load(std::memory_order_acquire);
                     }
                     if (execution_function != nullptr)

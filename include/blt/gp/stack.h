@@ -206,10 +206,11 @@ namespace blt::gp
                 using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
                 static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
                 constexpr static auto TYPE_SIZE = aligned_size<NO_REF_T>();
-                if (head == nullptr)
+                
+                while (head->used_bytes_in_block() == 0 && move_back());
+                if (empty())
                     throw std::runtime_error("Silly boi the stack is empty!");
-                if (head->used_bytes_in_block() == 0)
-                    move_back();
+                
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(aligned_size<NO_REF_T>()))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             head->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
@@ -298,10 +299,10 @@ namespace blt::gp
              */
             void transfer_bytes(stack_allocator& to, blt::size_t bytes)
             {
-                while (!empty() && head->used_bytes_in_block() == 0)
-                    move_back();
+                while (head->used_bytes_in_block() == 0 && move_back());
                 if (empty())
                     throw std::runtime_error("This stack is empty!");
+                
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
                     BLT_ABORT(("This stack doesn't contain enough data for this type! " + std::to_string(head->used_bytes_in_block()) + " / " +
                                std::to_string(bytes) + " This is an invalid runtime state!").c_str());
@@ -318,8 +319,8 @@ namespace blt::gp
             {
                 blt::size_t offset = 0;
                 
-                ((from < NO_REF_T < Args >> (offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T < Args>>
-                ()), ...);
+                ((from<NO_REF_T<Args >>(offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T<Args>>
+                        ()), ...);
             }
             
             [[nodiscard]] bool empty() const
@@ -418,6 +419,16 @@ namespace blt::gp
             ~stack_allocator()
             {
                 free_chain(head);
+                if (head != nullptr)
+                {
+                    auto blk = head->metadata.next;
+                    while (blk != nullptr)
+                    {
+                        auto ptr = blk;
+                        blk = blk->metadata.next;
+                        std::free(ptr);
+                    }
+                }
             }
             
             template<typename T>
@@ -480,7 +491,7 @@ namespace blt::gp
             template<typename T>
             void* allocate_bytes()
             {
-                return allocate_bytes(sizeof(NO_REF_T < T > ));
+                return allocate_bytes(sizeof(NO_REF_T<T>));
             }
             
             void* allocate_bytes(blt::size_t size)
@@ -488,13 +499,16 @@ namespace blt::gp
                 auto ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
                 {
-                    if (head != nullptr && head->metadata.next != nullptr)
+                    while (head != nullptr && head->metadata.next != nullptr)
                     {
                         head = head->metadata.next;
                         if (head != nullptr)
                             head->reset();
-                    } else
-                        push_block(aligned_size(size));
+                        if (head->remaining_bytes_in_block() >= static_cast<blt::ptrdiff_t>(size))
+                            break;
+                    }
+                    if (head == nullptr || head->remaining_bytes_in_block() < static_cast<blt::ptrdiff_t>(size))
+                        push_block(aligned_size(size) + sizeof(typename block::block_metadata_t));
                 }
                 ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
@@ -532,7 +546,7 @@ namespace blt::gp
             
             static block* allocate_block(blt::size_t bytes)
             {
-                auto size = to_nearest_page_size(bytes + sizeof(typename block::block_metadata_t));
+                auto size = to_nearest_page_size(bytes);
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
                 //auto* data = get_allocator().allocate(size);
                 new(data) block{size};
@@ -550,12 +564,16 @@ namespace blt::gp
                 }
             }
             
-            inline void move_back()
+            inline bool move_back()
             {
                 auto old = head;
                 head = head->metadata.prev;
                 if (head == nullptr)
+                {
                     head = old;
+                    return false;
+                }
+                return true;
                 //free_chain(old);
                 // required to prevent silly memory :3
 //                if (head != nullptr)
