@@ -418,7 +418,6 @@ namespace blt::gp
             
             ~stack_allocator()
             {
-                free_chain(head);
                 if (head != nullptr)
                 {
                     auto blk = head->metadata.next;
@@ -429,6 +428,7 @@ namespace blt::gp
                         std::free(ptr);
                     }
                 }
+                free_chain(head);
             }
             
             template<typename T>

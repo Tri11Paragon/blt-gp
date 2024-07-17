@@ -34,7 +34,10 @@ std::array<context, 200> fitness_cases;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(0)
+        .set_elite_count(10)
+        .set_crossover_chance(0.9)
+        .set_mutation_chance(0.1)
+        .set_reproduction_chance(0.1)
         .set_max_generations(50)
         .set_pop_size(500)
         .set_thread_count(0);
@@ -103,10 +106,10 @@ int main()
     builder.add_operator(sub);
     builder.add_operator(mul);
     builder.add_operator(pro_div);
-    builder.add_operator(op_sin);
-    builder.add_operator(op_cos);
-    builder.add_operator(op_exp);
-    builder.add_operator(op_log);
+    //builder.add_operator(op_sin);
+    //builder.add_operator(op_cos);
+    //builder.add_operator(op_exp);
+    //builder.add_operator(op_log);
     
     builder.add_operator(lit, true);
     builder.add_operator(op_x);
@@ -121,7 +124,7 @@ int main()
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
-        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
+        program.create_next_generation(blt::gp::select_fitness_proportionate_t{}, blt::gp::select_fitness_proportionate_t{}, blt::gp::select_fitness_proportionate_t{});
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");

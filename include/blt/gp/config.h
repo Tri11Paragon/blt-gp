@@ -39,7 +39,7 @@ namespace blt::gp
         // percent chance that we will do mutation
         double mutation_chance = 0.1;
         // percent chance we will do reproduction (copy individual)
-        double reproduction_chance = 0;
+        double reproduction_chance = 0.1;
         // everything else will just be selected
         
         blt::size_t elites = 0;
