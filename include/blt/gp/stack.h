@@ -227,19 +227,22 @@ namespace blt::gp
             T& from(blt::size_t bytes)
             {
                 using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
+                
                 constexpr static auto TYPE_SIZE = aligned_size<NO_REF_T>();
-                auto remaining_bytes = static_cast<blt::i64>(bytes);
-                blt::i64 bytes_into_block = 0;
+                
+                auto remaining_bytes = static_cast<blt::ptrdiff_t>(bytes + TYPE_SIZE);
+                
                 block* blk = head;
                 while (remaining_bytes > 0)
                 {
                     if (blk == nullptr)
                         throw std::runtime_error("Requested size is beyond the scope of this stack!");
+                    
                     auto bytes_available = blk->used_bytes_in_block() - remaining_bytes;
-                    bytes_into_block = remaining_bytes;
+                    
                     if (bytes_available < 0)
                     {
-                        remaining_bytes = -bytes_available;
+                        remaining_bytes -= blk->used_bytes_in_block();
                         blk = head->metadata.prev;
                     } else
                         break;
@@ -249,7 +252,7 @@ namespace blt::gp
                 if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(TYPE_SIZE))
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
-                return *reinterpret_cast<NO_REF_T*>((blk->metadata.offset - bytes_into_block) - TYPE_SIZE);
+                return *reinterpret_cast<NO_REF_T*>(blk->metadata.offset - remaining_bytes);
             }
             
             void pop_bytes(blt::ptrdiff_t bytes)
