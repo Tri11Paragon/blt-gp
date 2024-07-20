@@ -501,13 +501,18 @@ namespace blt::gp
                 thread_execution_service = nullptr;
                 delete cpy;
             }
+            
+            void kill()
+            {
+                thread_helper.lifetime_over = true;
+            }
         
         private:
             type_provider& system;
             
             operator_storage storage;
             population_t current_pop;
-            population_stats current_stats {};
+            population_stats current_stats{};
             population_t next_pop;
             std::atomic_uint64_t current_generation = 0;
             
@@ -519,7 +524,7 @@ namespace blt::gp
                 std::vector<std::unique_ptr<std::thread>> threads;
                 
                 std::mutex thread_function_control;
-                std::condition_variable thread_function_condition {};
+                std::condition_variable thread_function_condition{};
                 
                 std::atomic_uint64_t evaluation_left = 0;
                 
