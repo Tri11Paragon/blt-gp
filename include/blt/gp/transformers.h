@@ -31,6 +31,7 @@ namespace blt::gp
     class crossover_t
     {
         public:
+            using op_iter = std::vector<blt::gp::op_container_t>::iterator;
             enum class error_t
             {
                 NO_VALID_TYPE,
@@ -40,6 +41,11 @@ namespace blt::gp
             {
                 tree_t child1;
                 tree_t child2;
+            };
+            struct crossover_point_t
+            {
+                blt::ptrdiff_t p1_crossover_point;
+                blt::ptrdiff_t p2_crossover_point;
             };
             struct config_t
             {
@@ -56,6 +62,14 @@ namespace blt::gp
             explicit crossover_t(const config_t& config): config(config)
             {}
             
+            blt::expected<crossover_t::crossover_point_t, error_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            
+            static blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container,
+                                                blt::ptrdiff_t start);
+            
+            static void transfer_forward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, op_iter begin, op_iter end);
+            static void transfer_backward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, op_iter begin, op_iter end);
+            
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
              * the parents are not modified during this process
@@ -68,7 +82,7 @@ namespace blt::gp
             
             virtual ~crossover_t() = default;
         
-        private:
+        protected:
             config_t config;
     };
     
@@ -97,7 +111,7 @@ namespace blt::gp
             
             virtual ~mutation_t() = default;
         
-        private:
+        protected:
             config_t config;
     };
     
