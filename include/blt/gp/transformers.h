@@ -27,11 +27,20 @@
 
 namespace blt::gp
 {
+    namespace detail
+    {
+        using op_iter = std::vector<blt::gp::op_container_t>::iterator;
+    }
+    
+    blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t start);
+    
+    void transfer_forward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, detail::op_iter begin, detail::op_iter end);
+    
+    void transfer_backward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, detail::op_iter begin, detail::op_iter end);
     
     class crossover_t
     {
         public:
-            using op_iter = std::vector<blt::gp::op_container_t>::iterator;
             enum class error_t
             {
                 NO_VALID_TYPE,
@@ -63,12 +72,6 @@ namespace blt::gp
             {}
             
             blt::expected<crossover_t::crossover_point_t, error_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
-            
-            static blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container,
-                                                blt::ptrdiff_t start);
-            
-            static void transfer_forward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, op_iter begin, op_iter end);
-            static void transfer_backward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, op_iter begin, op_iter end);
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.

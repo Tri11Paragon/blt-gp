@@ -51,12 +51,13 @@ namespace blt::gp
         stack_allocator& c1_stack_init = c1.get_values();
         stack_allocator& c2_stack_init = c2.get_values();
         
+        // we have to make a copy because we will modify the underlying storage.
         std::vector<op_container_t> c1_operators;
         std::vector<op_container_t> c2_operators;
         
-        for (const auto& op : blt::enumerate(crossover_point_begin_itr, crossover_point_end_itr))
+        for (const auto& op : blt::iterate(crossover_point_begin_itr, crossover_point_end_itr))
             c1_operators.push_back(op);
-        for (const auto& op : blt::enumerate(found_point_begin_itr, found_point_end_itr))
+        for (const auto& op : blt::iterate(found_point_begin_itr, found_point_end_itr))
             c2_operators.push_back(op);
         
         stack_allocator c1_stack_after_copy;
@@ -149,43 +150,6 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    blt::ptrdiff_t crossover_t::find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t index)
-    {
-        blt::i64 children_left = 0;
-        
-        do
-        {
-            const auto& type = program.get_operator_info(container[index].id);
-            // this is a child to someone
-            if (children_left != 0)
-                children_left--;
-            if (type.argc.argc > 0)
-                children_left += type.argc.argc;
-            index++;
-        } while (children_left > 0);
-        
-        return index;
-    }
-    
-    void crossover_t::transfer_backward(stack_allocator& from, stack_allocator& to, crossover_t::op_iter begin, crossover_t::op_iter end)
-    {
-        for (auto it = begin; it != end; it--)
-        {
-            if (it->is_value)
-                from.transfer_bytes(to, it->type_size);
-        }
-    }
-    
-    void crossover_t::transfer_forward(stack_allocator& from, stack_allocator& to, crossover_t::op_iter begin, crossover_t::op_iter end)
-    {
-        // now copy back into the respective children
-        for (auto it = begin; it != end; it++)
-        {
-            if (it->is_value)
-                from.transfer_bytes(to, it->type_size);
-        }
-    }
-    
     tree_t mutation_t::apply(gp_program& program, const tree_t& p)
     {
         auto c = p;
@@ -193,38 +157,15 @@ namespace blt::gp
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
         
-        auto point = program.get_random().get_size_t(0ul, ops.size());
+        auto point = static_cast<blt::ptrdiff_t>(program.get_random().get_size_t(0ul, ops.size()));
         const auto& type_info = program.get_operator_info(ops[point].id);
         
-        blt::i64 children_left = 0;
-        blt::size_t index = point;
-        
-        do
-        {
-            const auto& type = program.get_operator_info(ops[index].id);
-            
-            // this is a child to someone
-            if (children_left != 0)
-                children_left--;
-            if (type.argc.argc > 0)
-                children_left += type.argc.argc;
-            index++;
-        } while (children_left > 0);
-        
-        auto begin_p = ops.begin() + static_cast<blt::ptrdiff_t>(point);
-        auto end_p = ops.begin() + static_cast<blt::ptrdiff_t>(index);
+        auto begin_p = ops.begin() + point;
+        auto end_p = ops.begin() + find_endpoint(program, ops, point);
         
         stack_allocator after_stack;
-        //std::vector<op_container_t> after_ops;
         
-        for (auto it = ops.end() - 1; it != end_p - 1; it--)
-        {
-            if (it->is_value)
-            {
-                vals.transfer_bytes(after_stack, it->type_size);
-                //after_ops.push_back(*it);
-            }
-        }
+        transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
         
         for (auto it = end_p - 1; it != begin_p - 1; it--)
         {
@@ -263,4 +204,41 @@ namespace blt::gp
     
     mutation_t::config_t::config_t(): generator(grow_generator)
     {}
+    
+    blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t index)
+    {
+        blt::i64 children_left = 0;
+        
+        do
+        {
+            const auto& type = program.get_operator_info(container[index].id);
+            // this is a child to someone
+            if (children_left != 0)
+                children_left--;
+            if (type.argc.argc > 0)
+                children_left += type.argc.argc;
+            index++;
+        } while (children_left > 0);
+        
+        return index;
+    }
+    
+    void transfer_backward(stack_allocator& from, stack_allocator& to, detail::op_iter begin, detail::op_iter end)
+    {
+        for (auto it = begin; it != end; it--)
+        {
+            if (it->is_value)
+                from.transfer_bytes(to, it->type_size);
+        }
+    }
+    
+    void transfer_forward(stack_allocator& from, stack_allocator& to, detail::op_iter begin, detail::op_iter end)
+    {
+        // now copy back into the respective children
+        for (auto it = begin; it != end; it++)
+        {
+            if (it->is_value)
+                from.transfer_bytes(to, it->type_size);
+        }
+    }
 }
