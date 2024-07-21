@@ -78,10 +78,4 @@ namespace blt::gp
             }));
         }
     }
-    
-    huge_allocator& get_allocator()
-    {
-        static huge_allocator alloc;
-        return alloc;
-    }
 }

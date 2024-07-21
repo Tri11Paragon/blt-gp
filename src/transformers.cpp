@@ -164,15 +164,8 @@ namespace blt::gp
         auto end_p = ops.begin() + find_endpoint(program, ops, point);
         
         stack_allocator after_stack;
-        
-        for (auto it = ops.end() - 1; it != end_p - 1; it--)
-        {
-            if (it->is_value)
-            {
-                vals.transfer_bytes(after_stack, it->type_size);
-                //after_ops.push_back(*it);
-            }
-        }
+
+        transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
         
         for (auto it = end_p - 1; it != begin_p - 1; it--)
         {
@@ -191,20 +184,12 @@ namespace blt::gp
         
         ops.insert(++before, new_ops.begin(), new_ops.end());
         
-        for (auto it = new_ops.end() - 1; it != new_ops.begin() - 1; it--)
-        {
-            if (it->is_value)
-                new_vals.transfer_bytes(vals, it->type_size);
-        }
+        transfer_backward(new_vals, vals, new_ops.end() - 1, new_ops.begin() - 1);
         
         auto new_end_point = point + new_ops.size();
         auto new_end_p = ops.begin() + static_cast<blt::ptrdiff_t>(new_end_point);
         
-        for (auto it = new_end_p; it != ops.end(); it++)
-        {
-            if (it->is_value)
-                after_stack.transfer_bytes(vals, it->type_size);
-        }
+        transfer_forward(after_stack, vals, new_end_p, ops.end());
         
         return c;
     }

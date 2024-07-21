@@ -155,10 +155,10 @@ int main()
             switch (results.error())
             {
                 case blt::gp::crossover_t::error_t::NO_VALID_TYPE:
-                    BLT_ERROR("No valid type!");
+                    BLT_DEBUG("No valid type!");
                     break;
                 case blt::gp::crossover_t::error_t::TREE_TOO_SMALL:
-                    BLT_ERROR("Tree is too small!");
+                    BLT_DEBUG("Tree is too small!");
                     break;
             }
             errors++;

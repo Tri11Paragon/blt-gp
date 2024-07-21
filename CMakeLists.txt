@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.93)
+project(blt-gp VERSION 0.0.94)
 
 include(CTest)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
 option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
-option(BUILD_EXAMPLES "Build example programs. This is a single executable" OFF)
+option(BUILD_EXAMPLES "Build example programs. This will build with CTest" OFF)
+option(BUILD_GP_TESTS "Build test programs." OFF)
 option(DEBUG_LEVEL "Enable debug features which prints extra information to the console, might slow processing down. [0, 3)" 0)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -46,46 +47,59 @@ if (${ENABLE_TSAN} MATCHES ON)
     target_link_options(blt-gp PRIVATE -fsanitize=thread)
 endif ()
 
+macro(blt_add_project name source type)
+
+    project(${name}-${type})
+
+    add_executable(${name}-${type} ${source})
+
+    target_link_libraries(${name}-${type} PRIVATE BLT blt-gp Threads::Threads)
+
+    target_compile_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_link_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
+
+    if (${ENABLE_ADDRSAN} MATCHES ON)
+        target_compile_options(${name}-${type} PRIVATE -fsanitize=address)
+        target_link_options(${name}-${type} PRIVATE -fsanitize=address)
+    endif ()
+
+    if (${ENABLE_UBSAN} MATCHES ON)
+        target_compile_options(${name}-${type} PRIVATE -fsanitize=undefined)
+        target_link_options(${name}-${type} PRIVATE -fsanitize=undefined)
+    endif ()
+
+    if (${ENABLE_TSAN} MATCHES ON)
+        target_compile_options(${name}-${type} PRIVATE -fsanitize=thread)
+        target_link_options(${name}-${type} PRIVATE -fsanitize=thread)
+    endif ()
+
+    add_test(NAME ${name} COMMAND ${name}-${type})
+
+#    set (passRegex "Pass" "Passed" "PASS" "PASSED")
+    set (failRegex "WARN" "FAIL" "ERROR" "FATAL")
+
+#    set_property (TEST ${name} PROPERTY PASS_REGULAR_EXPRESSION "${passRegex}")
+    set_property (TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
+
+    project(blt-gp)
+endmacro()
+
 if (${BUILD_EXAMPLES})
-    macro(blt_add_example name source)
 
-        project(${name}-example)
+    blt_add_project(blt-SR-playground examples/symbolic_regression.cpp example)
 
-        add_executable(${name}-example ${source})
+endif ()
 
-        target_link_libraries(${name}-example PRIVATE BLT blt-gp Threads::Threads)
+if (${BUILD_GP_TESTS})
 
-        target_compile_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-        target_link_options(${name}-example PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-        target_compile_definitions(${name}-example PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
-
-        if (${ENABLE_ADDRSAN} MATCHES ON)
-            target_compile_options(${name}-example PRIVATE -fsanitize=address)
-            target_link_options(${name}-example PRIVATE -fsanitize=address)
-        endif ()
-
-        if (${ENABLE_UBSAN} MATCHES ON)
-            target_compile_options(${name}-example PRIVATE -fsanitize=undefined)
-            target_link_options(${name}-example PRIVATE -fsanitize=undefined)
-        endif ()
-
-        if (${ENABLE_TSAN} MATCHES ON)
-            target_compile_options(${name}-example PRIVATE -fsanitize=thread)
-            target_link_options(${name}-example PRIVATE -fsanitize=thread)
-        endif ()
-
-        add_test(NAME ${name} COMMAND ${name}-example)
-
-        project(blt-gp)
-    endmacro()
-
-    blt_add_example(blt-gp1 examples/gp_test_1.cpp)
-    blt_add_example(blt-gp2 examples/gp_test_2.cpp)
-    blt_add_example(blt-gp3 examples/gp_test_3.cpp)
-    blt_add_example(blt-gp4 examples/gp_test_4.cpp)
-    blt_add_example(blt-gp5 examples/gp_test_5.cpp)
-    blt_add_example(blt-gp6 examples/gp_test_6.cpp)
-    blt_add_example(blt-gp7 examples/gp_test_7.cpp)
-    blt_add_example(blt-SR-playground examples/pg_symbolic_regression.cpp)
+    blt_add_project(blt-stack tests/stack_tests.cpp test)
+    blt_add_project(blt-gp1 tests/gp_test_1.cpp test)
+    blt_add_project(blt-gp2 tests/gp_test_2.cpp test)
+    blt_add_project(blt-gp3 tests/gp_test_3.cpp test)
+    blt_add_project(blt-gp4 tests/gp_test_4.cpp test)
+    blt_add_project(blt-gp5 tests/gp_test_5.cpp test)
+    blt_add_project(blt-gp6 tests/gp_test_6.cpp test)
+    blt_add_project(blt-gp7 tests/gp_test_7.cpp test)
 
 endif ()
