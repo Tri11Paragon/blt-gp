@@ -165,7 +165,14 @@ namespace blt::gp
         
         stack_allocator after_stack;
         
-        transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
+        for (auto it = ops.end() - 1; it != end_p - 1; it--)
+        {
+            if (it->is_value)
+            {
+                vals.transfer_bytes(after_stack, it->type_size);
+                //after_ops.push_back(*it);
+            }
+        }
         
         for (auto it = end_p - 1; it != begin_p - 1; it--)
         {
@@ -184,10 +191,10 @@ namespace blt::gp
         
         ops.insert(++before, new_ops.begin(), new_ops.end());
         
-        for (const auto& op : new_ops)
+        for (auto it = new_ops.end() - 1; it != new_ops.begin() - 1; it--)
         {
-            if (op.is_value)
-                new_vals.transfer_bytes(vals, op.type_size);
+            if (it->is_value)
+                new_vals.transfer_bytes(vals, it->type_size);
         }
         
         auto new_end_point = point + new_ops.size();

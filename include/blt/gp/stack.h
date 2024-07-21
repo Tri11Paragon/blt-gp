@@ -306,12 +306,12 @@ namespace blt::gp
                 if (empty())
                     throw std::runtime_error("This stack is empty!");
                 
-                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
+                auto type_size = aligned_size(bytes);
+                if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(type_size))
                     BLT_ABORT(("This stack doesn't contain enough data for this type! " + std::to_string(head->used_bytes_in_block()) + " / " +
                                std::to_string(bytes) + " This is an invalid runtime state!").c_str());
                 
-                auto type_size = aligned_size(bytes);
-                auto ptr = to.allocate_bytes(bytes);
+                auto ptr = to.allocate_bytes(type_size);
                 to.head->metadata.offset = static_cast<blt::u8*>(ptr) + type_size;
                 std::memcpy(ptr, head->metadata.offset - type_size, type_size);
                 head->metadata.offset -= type_size;
