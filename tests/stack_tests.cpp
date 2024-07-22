@@ -52,9 +52,9 @@ large_##SIZE tertiary_##SIZE = make_data(large_##SIZE{}, [](auto index) {       
    return static_cast<blt::u8>(blt::random::murmur_random64c<blt::size_t>(SEED + index, 0, 256)); \
 })
 
-#define RUN_TEST(FAILURE_COND, PASS, ...) do { if (FAILURE_COND) { BLT_ERROR(__VA_ARGS__); } else { BLT_DEBUG(PASS); } } while(false)
-#define RUN_TEST_SIZE(VALUE, SIZE, STACK) RUN_TEST(auto index = compare(VALUE, STACK.pop<SIZE>()); index >= 0, #SIZE " Test PASSED.", "Failed to pop large value (" #SIZE "), failed at index %ld", index)
-#define RUN_TEST_TYPE(TYPE, EXPECTED, STACK) RUN_TEST(auto val = STACK.pop<TYPE>(); val != EXPECTED, #TYPE " test PASSED", "Failed to pop correct " #TYPE " (" #EXPECTED ") found %lf", val);
+#define RUN_TEST(FAILURE_COND, STACK, PASS, ...) do { if (FAILURE_COND) { BLT_ERROR(__VA_ARGS__); } else { BLT_DEBUG_STREAM << PASS << " | " << STACK.size() << "\n"; } } while(false)
+#define RUN_TEST_SIZE(VALUE, SIZE, STACK) RUN_TEST(auto index = compare(VALUE, STACK.pop<SIZE>()); index >= 0, STACK, #SIZE " test PASSED.", "Failed to pop large value (" #SIZE "), failed at index %ld", index)
+#define RUN_TEST_TYPE(TYPE, EXPECTED, STACK) RUN_TEST(auto val = STACK.pop<TYPE>(); val != EXPECTED, STACK, #TYPE " test PASSED", "Failed to pop correct " #TYPE " (" #EXPECTED ") found %lf", val);
 
 const blt::u64 SEED = std::random_device()();
 
@@ -189,14 +189,13 @@ void test_basic_types()
     BLT_TRACE_STREAM << stack.size() << "\n";
     std::cout << std::endl;
     
-    BLT_INFO("Some fishy numbers in the last reported size. Let's try modifying the stack.");
+    BLT_INFO("Some fishy numbers in the last reported size. Let's try modifying the stack."); // fixed by moving back in pop
     stack.push(88.9f);
     BLT_TRACE_STREAM << "Pushed float: " << stack.size() << "\n";
     
     {
         BLT_INFO("Popping a few values.");
         RUN_TEST_TYPE(float, 88.9f, stack);
-        BLT_TRACE_STREAM << "popped float: " << stack.size() << "\n";
         RUN_TEST_SIZE(secondary_256, large_256, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";

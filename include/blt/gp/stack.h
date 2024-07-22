@@ -117,6 +117,8 @@ namespace blt::gp
                 reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE)->~NO_REF_T();
                 // move offset back
                 head->metadata.offset -= TYPE_SIZE;
+                // moving back allows us to allocate with other data, if there is room.
+                while (head->used_bytes_in_block() == 0 && move_back());
                 return t;
             }
             
@@ -189,6 +191,7 @@ namespace blt::gp
                         break;
                     }
                 }
+                while (head->used_bytes_in_block() == 0 && move_back());
             }
             
             /**
@@ -212,6 +215,7 @@ namespace blt::gp
                 to.head->metadata.offset = static_cast<blt::u8*>(ptr) + type_size;
                 std::memcpy(ptr, head->metadata.offset - type_size, type_size);
                 head->metadata.offset -= type_size;
+                while (head->used_bytes_in_block() == 0 && move_back());
             }
             
             template<typename... Args>
