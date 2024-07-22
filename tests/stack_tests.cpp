@@ -53,8 +53,8 @@ large_##SIZE tertiary_##SIZE = make_data(large_##SIZE{}, [](auto index) {       
 })
 
 #define RUN_TEST(FAILURE_COND, STACK, PASS, ...) do { if (FAILURE_COND) { BLT_ERROR(__VA_ARGS__); } else { BLT_DEBUG_STREAM << PASS << " | " << STACK.size() << "\n"; } } while(false)
-#define RUN_TEST_SIZE(VALUE, SIZE, STACK) RUN_TEST(auto index = compare(VALUE, STACK.pop<SIZE>()); index >= 0, STACK, #SIZE " test PASSED.", "Failed to pop large value (" #SIZE "), failed at index %ld", index)
-#define RUN_TEST_TYPE(TYPE, EXPECTED, STACK) RUN_TEST(auto val = STACK.pop<TYPE>(); val != EXPECTED, STACK, #TYPE " test PASSED", "Failed to pop correct " #TYPE " (" #EXPECTED ") found %lf", val);
+#define RUN_TEST_SIZE(VALUE, STACK) RUN_TEST(auto index = compare(VALUE, STACK.pop<decltype(VALUE)>()); index >= 0, STACK, blt::type_string<decltype(VALUE)>() + " test PASSED.", "Failed to pop large value (" + blt::type_string<decltype(VALUE)>() + "), failed at index %ld", index)
+#define RUN_TEST_TYPE(EXPECTED, STACK) RUN_TEST(auto val = STACK.pop<decltype(EXPECTED)>(); val != EXPECTED, STACK, blt::type_string<decltype(EXPECTED)>() + " test PASSED", "Failed to pop correct " + blt::type_string<decltype(EXPECTED)>() + " (" #EXPECTED ") found %lf", val);
 
 const blt::u64 SEED = std::random_device()();
 
@@ -120,9 +120,9 @@ void test_basic_types()
         stack.transfer_bytes(to, sizeof(large_6123));
         stack.transfer_bytes(to, sizeof(int));
         stack.transfer_bytes(to, sizeof(bool));
-        RUN_TEST_TYPE(bool, false, to);
-        RUN_TEST_TYPE(int, 523, to);
-        RUN_TEST_SIZE(base_6123, large_6123, to);
+        RUN_TEST_TYPE(false, to);
+        RUN_TEST_TYPE(523, to);
+        RUN_TEST_SIZE(base_6123, to);
         
         BLT_ASSERT(to.empty() && "Stack isn't empty despite all values popped!");
     }
@@ -155,12 +155,12 @@ void test_basic_types()
         stack.transfer_bytes(to, sizeof(double));
         stack.transfer_bytes(to, sizeof(large_256));
         
-        RUN_TEST_SIZE(tertiary_256, large_256, to);
-        RUN_TEST_TYPE(double, 69.999, to);
-        RUN_TEST_SIZE(secondary_2048, large_2048, to);
-        RUN_TEST_TYPE(double, 420.6900001, to);
-        RUN_TEST_SIZE(base_256, large_256, to);
-        RUN_TEST_SIZE(base_18290, large_18290, to);
+        RUN_TEST_SIZE(tertiary_256, to);
+        RUN_TEST_TYPE(69.999, to);
+        RUN_TEST_SIZE(secondary_2048, to);
+        RUN_TEST_TYPE(420.6900001, to);
+        RUN_TEST_SIZE(base_256, to);
+        RUN_TEST_SIZE(base_18290, to);
         
         BLT_ASSERT(to.empty() && "Stack isn't empty despite all values popped!");
     }
@@ -181,10 +181,10 @@ void test_basic_types()
     
     {
         BLT_INFO("Popping values normally.");
-        RUN_TEST_SIZE(secondary_6123, large_6123, stack);
-        RUN_TEST_SIZE(tertiary_18290, large_18290, stack);
-        RUN_TEST_SIZE(base_4096, large_4096, stack);
-        RUN_TEST_SIZE(secondary_18290, large_18290, stack);
+        RUN_TEST_SIZE(secondary_6123, stack);
+        RUN_TEST_SIZE(tertiary_18290, stack);
+        RUN_TEST_SIZE(base_4096, stack);
+        RUN_TEST_SIZE(secondary_18290, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
     std::cout << std::endl;
@@ -195,13 +195,22 @@ void test_basic_types()
     
     {
         BLT_INFO("Popping a few values.");
-        RUN_TEST_TYPE(float, 88.9f, stack);
-        RUN_TEST_SIZE(secondary_256, large_256, stack);
+        RUN_TEST_TYPE(88.9f, stack);
+        RUN_TEST_SIZE(secondary_256, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
     std::cout << std::endl;
     
-    
+    BLT_INFO("We will now empty the stack and try to reuse it.");
+    {
+        RUN_TEST_SIZE(base_256, stack);
+        RUN_TEST_TYPE(-24.0f, stack);
+        RUN_TEST_TYPE(25.0f, stack);
+        RUN_TEST_SIZE(base_2048, stack);
+        RUN_TEST_TYPE(50.0f, stack);
+    }
+    BLT_TRACE_STREAM << stack.size() << "\n";
+    std::cout << std::endl;
 }
 
 int main()
