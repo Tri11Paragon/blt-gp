@@ -61,20 +61,20 @@ namespace blt::gp
                     stream << "[";
                     stream << data.total_used_bytes << "/";
                     stream << data.total_size_bytes << "(";
-                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes)) << "%), ";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) * 100) << "%), ";
                     stream << data.total_used_bytes << "/";
                     stream << data.total_no_meta_bytes << "(";
-                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes)) << "%), (empty space: ";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes) * 100) << "%), (empty space: ";
                     stream << data.total_remaining_bytes << ") blocks: " << data.blocks << " || unallocated space: ";
                     stream << data.total_dealloc_used << "/";
                     stream << data.total_dealloc;
                     if (static_cast<double>(data.total_dealloc) > 0)
-                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc)) << "%)";
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc) * 100) << "%)";
                     stream << ", ";
                     stream << data.total_dealloc_used << "/";
                     stream << data.total_dealloc_no_meta;
                     if (data.total_dealloc_no_meta > 0)
-                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta)) << "%)";
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta * 100)) << "%)";
                     stream << ", (empty space: " << data.total_dealloc_remaining << ")]";
                     return stream;
                 }
