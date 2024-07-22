@@ -80,12 +80,17 @@ namespace blt::gp
     tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)
     {
         auto choice = program.get_random().get_double();
-        for (const auto& ind : blt::enumerate(pop))
+        for (const auto& [index, ref] : blt::enumerate(pop))
         {
-            if (ind.first == 0 && choice <= stats.normalized_fitness[ind.first])
-                return ind.second.tree;
-            if (choice > stats.normalized_fitness[ind.first - 1] && choice <= stats.normalized_fitness[ind.first])
-                return ind.second.tree;
+            if (index == 0)
+            {
+                if (choice <= stats.normalized_fitness[index])
+                    return ref.tree;
+            } else
+            {
+                if (choice > stats.normalized_fitness[index - 1] && choice <= stats.normalized_fitness[index])
+                    return ref.tree;
+            }
         }
         BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path! (%lf)", choice);
         return pop.get_individuals()[0].tree;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.95)
+project(blt-gp VERSION 0.0.96)
 
 include(CTest)
 
@@ -87,7 +87,7 @@ endmacro()
 
 if (${BUILD_EXAMPLES})
 
-    blt_add_project(blt-SR-playground examples/symbolic_regression.cpp example)
+    blt_add_project(blt-symbolic-regression examples/symbolic_regression.cpp example)
 
 endif ()
 
