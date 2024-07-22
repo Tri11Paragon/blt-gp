@@ -211,9 +211,45 @@ void test_basic_types()
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
     std::cout << std::endl;
+    
+    stack.push(tertiary_18290);
+    BLT_TRACE_STREAM << "Pushed 18290^: " << stack.size() << "\n";
+    stack.push(base_4096);
+    BLT_TRACE_STREAM << "Pushed 4096: " << stack.size() << "\n";
+    stack.push(50);
+    BLT_TRACE_STREAM << "Pushed int: " << stack.size() << "\n";
+    std::cout << std::endl;
+    
+    BLT_INFO("Clearing stack one final time");
+    RUN_TEST_TYPE(50, stack);
+    RUN_TEST_SIZE(base_4096, stack);
+    RUN_TEST_SIZE(tertiary_18290, stack);
+    BLT_TRACE_STREAM << stack.size() << "\n";
+}
+
+blt::gp::operation_t basic_2([](float a, float b) {
+
+});
+
+blt::gp::operation_t basic_mixed_4([](float a, float b, bool i, bool p) {
+
+});
+
+blt::gp::operation_t large_256_basic_3([](const large_256& l, float a, float b) {
+
+});
+
+blt::gp::operation_t large_2048_basic_3b([](const large_2048& l, float a, bool b) {
+
+});
+
+void test_operators()
+{
+
 }
 
 int main()
 {
     test_basic_types();
+    test_operators();
 }
