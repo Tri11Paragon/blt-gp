@@ -517,7 +517,7 @@ namespace blt::gp
             std::atomic_uint64_t current_generation = 0;
             
             blt::u64 seed;
-            prog_config_t config;
+            prog_config_t config{};
             
             struct concurrency_storage
             {
@@ -533,7 +533,7 @@ namespace blt::gp
                 
                 explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
                 {}
-            } thread_helper{config.threads};
+            } thread_helper{config.threads == 0 ? std::thread::hardware_concurrency() : config.threads};
             
             // for convenience, shouldn't decrease performance too much
             std::atomic<std::function<void(blt::size_t)>*> thread_execution_service = nullptr;
