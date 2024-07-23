@@ -249,10 +249,16 @@ void test_basic_types()
 }
 
 blt::gp::operation_t basic_2([](float a, float b) {
+    BLT_ASSERT(a == 50.0f);
+    BLT_ASSERT(b == 10.0f);
     return a + b;
 });
 
 blt::gp::operation_t basic_mixed_4([](float a, float b, bool i, bool p) {
+    BLT_ASSERT(a == 50.0f);
+    BLT_ASSERT(b == 10.0f);
+    BLT_ASSERT(i);
+    BLT_ASSERT(!p);
     return (a * (i ? 1.0f : 0.0f)) + (b * (p ? 1.0f : 0.0f));
 });
 
@@ -263,6 +269,24 @@ blt::gp::operation_t large_256_basic_3([](const large_256& l, float a, float b) 
 });
 
 blt::gp::operation_t large_2048_basic_3b([](const large_2048& l, float a, bool b) {
+    blt::black_box(a);
+    blt::black_box(b);
+    return blt::black_box_ret(l);
+});
+
+blt::gp::operation_t large_4096_basic_3b([](const large_4096& l, float a, bool b) {
+    blt::black_box(a);
+    blt::black_box(b);
+    return blt::black_box_ret(l);
+});
+
+blt::gp::operation_t large_6123_basic_3b([](const large_6123& l, float a, bool b) {
+    blt::black_box(a);
+    blt::black_box(b);
+    return blt::black_box_ret(l);
+});
+
+blt::gp::operation_t large_18290_basic_3b([](const large_18290& l, float a, bool b) {
     blt::black_box(a);
     blt::black_box(b);
     return blt::black_box_ret(l);
@@ -322,15 +346,15 @@ void test_mixed()
         stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>{});
         stack.push(50.0f);
         stack.push(10.0f);
-        stack.push(false);
         stack.push(true);
+        stack.push(false);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
         basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         auto val = stack.pop<float>();
         stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>>();
-        RUN_TEST(val != 10.000000f, stack, "Mixed 4 Boundary Test Passed", "Mixed 4 Test Failed. Unexpected value produced '%lf'", val);
+        RUN_TEST(val != 50.000000f, stack, "Mixed 4 Boundary Test Passed", "Mixed 4 Test Failed. Unexpected value produced '%lf'", val);
         BLT_TRACE_STREAM << stack.size() << "\n";
         BLT_ASSERT(stack.empty() && "Stack was not empty after basic evaluation over stack boundary");
     }
