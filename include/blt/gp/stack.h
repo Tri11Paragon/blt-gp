@@ -64,7 +64,8 @@ namespace blt::gp
                     stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) * 100) << "%), ";
                     stream << data.total_used_bytes << "/";
                     stream << data.total_no_meta_bytes << "(";
-                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes) * 100) << "%), (empty space: ";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes) * 100)
+                           << "%), (empty space: ";
                     stream << data.total_remaining_bytes << ") blocks: " << data.blocks << " || unallocated space: ";
                     stream << data.total_dealloc_used << "/";
                     stream << data.total_dealloc;
@@ -74,7 +75,8 @@ namespace blt::gp
                     stream << data.total_dealloc_used << "/";
                     stream << data.total_dealloc_no_meta;
                     if (data.total_dealloc_no_meta > 0)
-                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta * 100)) << "%)";
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta * 100))
+                               << "%)";
                     stream << ", (empty space: " << data.total_dealloc_remaining << ")]";
                     return stream;
                 }
@@ -176,7 +178,6 @@ namespace blt::gp
 #endif
 #endif
                     auto diff = head->used_bytes_in_block() - bytes;
-                    BLT_TRACE(diff);
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
                     // and pop from it, update the amount of bytes to reflect the amount removed from the current block
                     if (diff < 0)
@@ -345,6 +346,31 @@ namespace blt::gp
             static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
             {
                 return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
+            }
+            
+            inline static constexpr auto metadata_size()
+            {
+                return sizeof(typename block::block_metadata_t);
+            }
+            
+            inline static constexpr auto block_size()
+            {
+                return sizeof(block);
+            }
+            
+            inline static constexpr auto page_size()
+            {
+                return PAGE_SIZE;
+            }
+            
+            inline static constexpr auto page_size_no_meta()
+            {
+                return page_size() - metadata_size();
+            }
+            
+            inline static constexpr auto page_size_no_block()
+            {
+                return page_size() - block_size();
             }
         
         private:

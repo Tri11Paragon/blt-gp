@@ -280,6 +280,59 @@ void test_basic()
         auto val = stack.pop<float>();
         RUN_TEST(val != 60.000000f, stack, "Basic 2 Test Passed", "Basic 2 Test Failed. Unexpected value produced '%lf'", val);
         BLT_TRACE_STREAM << stack.size() << "\n";
+        BLT_ASSERT(stack.empty() && "Stack was not empty after basic evaluation.");
+    }
+    BLT_INFO("Testing basic with stack over boundary");
+    {
+        blt::gp::stack_allocator stack;
+        stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>{});
+        stack.push(50.0f);
+        stack.push(10.0f);
+        auto size = stack.size();
+        BLT_TRACE_STREAM << size << "\n";
+        BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
+        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        auto val = stack.pop<float>();
+        stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>>();
+        RUN_TEST(val != 60.000000f, stack, "Basic 2 Boundary Test Passed", "Basic 2 Test Failed. Unexpected value produced '%lf'", val);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+        BLT_ASSERT(stack.empty() && "Stack was not empty after basic evaluation over stack boundary");
+    }
+}
+
+void test_mixed()
+{
+    BLT_INFO("Testing mixed with stack");
+    {
+        blt::gp::stack_allocator stack;
+        stack.push(50.0f);
+        stack.push(10.0f);
+        stack.push(true);
+        stack.push(false);
+        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+        auto val = stack.pop<float>();
+        RUN_TEST(val != 50.000000f, stack, "Mixed 4 Test Passed", "Mixed 4 Test Failed. Unexpected value produced '%lf'", val);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+        BLT_ASSERT(stack.empty() && "Stack was not empty after basic evaluation.");
+    }
+    BLT_INFO("Testing mixed with stack over boundary");
+    {
+        blt::gp::stack_allocator stack;
+        stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>{});
+        stack.push(50.0f);
+        stack.push(10.0f);
+        stack.push(false);
+        stack.push(true);
+        auto size = stack.size();
+        BLT_TRACE_STREAM << size << "\n";
+        BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
+        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        auto val = stack.pop<float>();
+        stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>>();
+        RUN_TEST(val != 10.000000f, stack, "Mixed 4 Boundary Test Passed", "Mixed 4 Test Failed. Unexpected value produced '%lf'", val);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+        BLT_ASSERT(stack.empty() && "Stack was not empty after basic evaluation over stack boundary");
     }
 }
 
@@ -287,6 +340,8 @@ void test_operators()
 {
     log_box box("-----------------------{Operator Testing}-----------------------", BLT_INFO_STREAM);
     test_basic();
+    BLT_NEWLINE();
+    test_mixed();
 }
 
 int main()
