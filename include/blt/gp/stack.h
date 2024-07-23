@@ -176,13 +176,14 @@ namespace blt::gp
 #endif
 #endif
                     auto diff = head->used_bytes_in_block() - bytes;
+                    BLT_TRACE(diff);
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
                     // and pop from it, update the amount of bytes to reflect the amount removed from the current block
-                    if (diff <= 0)
+                    if (diff < 0)
                     {
                         bytes -= head->used_bytes_in_block();
-                        if (diff == 0)
-                            break;
+                        // reset this head's buffer.
+                        head->metadata.offset = head->buffer;
                         move_back();
                     } else
                     {

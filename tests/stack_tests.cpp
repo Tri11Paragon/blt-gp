@@ -23,6 +23,26 @@
 #include <random>
 #include <iostream>
 
+struct log_box
+{
+    public:
+        log_box(const std::string& text, blt::logging::logger logger): text(text), logger(logger)
+        {
+            logger << text << '\n';
+        }
+        
+        ~log_box()
+        {
+            for (auto& c : text)
+                logger << '-';
+            logger << '\n';
+        }
+    
+    private:
+        std::string text;
+        blt::logging::logger logger;
+};
+
 template<typename T, typename Func>
 T make_data(T t, Func&& func)
 {
@@ -91,6 +111,7 @@ MAKE_VARIABLE(18290);
 
 void test_basic_types()
 {
+    log_box box("-----------------------{Stack Testing}-----------------------", BLT_INFO_STREAM);
     BLT_INFO("Testing pushing types, will transfer and pop off each stack.");
     blt::gp::stack_allocator stack;
     stack.push(50.0f);
@@ -112,7 +133,7 @@ void test_basic_types()
     stack.push(base_6123);
     BLT_TRACE_STREAM << "Pushed 6123: " << stack.size() << "\n";
     
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     {
         BLT_INFO("Popping 6123, int, and bool via transfer");
@@ -128,7 +149,7 @@ void test_basic_types()
     }
     
     BLT_TRACE_STREAM << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     BLT_INFO("Pushing new data onto partially removed stack, this will test re-allocating blocks. We will also push at least one more block.");
     stack.push(tertiary_256);
@@ -143,7 +164,7 @@ void test_basic_types()
     BLT_TRACE_STREAM << "Pushed 256: " << stack.size() << "\n";
     stack.push(base_18290);
     BLT_TRACE_STREAM << "Pushed 18290: " << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     {
         BLT_INFO("Popping all data via transfer.");
@@ -166,7 +187,7 @@ void test_basic_types()
     }
     
     BLT_TRACE_STREAM << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     BLT_INFO("Now we will test using large values where the unallocated blocks do not have enough storage.");
     stack.push(secondary_18290);
@@ -177,7 +198,7 @@ void test_basic_types()
     BLT_TRACE_STREAM << "Pushed 18290^: " << stack.size() << "\n";
     stack.push(secondary_6123);
     BLT_TRACE_STREAM << "Pushed 6123*: " << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     {
         BLT_INFO("Popping values normally.");
@@ -187,7 +208,7 @@ void test_basic_types()
         RUN_TEST_SIZE(secondary_18290, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     BLT_INFO("Some fishy numbers in the last reported size. Let's try modifying the stack."); // fixed by moving back in pop
     stack.push(88.9f);
@@ -199,7 +220,7 @@ void test_basic_types()
         RUN_TEST_SIZE(secondary_256, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     BLT_INFO("We will now empty the stack and try to reuse it.");
     {
@@ -210,7 +231,7 @@ void test_basic_types()
         RUN_TEST_TYPE(50.0f, stack);
     }
     BLT_TRACE_STREAM << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     stack.push(tertiary_18290);
     BLT_TRACE_STREAM << "Pushed 18290^: " << stack.size() << "\n";
@@ -218,7 +239,7 @@ void test_basic_types()
     BLT_TRACE_STREAM << "Pushed 4096: " << stack.size() << "\n";
     stack.push(50);
     BLT_TRACE_STREAM << "Pushed int: " << stack.size() << "\n";
-    std::cout << std::endl;
+    BLT_NEWLINE();
     
     BLT_INFO("Clearing stack one final time");
     RUN_TEST_TYPE(50, stack);
@@ -228,28 +249,49 @@ void test_basic_types()
 }
 
 blt::gp::operation_t basic_2([](float a, float b) {
-
+    return a + b;
 });
 
 blt::gp::operation_t basic_mixed_4([](float a, float b, bool i, bool p) {
-
+    return (a * (i ? 1.0f : 0.0f)) + (b * (p ? 1.0f : 0.0f));
 });
 
 blt::gp::operation_t large_256_basic_3([](const large_256& l, float a, float b) {
-
+    blt::black_box(a);
+    blt::black_box(b);
+    return blt::black_box_ret(l);
 });
 
 blt::gp::operation_t large_2048_basic_3b([](const large_2048& l, float a, bool b) {
-
+    blt::black_box(a);
+    blt::black_box(b);
+    return blt::black_box_ret(l);
 });
+
+void test_basic()
+{
+    BLT_INFO("Testing basic with stack");
+    {
+        blt::gp::stack_allocator stack;
+        stack.push(50.0f);
+        stack.push(10.0f);
+        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+        auto val = stack.pop<float>();
+        RUN_TEST(val != 60.000000f, stack, "Basic 2 Test Passed", "Basic 2 Test Failed. Unexpected value produced '%lf'", val);
+        BLT_TRACE_STREAM << stack.size() << "\n";
+    }
+}
 
 void test_operators()
 {
-
+    log_box box("-----------------------{Operator Testing}-----------------------", BLT_INFO_STREAM);
+    test_basic();
 }
 
 int main()
 {
     test_basic_types();
+    BLT_NEWLINE();
     test_operators();
 }
