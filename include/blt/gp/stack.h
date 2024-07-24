@@ -210,8 +210,11 @@ namespace blt::gp
                 
                 auto type_size = aligned_size(bytes);
                 if (head->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(type_size))
+                {
+                    BLT_ERROR_STREAM << "Stack State:\n" << size() << "\n" << "Bytes in head: " << bytes_in_head() << "\n";
                     BLT_ABORT(("This stack doesn't contain enough data for this type! " + std::to_string(head->used_bytes_in_block()) + " / " +
                                std::to_string(bytes) + " This is an invalid runtime state!").c_str());
+                }
                 
                 auto ptr = to.allocate_bytes(type_size);
                 to.head->metadata.offset = static_cast<blt::u8*>(ptr) + type_size;
