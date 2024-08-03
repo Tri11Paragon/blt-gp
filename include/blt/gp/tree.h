@@ -77,6 +77,11 @@ namespace blt::gp
                 return values;
             }
             
+            [[nodiscard]] inline const blt::gp::stack_allocator& get_values() const
+            {
+                return values;
+            }
+            
             evaluation_context evaluate(void* context);
             
             blt::size_t get_depth(gp_program& program);

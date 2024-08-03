@@ -28,6 +28,20 @@ namespace blt::gp
     
     evaluation_context tree_t::evaluate(void* context)
     {
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t expected_bytes = 0;
+        blt::size_t found_bytes = values.size().total_used_bytes;
+        for (const auto& op : operations)
+        {
+            if (op.is_value)
+                expected_bytes += stack_allocator::aligned_size(op.type_size);
+        }
+        if (expected_bytes != found_bytes)
+        {
+            BLT_WARN("Bytes found %ld vs bytes expected %ld", found_bytes, expected_bytes);
+            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+        }
+#endif
         // copy the initial values
         evaluation_context results{};
         

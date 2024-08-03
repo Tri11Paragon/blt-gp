@@ -44,7 +44,7 @@ namespace blt::gp
         
         auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
         auto crossover_point_end_itr = c1_ops.begin() + find_endpoint(program, c1_ops, point->p1_crossover_point);
-
+        
         auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
         auto found_point_end_itr = c2_ops.begin() + find_endpoint(program, c2_ops, point->p2_crossover_point);
         
@@ -64,9 +64,9 @@ namespace blt::gp
         stack_allocator c1_stack_for_copy;
         stack_allocator c2_stack_after_copy;
         stack_allocator c2_stack_for_copy;
-
+        
         // transfer all values after the crossover point. these will need to be transferred back to child2
-        transfer_backward(c1_stack_init, c1_stack_after_copy, c1_ops.end()-1, crossover_point_end_itr - 1);
+        transfer_backward(c1_stack_init, c1_stack_after_copy, c1_ops.end() - 1, crossover_point_end_itr - 1);
         // transfer all values for the crossover point.
         transfer_backward(c1_stack_init, c1_stack_for_copy, crossover_point_end_itr - 1, crossover_point_begin_itr - 1);
         // transfer child2 values for copying back into c1
@@ -89,6 +89,29 @@ namespace blt::gp
         
         c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
         c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
+
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t c1_found_bytes = result.child1.get_values().size().total_used_bytes;
+        blt::size_t c2_found_bytes = result.child2.get_values().size().total_used_bytes;
+        blt::size_t c1_expected_bytes = std::accumulate(result.child1.get_operations().begin(), result.child1.get_operations().end(), 0ul,
+                                                        [](const auto& v1, const auto& v2) {
+                                                            if (v2.is_value)
+                                                                return v1 + stack_allocator::aligned_size(v2.type_size);
+                                                            return v1;
+                                                        });
+        blt::size_t c2_expected_bytes = std::accumulate(result.child2.get_operations().begin(), result.child2.get_operations().end(), 0ul,
+                                                        [](const auto& v1, const auto& v2) {
+                                                            if (v2.is_value)
+                                                                return v1 + stack_allocator::aligned_size(v2.type_size);
+                                                            return v1;
+                                                        });
+        if (c1_found_bytes != c1_expected_bytes || c2_found_bytes != c2_expected_bytes)
+        {
+            BLT_WARN("C1 Found bytes %ld vs Expected Bytes %ld", c1_found_bytes, c1_expected_bytes);
+            BLT_WARN("C2 Found bytes %ld vs Expected Bytes %ld", c2_found_bytes, c2_expected_bytes);
+            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+        }
+#endif
         
         return result;
     }
@@ -153,6 +176,21 @@ namespace blt::gp
     tree_t mutation_t::apply(gp_program& program, const tree_t& p)
     {
         auto c = p;
+
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t parent_bytes = 0;
+        blt::size_t parent_size = p.get_values().size().total_used_bytes;
+        for (const auto& op : p.get_operations())
+        {
+            if (op.is_value)
+                parent_bytes += stack_allocator::aligned_size(op.type_size);
+        }
+        if (parent_bytes != parent_size)
+        {
+            BLT_WARN("Parent bytes %ld do not match expected %ld", parent_size, parent_bytes);
+            BLT_ABORT("You should not ignore the mismatched parent bytes!");
+        }
+#endif
         
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
@@ -165,12 +203,28 @@ namespace blt::gp
         
         stack_allocator after_stack;
 
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t after_stack_bytes = 0;
+        blt::size_t for_bytes = 0;
+        for (auto it = ops.end() - 1; it != end_p - 1; it--)
+        {
+            if (it->is_value)
+                stack_allocator::aligned_size(after_stack_bytes += it->type_size);
+        }
+#endif
+        
         transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
+        //for (auto it = ops.end() - 1; it != end_p; it++)
         
         for (auto it = end_p - 1; it != begin_p - 1; it--)
         {
             if (it->is_value)
+            {
                 vals.pop_bytes(static_cast<blt::ptrdiff_t>(it->type_size));
+#if BLT_DEBUG_LEVEL > 2
+                for_bytes += stack_allocator::aligned_size(it->type_size);
+#endif
+            }
         }
         
         auto before = begin_p - 1;
@@ -181,6 +235,16 @@ namespace blt::gp
         
         auto& new_ops = new_tree.get_operations();
         auto& new_vals = new_tree.get_values();
+
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t new_tree_bytes = 0;
+        blt::size_t new_tree_size = new_vals.size().total_used_bytes;
+        for (const auto& op : new_ops)
+        {
+            if (op.is_value)
+                new_tree_bytes += stack_allocator::aligned_size(op.type_size);
+        }
+#endif
         
         ops.insert(++before, new_ops.begin(), new_ops.end());
         
@@ -190,6 +254,26 @@ namespace blt::gp
         auto new_end_p = ops.begin() + static_cast<blt::ptrdiff_t>(new_end_point);
         
         transfer_forward(after_stack, vals, new_end_p, ops.end());
+
+#if BLT_DEBUG_LEVEL >= 2
+        blt::size_t bytes_expected = 0;
+        auto bytes_size = c.get_values().size().total_used_bytes;
+        
+        for (const auto& op : c.get_operations())
+        {
+            if (op.is_value)
+                bytes_expected += stack_allocator::aligned_size(op.type_size);
+        }
+        
+        if (bytes_expected != bytes_size)
+        {
+            BLT_WARN("Parent bytes %ld vs expected %ld", parent_size, parent_bytes);
+            BLT_WARN("After stack bytes: %ld; popped bytes %ld", after_stack_bytes, for_bytes);
+            BLT_WARN("Tree bytes %ld vs expected %ld", new_tree_size, new_tree_bytes);
+            BLT_WARN("Child tree bytes %ld vs expected %ld", bytes_size, bytes_expected);
+            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+        }
+#endif
         
         return c;
     }

@@ -252,7 +252,7 @@ namespace blt::gp
              * Warning this function is slow!
              * @return the size of the stack allocator in bytes
              */
-            [[nodiscard]] size_data_t size()
+            [[nodiscard]] size_data_t size() const
             {
                 size_data_t size_data;
                 auto* prev = head;
