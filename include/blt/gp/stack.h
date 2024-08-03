@@ -151,8 +151,11 @@ namespace blt::gp
                 if (blk == nullptr)
                     throw std::runtime_error("Some nonsense is going on. This function already smells");
                 if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(TYPE_SIZE))
+                {
+                    BLT_WARN_STREAM << size() << "\n";
                     throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
+                }
                 return *reinterpret_cast<NO_REF_T*>(blk->metadata.offset - remaining_bytes);
             }
             

@@ -56,9 +56,12 @@ namespace blt::gp
             operations_stack.pop_back();
             if (operation.is_value)
             {
+                //BLT_DEBUG("Processed Value %ld with size %ld", operation.id, stack_allocator::aligned_size(operation.type_size));
                 value_stack.transfer_bytes(values_process, operation.type_size);
                 continue;
             }
+            //BLT_DEBUG("Processed function %ld with size %ld", operation.id, stack_allocator::aligned_size(operation.type_size));
+            //BLT_TRACE("Stack info: %ld %ld", values_process.size().total_used_bytes, value_stack.size().total_used_bytes);
             operation.func(context, values_process, value_stack);
             operations_stack.emplace_back(empty_callable, operation.type_size, operation.id, true);
         }

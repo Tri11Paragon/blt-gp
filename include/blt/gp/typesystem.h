@@ -26,7 +26,6 @@
 #include <blt/std/memory.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/stack.h>
-#include <blt/gp/operations.h>
 #include <random>
 
 namespace blt::gp

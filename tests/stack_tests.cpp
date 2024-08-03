@@ -33,7 +33,7 @@ struct log_box
         
         ~log_box()
         {
-            for (auto& c : text)
+            for (auto& _ : text)
                 logger << '-';
             logger << '\n';
         }
@@ -51,9 +51,18 @@ T make_data(T t, Func&& func)
     return t;
 }
 
+template<typename T, typename Class, blt::size_t size>
+static inline auto constexpr array_size(const T(Class::*)[size])
+{
+    return size;
+}
+
 template<typename T, typename U>
 blt::ptrdiff_t compare(const T& t, const U& u)
 {
+    constexpr auto ts = array_size(&T::data);
+    constexpr auto us = array_size(&U::data);
+    BLT_ASSERT_MSG(ts == us, ("Array sizes don't match! " + std::to_string(ts) + " vs " + std::to_string(us)).c_str());
     for (const auto& [index, v] : blt::enumerate(t.data))
     {
         if (u.data[index] != v)
@@ -289,8 +298,8 @@ void test_basic()
     BLT_INFO("Testing basic with stack");
     {
         blt::gp::stack_allocator stack;
-        stack.push(50.0f);
         stack.push(10.0f);
+        stack.push(50.0f);
         BLT_TRACE_STREAM << stack.size() << "\n";
         basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
@@ -303,8 +312,8 @@ void test_basic()
     {
         blt::gp::stack_allocator stack;
         stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>{});
-        stack.push(50.0f);
         stack.push(10.0f);
+        stack.push(50.0f);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
@@ -323,10 +332,11 @@ void test_mixed()
     BLT_INFO("Testing mixed with stack");
     {
         blt::gp::stack_allocator stack;
-        stack.push(50.0f);
-        stack.push(10.0f);
-        stack.push(true);
         stack.push(false);
+        stack.push(true);
+        stack.push(10.0f);
+        stack.push(50.0f);
+        
         BLT_TRACE_STREAM << stack.size() << "\n";
         basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
@@ -339,10 +349,10 @@ void test_mixed()
     {
         blt::gp::stack_allocator stack;
         stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>{});
-        stack.push(50.0f);
-        stack.push(10.0f);
-        stack.push(true);
         stack.push(false);
+        stack.push(true);
+        stack.push(10.0f);
+        stack.push(50.0f);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
@@ -361,9 +371,10 @@ void test_large_256()
     BLT_INFO("Testing large 256 with stack");
     {
         blt::gp::stack_allocator stack;
-        stack.push(base_256);
-        stack.push(691.0f);
         stack.push(69.420f);
+        stack.push(691.0f);
+        stack.push(base_256);
+        
         BLT_TRACE_STREAM << stack.size() << "\n";
         large_256_basic_3.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
@@ -376,9 +387,9 @@ void test_large_256()
     {
         blt::gp::stack_allocator stack;
         stack.push(std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(large_256)>{});
-        stack.push(base_256);
-        stack.push(691.0f);
         stack.push(69.420f);
+        stack.push(691.0f);
+        stack.push(base_256);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
@@ -397,9 +408,9 @@ void test_large_4096()
     BLT_INFO("Testing large 4096 with stack");
     {
         blt::gp::stack_allocator stack;
-        stack.push(base_4096);
-        stack.push(33.0f);
         stack.push(true);
+        stack.push(33.0f);
+        stack.push(base_4096);
         BLT_TRACE_STREAM << stack.size() << "\n";
         large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
@@ -411,16 +422,16 @@ void test_large_4096()
     BLT_INFO("Testing large 4096 with stack over boundary");
     {
         blt::gp::stack_allocator stack;
-        stack.push(base_4096);
-        stack.push(33.0f);
         stack.push(true);
+        stack.push(33.0f);
+        stack.push(base_4096);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
         large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_4096>();
-        RUN_TEST(!compare(val, base_256), stack, "Large 4096 3 Boundary Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);
+        RUN_TEST(!compare(val, base_4096), stack, "Large 4096 3 Boundary Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);
         BLT_TRACE_STREAM << stack.size() << "\n";
         BLT_ASSERT(stack.empty() && "Stack was not empty after evaluation over stack boundary");
     }
@@ -431,9 +442,9 @@ void test_large_18290()
     BLT_INFO("Testing large 18290 with stack");
     {
         blt::gp::stack_allocator stack;
-        stack.push(base_18290);
-        stack.push(-2543.0f);
         stack.push(true);
+        stack.push(-2543.0f);
+        stack.push(base_18290);
         BLT_TRACE_STREAM << stack.size() << "\n";
         large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
@@ -446,9 +457,9 @@ void test_large_18290()
     {
         blt::gp::stack_allocator stack;
         stack.push(std::array<blt::u8, 20480 - 18290 - blt::gp::stack_allocator::block_size()>());
-        stack.push(base_18290);
-        stack.push(-2543.0f);
         stack.push(true);
+        stack.push(-2543.0f);
+        stack.push(base_18290);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
@@ -463,15 +474,15 @@ void test_large_18290()
     BLT_INFO("Testing large 18290 with stack over multiple boundaries");
     {
         blt::gp::stack_allocator stack;
-        stack.push(base_18290);
+        stack.push(true);
         stack.push(-2543.0f);
         stack.push(true);
+        stack.push(-2543.0f);
+        stack.push(base_18290);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";
-        stack.push(-2543.0f);
-        stack.push(true);
         BLT_TRACE_STREAM << stack.size() << "\n";
         large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
         BLT_TRACE_STREAM << stack.size() << "\n";

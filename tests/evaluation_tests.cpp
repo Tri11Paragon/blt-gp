@@ -50,6 +50,8 @@ struct large_18290
     blt::u8 data[18290];
 };
 
+large_18290 base{};
+
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED};
 
@@ -65,12 +67,27 @@ blt::gp::op_container_t make_value(const blt::gp::type& id)
     return {empty, id.size(), 0, true};
 }
 
-blt::gp::operation_t basic_2([](float a, float b) {
+blt::gp::operation_t add([](float a, float b) {
     return a + b;
+});
+
+blt::gp::operation_t sub([](float a, float b) {
+    return a - b;
 });
 
 blt::gp::operation_t basic_2t([](float a, bool b) {
     return b ? a : 0.0f;
+});
+
+blt::gp::operation_t cross_large_type([](const large_18290& input, const float a, const float b) {
+    BLT_TRACE("%f, %f", a, b);
+    large_18290 output{};
+    for (const auto& [index, ref] : blt::enumerate(input.data))
+    {
+        if (ref > static_cast<blt::u8>(a) && ref < static_cast<blt::u8>(b))
+            output.data[index] = ref;
+    }
+    return output;
 });
 
 blt::gp::operation_t f_literal([]() {
@@ -81,35 +98,68 @@ blt::gp::operation_t b_literal([]() {
     return false;
 });
 
+blt::gp::operation_t large_literal([]() {
+    return base;
+});
+
 void basic_tree()
 {
     BLT_INFO("Testing if we can get a basic tree going.");
     blt::gp::tree_t tree;
     
-    tree.get_operations().push_back(make_container(2));
+    tree.get_operations().push_back(make_container(sub.id));
     tree.get_operations().push_back(make_value(type_system.get_type<float>()));
     tree.get_operations().push_back(make_value(type_system.get_type<float>()));
-    tree.get_values().push(50.0f);
     tree.get_values().push(120.0f);
+    tree.get_values().push(50.0f);
     
     auto val = tree.get_evaluation_value<float>(nullptr);
     BLT_TRACE(val);
-    BLT_ASSERT(val == (50 + 120));
+    BLT_ASSERT(val == (120 - 50));
+}
+
+void large_cross_type_tree()
+{
+    blt::gp::tree_t tree;
+    auto& ops = tree.get_operations();
+    auto& vals = tree.get_values();
+    
+    ops.push_back(make_container(cross_large_type.id));
+    ops.push_back(make_container(large_literal.id));
+    ops.push_back(make_container(sub.id));
+    ops.push_back(make_value(type_system.get_type<float>()));
+    ops.push_back(make_value(type_system.get_type<float>()));
+    ops.push_back(make_value(type_system.get_type<float>()));
+    
+    vals.push(50.0f);
+    vals.push(120.0f);
+    vals.push(5555.0f);
+    
+    auto val = tree.get_evaluation_value<large_18290>(nullptr);
+    blt::black_box(val);
 }
 
 int main()
 {
+    for (auto& v : base.data)
+        v = static_cast<blt::u8>(blt::random::murmur_random64c(691, std::numeric_limits<blt::u8>::min(), std::numeric_limits<blt::u8>::max()));
+    
     type_system.register_type<float>();
     type_system.register_type<bool>();
+    type_system.register_type<large_18290>();
     
     blt::gp::operator_builder builder{type_system};
     
-    builder.add_operator(f_literal); // 0
-    builder.add_operator(b_literal); // 1
-    builder.add_operator(basic_2);   // 2
-    builder.add_operator(basic_2t);  // 3
+    builder.add_operator(f_literal);        // 0
+    builder.add_operator(b_literal);        // 1
+    builder.add_operator(add);              // 2
+    builder.add_operator(basic_2t);         // 3
+    builder.add_operator(sub);              // 4
+    builder.add_operator(large_literal);    // 5
+    builder.add_operator(cross_large_type); // 6
     
     program.set_operations(builder.build());
     
     basic_tree();
+    large_cross_type_tree();
 }

@@ -40,6 +40,7 @@
 #include <blt/std/hashmap.h>
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
+#include <blt/std/meta.h>
 #include <blt/std/memory.h>
 #include <blt/std/thread.h>
 #include <blt/gp/fwdecl.h>
@@ -105,10 +106,11 @@ namespace blt::gp
             {}
             
             template<typename ArgType, typename Return, typename... Args>
-            operator_builder& add_operator(const operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
+            operator_builder& add_operator(operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
             {
                 auto return_type_id = system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
+                op.id = operator_id;
                 
                 operator_info info;
                 
@@ -128,27 +130,15 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 info.function = op.template make_callable<Context>();
-//                info.transfer = [](std::optional<std::reference_wrapper<stack_allocator>> to, stack_allocator& from) {
-//#if BLT_DEBUG_LEVEL >= 3
-//                    auto value = from.pop<Return>();
-//                    //BLT_TRACE_STREAM << value << "\n";
-//                    if (to){
-//                        to->get().push(value);
-//                    }
-//#else
-//                    if (to)
-//                    {
-//                        to->get().push(from.pop<Return>());
-//                    } else
-//                    {
-//                        from.pop<Return>();
-//                    }
-//#endif
-//
-//                };
+
                 storage.operators.push_back(info);
-                storage.print_funcs.push_back([](std::ostream& out, stack_allocator& stack) {
-                    out << stack.pop<Return>();
+                storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
+                    if constexpr (blt::meta::is_streamable_v<Return>) {
+                        out << stack.pop<Return>();
+                        (void)(op); // remove warning
+                    } else {
+                        out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                    }
                 });
                 storage.names.push_back(op.get_name());
                 if (is_static)

@@ -78,7 +78,8 @@ namespace blt::gp
         {
             blt::size_t offset = 0;
             blt::size_t current_index = 0;
-            ((offset += (current_index++ > index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
+            ((offset += (current_index++ < index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
+            //BLT_INFO("offset %ld for index %ld", offset, index);
             return offset;
         }
         
@@ -86,6 +87,8 @@ namespace blt::gp
         inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
                                                                 ExtraArgs&& ... args)
         {
+            //blt::size_t arg_size = (stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...);
+            //BLT_TRACE(arg_size);
             // expands Args and indices, providing each argument with its index calculating the current argument byte offset
             return std::forward<Func>(func)(std::forward<ExtraArgs>(args)...,
                                             allocator.from<detail::remove_cv_ref<Args>>(getByteOffset<indices>())...);
@@ -173,7 +176,8 @@ namespace blt::gp
             {
                 return name;
             }
-        
+            
+            operator_id id = -1;
         private:
             function_t func;
             std::optional<std::string_view> name;
