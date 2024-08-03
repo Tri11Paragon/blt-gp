@@ -114,7 +114,7 @@ namespace blt::gp
                 return results.values.pop<T>();
             }
             
-            void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false);
+            void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false) const;
         
         private:
             std::vector<op_container_t> operations;

@@ -87,7 +87,7 @@ namespace blt::gp
         return "(" + std::string(program.get_typesystem().get_type(id).name()) + ")";
     }
     
-    void tree_t::print(gp_program& program, std::ostream& out, bool print_literals, bool pretty_print, bool include_types)
+    void tree_t::print(gp_program& program, std::ostream& out, bool print_literals, bool pretty_print, bool include_types) const
     {
         std::stack<blt::size_t> arguments_left;
         blt::size_t indent = 0;

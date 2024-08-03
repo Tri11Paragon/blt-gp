@@ -18,6 +18,7 @@
 #include <blt/gp/transformers.h>
 #include <blt/gp/program.h>
 #include <blt/std/ranges.h>
+#include <blt/std/utility.h>
 #include <random>
 
 namespace blt::gp
@@ -176,88 +177,37 @@ namespace blt::gp
     tree_t mutation_t::apply(gp_program& program, const tree_t& p)
     {
         auto c = p;
-
-#if BLT_DEBUG_LEVEL >= 2
-        blt::size_t parent_bytes = 0;
-        blt::size_t parent_size = p.get_values().size().total_used_bytes;
-        for (const auto& op : p.get_operations())
-        {
-            if (op.is_value)
-                parent_bytes += stack_allocator::aligned_size(op.type_size);
-        }
-        if (parent_bytes != parent_size)
-        {
-            BLT_WARN("Parent bytes %ld do not match expected %ld", parent_size, parent_bytes);
-            BLT_ABORT("You should not ignore the mismatched parent bytes!");
-        }
-#endif
         
-        auto& ops = c.get_operations();
-        auto& vals = c.get_values();
+        auto& ops_r = c.get_operations();
+        auto& vals_r = c.get_values();
         
-        auto point = static_cast<blt::ptrdiff_t>(program.get_random().get_size_t(0ul, ops.size()));
-        const auto& type_info = program.get_operator_info(ops[point].id);
+        auto begin_point = static_cast<blt::ptrdiff_t>(program.get_random().get_size_t(0ul, ops_r.size()));
+        auto end_point = find_endpoint(program, ops_r, begin_point);
+        const auto& type_info = program.get_operator_info(ops_r[begin_point].id);
         
-        auto begin_p = ops.begin() + point;
-        auto end_p = ops.begin() + find_endpoint(program, ops, point);
-        
-        stack_allocator after_stack;
-
-#if BLT_DEBUG_LEVEL >= 2
-        blt::size_t after_stack_bytes = 0;
-        blt::size_t for_bytes = 0;
-        for (auto it = ops.end() - 1; it != end_p - 1; it--)
-        {
-            if (it->is_value)
-                stack_allocator::aligned_size(after_stack_bytes += it->type_size);
-        }
-#endif
-        
-        transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
-        //for (auto it = ops.end() - 1; it != end_p; it++)
-        
-        for (auto it = end_p - 1; it != begin_p - 1; it--)
-        {
-            if (it->is_value)
-            {
-                vals.pop_bytes(static_cast<blt::ptrdiff_t>(it->type_size));
-#if BLT_DEBUG_LEVEL > 2
-                for_bytes += stack_allocator::aligned_size(it->type_size);
-#endif
-            }
-        }
-        
-        auto before = begin_p - 1;
-        
-        ops.erase(begin_p, end_p);
+        auto begin_itr = ops_r.begin() + begin_point;
+        auto end_itr = ops_r.begin() + end_point;
         
         auto new_tree = config.generator.get().generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
         
-        auto& new_ops = new_tree.get_operations();
-        auto& new_vals = new_tree.get_values();
-
-#if BLT_DEBUG_LEVEL >= 2
-        blt::size_t new_tree_bytes = 0;
-        blt::size_t new_tree_size = new_vals.size().total_used_bytes;
-        for (const auto& op : new_ops)
-        {
-            if (op.is_value)
-                new_tree_bytes += stack_allocator::aligned_size(op.type_size);
-        }
-#endif
+        auto& new_ops_r = new_tree.get_operations();
+        auto& new_vals_r = new_tree.get_values();
         
-        ops.insert(++before, new_ops.begin(), new_ops.end());
+        stack_allocator stack_after;
+        stack_allocator stack_for;
+        transfer_backward(vals_r, stack_after, ops_r.end() - 1, end_itr - 1);
+        transfer_backward(vals_r, stack_for, end_itr - 1, begin_itr - 1);
         
-        transfer_backward(new_vals, vals, new_ops.end() - 1, new_ops.begin() - 1);
+        transfer_backward(new_vals_r, vals_r, new_ops_r.end() - 1, new_ops_r.begin() - 1);
+        transfer_forward(stack_after, vals_r, end_itr, ops_r.end());
         
-        auto new_end_point = point + new_ops.size();
-        auto new_end_p = ops.begin() + static_cast<blt::ptrdiff_t>(new_end_point);
-        
-        transfer_forward(after_stack, vals, new_end_p, ops.end());
+        auto before = begin_itr - 1;
+        ops_r.erase(begin_itr, end_itr);
+        ops_r.insert(++before, new_ops_r.begin(), new_ops_r.end());
 
 #if BLT_DEBUG_LEVEL >= 2
         blt::size_t bytes_expected = 0;
-        auto bytes_size = c.get_values().size().total_used_bytes;
+        auto bytes_size = vals_r.size().total_used_bytes;
         
         for (const auto& op : c.get_operations())
         {
@@ -267,16 +217,154 @@ namespace blt::gp
         
         if (bytes_expected != bytes_size)
         {
-            BLT_WARN("Parent bytes %ld vs expected %ld", parent_size, parent_bytes);
-            BLT_WARN("After stack bytes: %ld; popped bytes %ld", after_stack_bytes, for_bytes);
-            BLT_WARN("Tree bytes %ld vs expected %ld", new_tree_size, new_tree_bytes);
             BLT_WARN("Child tree bytes %ld vs expected %ld", bytes_size, bytes_expected);
             BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
         }
+        auto copy = c;
+        try
+        {
+            auto result = copy.evaluate(nullptr);
+            blt::black_box(result);
+        } catch (...)
+        {
+            std::cout << "Parent:\n";
+            p.print(program, std::cout, false, true);
+            std::cout << "Child:\n";
+            c.print(program, std::cout, false, true);
+            c.print(program, std::cout, true, true);
+            throw std::exception();
+        }
+
 #endif
         
         return c;
     }
+
+//    tree_t mutation_t::apply(gp_program& program, const tree_t& p)
+//    {
+//        auto c = p;
+//
+//#if BLT_DEBUG_LEVEL >= 2
+//        blt::size_t parent_bytes = 0;
+//        blt::size_t parent_size = p.get_values().size().total_used_bytes;
+//        for (const auto& op : p.get_operations())
+//        {
+//            if (op.is_value)
+//                parent_bytes += stack_allocator::aligned_size(op.type_size);
+//        }
+//        if (parent_bytes != parent_size)
+//        {
+//            BLT_WARN("Parent bytes %ld do not match expected %ld", parent_size, parent_bytes);
+//            BLT_ABORT("You should not ignore the mismatched parent bytes!");
+//        }
+//#endif
+//
+//        auto& ops = c.get_operations();
+//        auto& vals = c.get_values();
+//
+//        auto point = static_cast<blt::ptrdiff_t>(program.get_random().get_size_t(0ul, ops.size()));
+//        const auto& type_info = program.get_operator_info(ops[point].id);
+//
+//        auto new_tree = config.generator.get().generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+//
+//        auto& new_ops = new_tree.get_operations();
+//        auto& new_vals = new_tree.get_values();
+//
+//#if BLT_DEBUG_LEVEL >= 2
+//        blt::size_t new_tree_bytes = 0;
+//        blt::size_t new_tree_size = new_vals.size().total_used_bytes;
+//        for (const auto& op : new_ops)
+//        {
+//            if (op.is_value)
+//                new_tree_bytes += stack_allocator::aligned_size(op.type_size);
+//        }
+//#endif
+//
+//        auto begin_p = ops.begin() + point;
+//        auto end_p = ops.begin() + find_endpoint(program, ops, point);
+//
+//        stack_allocator after_stack;
+//
+//#if BLT_DEBUG_LEVEL >= 2
+//        blt::size_t after_stack_bytes = 0;
+//        blt::size_t for_bytes = 0;
+//        for (auto it = ops.end() - 1; it != end_p - 1; it--)
+//        {
+//            if (it->is_value)
+//            {
+//                after_stack_bytes += stack_allocator::aligned_size(it->type_size);
+//            }
+//        }
+//#endif
+//
+//        transfer_backward(vals, after_stack, ops.end() - 1, end_p - 1);
+//        //for (auto it = ops.end() - 1; it != end_p; it++)
+//
+//        for (auto it = end_p - 1; it != begin_p - 1; it--)
+//        {
+//            if (it->is_value)
+//            {
+//#if BLT_DEBUG_LEVEL >= 2
+//                auto size_b = vals.size().total_used_bytes;
+//#endif
+//                vals.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(it->type_size)));
+//#if BLT_DEBUG_LEVEL >= 2
+//                auto size_a = vals.size().total_used_bytes;
+//                if (size_a != size_b - stack_allocator::aligned_size(it->type_size))
+//                {
+//                    BLT_WARN("After pop size: %ld before pop size: %ld; expected pop amount %ld", size_a, size_b,
+//                             stack_allocator::aligned_size(it->type_size));
+//                    BLT_ABORT("Popping bytes didn't remove the correct amount!");
+//                }
+//                for_bytes += stack_allocator::aligned_size(it->type_size);
+//#endif
+//            }
+//        }
+//
+//        transfer_backward(new_vals, vals, new_ops.end() - 1, new_ops.begin() - 1);
+//
+//        transfer_forward(after_stack, vals, end_p, ops.end());
+//
+//        auto before = begin_p - 1;
+//        ops.erase(begin_p, end_p);
+//        ops.insert(++before, new_ops.begin(), new_ops.end());
+//
+//#if BLT_DEBUG_LEVEL >= 2
+//        blt::size_t bytes_expected = 0;
+//        auto bytes_size = c.get_values().size().total_used_bytes;
+//
+//        for (const auto& op : c.get_operations())
+//        {
+//            if (op.is_value)
+//                bytes_expected += stack_allocator::aligned_size(op.type_size);
+//        }
+//
+//        if (bytes_expected != bytes_size || parent_size != parent_bytes || new_tree_size != new_tree_bytes)
+//        {
+//            BLT_WARN("Parent bytes %ld vs expected %ld", parent_size, parent_bytes);
+//            BLT_WARN("After stack bytes: %ld; popped bytes %ld", after_stack_bytes, for_bytes);
+//            BLT_WARN("Tree bytes %ld vs expected %ld", new_tree_size, new_tree_bytes);
+//            BLT_WARN("Child tree bytes %ld vs expected %ld", bytes_size, bytes_expected);
+//            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+//        }
+//        auto copy = c;
+//        try
+//        {
+//            auto result = copy.evaluate(nullptr);
+//            blt::black_box(result);
+//        } catch(...) {
+//            std::cout << "Parent:\n";
+//            p.print(program, std::cout, false, true);
+//            std::cout << "Child:\n";
+//            c.print(program, std::cout, false, true);
+//            c.print(program, std::cout, true, true);
+//            throw std::exception();
+//        }
+//
+//#endif
+//
+//        return c;
+//    }
     
     mutation_t::config_t::config_t(): generator(grow_generator)
     {}
