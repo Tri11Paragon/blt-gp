@@ -37,7 +37,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_elite_count(2)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
-        .set_reproduction_chance(0.1)
+        .set_reproduction_chance(0)
         .set_max_generations(50)
         .set_pop_size(500)
         .set_thread_count(0);
@@ -75,7 +75,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
             fitness.raw_fitness += value_cutoff;
     }
     fitness.standardized_fitness = fitness.raw_fitness;
-    fitness.adjusted_fitness = 1.0 / (1.0 + fitness.standardized_fitness);
+    fitness.adjusted_fitness = (1.0 / (1.0 + fitness.standardized_fitness));
     //BLT_TRACE("fitness: %lf raw: %lf", fitness.adjusted_fitness, fitness.raw_fitness);
 };
 
