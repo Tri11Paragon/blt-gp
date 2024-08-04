@@ -194,9 +194,12 @@ namespace blt::gp
         auto& new_vals_r = new_tree.get_values();
         
         stack_allocator stack_after;
-        stack_allocator stack_for;
         transfer_backward(vals_r, stack_after, ops_r.end() - 1, end_itr - 1);
-        transfer_backward(vals_r, stack_for, end_itr - 1, begin_itr - 1);
+        for (auto it = end_itr - 1; it != begin_itr - 1; it--)
+        {
+            if (it->is_value)
+                vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(it->type_size)));
+        }
         
         transfer_backward(new_vals_r, vals_r, new_ops_r.end() - 1, new_ops_r.begin() - 1);
         transfer_forward(stack_after, vals_r, end_itr, ops_r.end());
@@ -206,6 +209,8 @@ namespace blt::gp
         ops_r.insert(++before, new_ops_r.begin(), new_ops_r.end());
 
 #if BLT_DEBUG_LEVEL >= 2
+        BLT_ASSERT(new_vals_r.empty());
+        BLT_ASSERT(stack_after.empty());
         blt::size_t bytes_expected = 0;
         auto bytes_size = vals_r.size().total_used_bytes;
         
@@ -227,11 +232,16 @@ namespace blt::gp
             blt::black_box(result);
         } catch (...)
         {
-            std::cout << "Parent:\n";
+            std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
+            std::cout << "our root type is " << ops_r[begin_point].id << " with size " << stack_allocator::aligned_size(ops_r[begin_point].type_size) << "\n";
+            std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id) ? *program.get_name(ops_r[begin_point].id) : "Unnamed") << "\n";
+            std::cout << "Parent:" << std::endl;
             p.print(program, std::cout, false, true);
-            std::cout << "Child:\n";
+            std::cout << "Child:" << std::endl;
             c.print(program, std::cout, false, true);
+            std::cout << std::endl;
             c.print(program, std::cout, true, true);
+            std::cout << std::endl;
             throw std::exception();
         }
 
