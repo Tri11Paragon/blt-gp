@@ -91,7 +91,7 @@ blt::gp::operation_t cross_large_type([](const large_18290& input, const float a
 });
 
 blt::gp::operation_t f_literal([]() {
-    return 0.0f;
+    return 555.0f;
 });
 
 blt::gp::operation_t b_literal([]() {
@@ -110,8 +110,8 @@ void basic_tree()
     tree.get_operations().push_back(make_container(sub.id));
     tree.get_operations().push_back(make_value(type_system.get_type<float>()));
     tree.get_operations().push_back(make_value(type_system.get_type<float>()));
-    tree.get_values().push(120.0f);
     tree.get_values().push(50.0f);
+    tree.get_values().push(120.0f);
     
     auto val = tree.get_evaluation_value<float>(nullptr);
     BLT_TRACE(val);
@@ -125,11 +125,11 @@ void large_cross_type_tree()
     auto& vals = tree.get_values();
     
     ops.push_back(make_container(cross_large_type.id));
-    ops.push_back(make_container(large_literal.id));
     ops.push_back(make_container(sub.id));
     ops.push_back(make_value(type_system.get_type<float>()));
     ops.push_back(make_value(type_system.get_type<float>()));
     ops.push_back(make_value(type_system.get_type<float>()));
+    ops.push_back(make_container(large_literal.id));
     
     vals.push(50.0f);
     vals.push(120.0f);

@@ -78,7 +78,7 @@ namespace blt::gp
         {
             blt::size_t offset = 0;
             blt::size_t current_index = 0;
-            ((offset += (current_index++ < index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
+            ((offset += (current_index++ > index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
             //BLT_INFO("offset %ld for index %ld", offset, index);
             return offset;
         }
