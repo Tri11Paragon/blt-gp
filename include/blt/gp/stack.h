@@ -82,6 +82,102 @@ namespace blt::gp
                 }
             };
             
+            void insert(stack_allocator stack)
+            {
+                if (stack.empty())
+                    return;
+                // take a copy of the pointer to this stack's blocks
+                auto old_head = stack.head;
+                // stack is now empty, we have the last reference to it.
+                stack.head = nullptr;
+                // we don't have any nodes to search through or re-point, we can just assign the head
+                if (head == nullptr)
+                {
+                    head = old_head;
+                    return;
+                }
+                
+                // find the beginning of the stack
+                auto begin = old_head;
+                while (begin->metadata.prev != nullptr)
+                    begin = begin->metadata.prev;
+                
+                // move along blocks with free space, attempt to insert bytes from one stack to another
+                auto insert = head;
+                while (insert->metadata.next != nullptr && begin != nullptr)
+                {
+                    if (begin->used_bytes_in_block() <= insert->remaining_bytes_in_block())
+                    {
+                        std::memcpy(insert->metadata.offset, begin->buffer, begin->used_bytes_in_block());
+                        insert->metadata.offset += begin->used_bytes_in_block();
+                        auto old_begin = begin;
+                        begin = begin->metadata.next;
+                        free_block(old_begin);
+                    }
+                    head = insert;
+                    insert = insert->metadata.next;
+                }
+                if (begin == nullptr)
+                    return;
+                while (insert->metadata.next != nullptr)
+                    insert = insert->metadata.next;
+                // if here is space left we can move the pointers around
+                insert->metadata.next = begin;
+                begin->metadata.prev = insert;
+                // find where the head is now and set the head to this new point.
+                auto new_head = begin;
+                while (new_head->metadata.next != nullptr)
+                    new_head = new_head->metadata.next;
+                head = new_head;
+            }
+            
+            /**
+             * Bytes must be the number of bytes to move, all types must have alignment accounted for
+             */
+            void copy_from(const stack_allocator& stack, blt::size_t bytes)
+            {
+                if (stack.empty())
+                {
+                    BLT_WARN("This stack is empty, we will copy no bytes from it!");
+                    return;
+                }
+                auto start_block = stack.head;
+                auto bytes_left = static_cast<blt::ptrdiff_t>(bytes);
+                blt::u8* start_point = nullptr;
+                while (bytes_left > 0)
+                {
+                    if (start_block == nullptr)
+                    {
+                        BLT_WARN("This stack doesn't contain enough space to copy %ld bytes!", bytes);
+                        BLT_WARN_STREAM << "State: " << size() << "\n";
+                        BLT_ABORT("Stack doesn't contain enough data for this copy operation!");
+                    }
+                    if (start_block->used_bytes_in_block() < bytes_left)
+                    {
+                        bytes_left -= start_block->used_bytes_in_block();
+                        start_block = start_block->metadata.prev;
+                    } else if (start_block->used_bytes_in_block() == bytes_left)
+                    {
+                        start_point = start_block->buffer;
+                        break;
+                    } else
+                    {
+                        start_point = start_block->metadata.offset - bytes_left;
+                        break;
+                    }
+                }
+                // we can copy the bytes directly, no special allocation
+                if (head->remaining_bytes_in_block() >= bytes_left)
+                {
+                    std::memcpy(head->metadata.offset, start_point, bytes_left);
+                    head->metadata.offset += bytes_left;
+                    start_block = start_block->metadata.next;
+                }
+                while (start_block != nullptr)
+                {
+                
+                }
+            }
             
             /**
              * Pushes an instance of an object on to the stack
@@ -337,7 +433,7 @@ namespace blt::gp
                     {
                         auto ptr = blk;
                         blk = blk->metadata.next;
-                        std::free(ptr);
+                        free_block(ptr);
                     }
                 }
                 free_chain(head);
@@ -496,9 +592,14 @@ namespace blt::gp
                 {
                     block* ptr = current;
                     current = current->metadata.prev;
-                    std::free(ptr);
+                    free_block(ptr);
                     //get_allocator().deallocate(ptr);
                 }
+            }
+            
+            static void free_block(block* ptr)
+            {
+                std::free(ptr);
             }
             
             inline bool move_back()
@@ -511,11 +612,6 @@ namespace blt::gp
                     return false;
                 }
                 return true;
-                //free_chain(old);
-                // required to prevent silly memory :3
-//                if (head != nullptr)
-//                    head->metadata.next = nullptr;
-//                std::free(old);
             }
         
         private:
