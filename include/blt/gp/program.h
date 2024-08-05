@@ -103,7 +103,15 @@ namespace blt::gp
         
         public:
             explicit operator_builder(type_provider& system): system(system)
-            {}
+            {
+//                // ensure every storage has a vec defined for every type!
+//                for (const auto& type : system)
+//                {
+//                    storage.terminals[type.second.id()] = {};
+//                    storage.non_terminals[type.second.id()] = {};
+//                    storage.operators_ordered_terminals[type.second.id()] = {};
+//                }
+            }
             
             template<typename ArgType, typename Return, typename... Args>
             operator_builder& add_operator(operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
@@ -424,11 +432,18 @@ namespace blt::gp
             
             inline operator_id select_non_terminal(type_id id)
             {
+                // non-terminal doesn't exist, return a terminal. This is useful for types that are defined only to have a random value, nothing more.
+                // was considering an std::optional<> but that would complicate the generator code considerably. I'll mark this as a TODO for v2
+                if (storage.non_terminals[id].empty())
+                    return select_terminal(id);
                 return get_random().select(storage.non_terminals[id]);
             }
             
             inline operator_id select_non_terminal_too_deep(type_id id)
             {
+                // this should probably be an error.
+                if (storage.operators_ordered_terminals[id].empty())
+                    BLT_ABORT("An impossible state has been reached. Please consult the manual. Error 43");
                 return get_random().select(storage.operators_ordered_terminals[id]).first;
             }
             

@@ -136,6 +136,8 @@ namespace blt::gp
              */
             void copy_from(const stack_allocator& stack, blt::size_t bytes)
             {
+                if (bytes == 0)
+                    return;
                 if (stack.empty())
                 {
                     BLT_WARN("This stack is empty, we will copy no bytes from it!");
@@ -166,16 +168,51 @@ namespace blt::gp
                         break;
                     }
                 }
-                // we can copy the bytes directly, no special allocation
-                if (head->remaining_bytes_in_block() >= bytes_left)
+                if (bytes_left > 0)
                 {
+                    auto insert = head;
+                    while (insert != nullptr)
+                    {
+                        if (insert->remaining_bytes_in_block() >= bytes_left)
+                            break;
+                        insert = insert->metadata.next;
+                    }
+                    // can directly copy into a block. this stack's head is now the insert point
+                    if (insert != nullptr && insert->remaining_bytes_in_block() >= bytes_left)
+                        head = insert;
+                    else
+                    {
+                        // need to push a block to the end.
+                        // make sure head is at the end.
+                        while (head != nullptr && head->metadata.next != nullptr)
+                            head = head->metadata.next;
+                        push_block(bytes_left);
+                    }
                     std::memcpy(head->metadata.offset, start_point, bytes_left);
                     head->metadata.offset += bytes_left;
                     start_block = start_block->metadata.next;
                 }
+                // we now copy whole blocks at a time.
                 while (start_block != nullptr)
                 {
-                
+                    auto prev = head;
+                    auto insert = head;
+                    while (insert != nullptr)
+                    {
+                        if (insert->remaining_bytes_in_block() >= start_block->used_bytes_in_block())
+                            break;
+                        prev = insert;
+                        insert = insert->metadata.next;
+                    }
+                    if (insert == nullptr)
+                    {
+                        head = prev;
+                        push_block(start_block->used_bytes_in_block());
+                    } else
+                        head = insert;
+                    std::memcpy(head->metadata.offset, start_block->buffer, start_block->used_bytes_in_block());
+                    head->metadata.offset += start_block->used_bytes_in_block();
+                    start_block = start_block->metadata.next;
                 }
             }
             
@@ -257,25 +294,8 @@ namespace blt::gp
             
             void pop_bytes(blt::ptrdiff_t bytes)
             {
-#if BLT_DEBUG_LEVEL >= 3
-                blt::size_t counter = 0;
-#endif
                 while (bytes > 0)
                 {
-#if BLT_DEBUG_LEVEL > 0
-                    if (head == nullptr)
-                    {
-                        BLT_WARN("Head is nullptr, unable to pop bytes!");
-                        BLT_WARN("This error is normally caused by an invalid tree!");
-#if BLT_DEBUG_LEVEL >= 3
-                        BLT_WARN("Made it to %ld iterations", counter);
-#endif
-                        return;
-                    }
-#if BLT_DEBUG_LEVEL >= 3
-                    counter++;
-#endif
-#endif
                     auto diff = head->used_bytes_in_block() - bytes;
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
                     // and pop from it, update the amount of bytes to reflect the amount removed from the current block
@@ -292,7 +312,7 @@ namespace blt::gp
                         break;
                     }
                 }
-                while (head->used_bytes_in_block() == 0 && move_back());
+                while (head != nullptr && head->used_bytes_in_block() == 0 && move_back());
             }
             
             /**
