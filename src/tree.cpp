@@ -47,20 +47,15 @@ namespace blt::gp
         
         auto value_stack = values;
         auto& values_process = results.values;
-        auto operations_stack = operations;
         
-        while (!operations_stack.empty())
+        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
         {
-            auto operation = operations_stack.back();
-            // keep the last value in the stack on the process stack stored in the eval context, this way it can be accessed easily.
-            operations_stack.pop_back();
             if (operation.is_value)
             {
                 value_stack.transfer_bytes(values_process, operation.type_size);
                 continue;
             }
             operation.func(context, values_process, values_process);
-            //operations_stack.emplace_back(empty_callable, operation.type_size, operation.id, true);
         }
         
         return results;

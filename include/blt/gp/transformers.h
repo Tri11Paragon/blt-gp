@@ -108,6 +108,8 @@ namespace blt::gp
             
             virtual tree_t apply(gp_program& program, const tree_t& p); // NOLINT
             
+            void mutate_point(gp_program& program, tree_t& c, blt::size_t node);
+            
             virtual ~mutation_t() = default;
         
         protected:

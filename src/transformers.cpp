@@ -210,10 +210,17 @@ namespace blt::gp
     {
         auto c = p;
         
+        mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));
+        
+        return c;
+    }
+    
+    void mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
+    {
         auto& ops_r = c.get_operations();
         auto& vals_r = c.get_values();
         
-        auto begin_point = static_cast<blt::ptrdiff_t>(program.get_random().get_size_t(0ul, ops_r.size()));
+        auto begin_point = static_cast<blt::ptrdiff_t>(node);
         auto end_point = find_endpoint(program, ops_r, begin_point);
         auto begin_operator_id = ops_r[begin_point].id;
         const auto& type_info = program.get_operator_info(begin_operator_id);
@@ -276,8 +283,8 @@ namespace blt::gp
                       << "\n";
             std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id) ? *program.get_name(ops_r[begin_point].id) : "Unnamed") << "\n";
             std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
-            std::cout << "Parent:" << std::endl;
-            p.print(program, std::cout, false, true);
+            //std::cout << "Parent:" << std::endl;
+            //p.print(program, std::cout, false, true);
             std::cout << "Child:" << std::endl;
             c.print(program, std::cout, false, true);
             std::cout << std::endl;
@@ -286,8 +293,6 @@ namespace blt::gp
             throw std::exception();
         }
 #endif
-        
-        return c;
     }
     
     blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t index)
