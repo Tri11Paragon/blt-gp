@@ -80,8 +80,11 @@ namespace blt::gp
         stack_allocator& c2_stack = c2.get_values();
         
         // we have to make a copy because we will modify the underlying storage.
-        std::vector<op_container_t> c1_operators;
-        std::vector<op_container_t> c2_operators;
+        static thread_local std::vector<op_container_t> c1_operators;
+        static thread_local std::vector<op_container_t> c2_operators;
+        
+        c1_operators.clear();
+        c2_operators.clear();
         
         for (const auto& op : blt::iterate(crossover_point_begin_itr, crossover_point_end_itr))
             c1_operators.push_back(op);
