@@ -304,23 +304,4 @@ namespace blt::gp
         
         return index;
     }
-    
-    void transfer_backward(stack_allocator& from, stack_allocator& to, detail::op_iter begin, detail::op_iter end)
-    {
-        for (auto it = begin; it != end; it--)
-        {
-            if (it->is_value)
-                from.transfer_bytes(to, it->type_size);
-        }
-    }
-    
-    void transfer_forward(stack_allocator& from, stack_allocator& to, detail::op_iter begin, detail::op_iter end)
-    {
-        // now copy back into the respective children
-        for (auto it = begin; it != end; it++)
-        {
-            if (it->is_value)
-                from.transfer_bytes(to, it->type_size);
-        }
-    }
 }

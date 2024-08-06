@@ -34,10 +34,6 @@ namespace blt::gp
     
     blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t start);
     
-    void transfer_forward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, detail::op_iter begin, detail::op_iter end);
-    
-    void transfer_backward(blt::gp::stack_allocator& from, blt::gp::stack_allocator& to, detail::op_iter begin, detail::op_iter end);
-    
     class crossover_t
     {
         public:
