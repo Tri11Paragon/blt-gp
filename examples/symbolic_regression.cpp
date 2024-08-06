@@ -22,7 +22,8 @@
 #include <iostream>
 #include <thread>
 
-static constexpr long SEED = 41912;
+//static constexpr long SEED = 41912;
+static const unsigned long SEED = std::random_device()();
 
 struct context
 {
