@@ -19,12 +19,38 @@
 #include <blt/gp/program.h>
 #include <blt/std/ranges.h>
 #include <blt/std/utility.h>
+#include <algorithm>
+#include <blt/std/memory.h>
 #include <blt/profiling/profiler_v2.h>
 #include <random>
 
 namespace blt::gp
 {
+    
+    inline blt::size_t accumulate_type_sizes(detail::op_iter begin, detail::op_iter end)
+    {
+        blt::size_t total = 0;
+        for (auto it = begin; it != end; ++it)
+        {
+            if (it->is_value)
+                total += stack_allocator::aligned_size(it->type_size);
+        }
+        return total;
+    }
+    
+    template<typename>
+    blt::u8* get_thread_pointer_for_size(blt::size_t bytes)
+    {
+        static thread_local blt::expanding_buffer<blt::u8> buffer;
+        if (bytes > buffer.size())
+            buffer.resize(bytes);
+        return buffer.data();
+    }
+    
     grow_generator_t grow_generator;
+    
+    mutation_t::config_t::config_t(): generator(grow_generator)
+    {}
     
     blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
     {
@@ -50,8 +76,8 @@ namespace blt::gp
         auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
         auto found_point_end_itr = c2_ops.begin() + find_endpoint(program, c2_ops, point->p2_crossover_point);
         
-        stack_allocator& c1_stack_init = c1.get_values();
-        stack_allocator& c2_stack_init = c2.get_values();
+        stack_allocator& c1_stack = c1.get_values();
+        stack_allocator& c2_stack = c2.get_values();
         
         // we have to make a copy because we will modify the underlying storage.
         std::vector<op_container_t> c1_operators;
@@ -62,25 +88,27 @@ namespace blt::gp
         for (const auto& op : blt::iterate(found_point_begin_itr, found_point_end_itr))
             c2_operators.push_back(op);
         
-        stack_allocator c1_stack_after_copy;
-        stack_allocator c1_stack_for_copy;
-        stack_allocator c2_stack_after_copy;
-        stack_allocator c2_stack_for_copy;
+        blt::size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
+        blt::size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
+        blt::size_t c2_stack_after_bytes =  accumulate_type_sizes(found_point_end_itr, c2_ops.end());
+        blt::size_t c2_stack_for_bytes =  accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
+        auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
+        auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
+        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1>(c1_total);
+        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2>(c2_total);
         
-        // transfer all values after the crossover point. these will need to be transferred back to child2
-        transfer_backward(c1_stack_init, c1_stack_after_copy, c1_ops.end() - 1, crossover_point_end_itr - 1);
-        // transfer all values for the crossover point.
-        transfer_backward(c1_stack_init, c1_stack_for_copy, crossover_point_end_itr - 1, crossover_point_begin_itr - 1);
-        // transfer child2 values for copying back into c1
-        transfer_backward(c2_stack_init, c2_stack_after_copy, c2_ops.end() - 1, found_point_end_itr - 1);
-        transfer_backward(c2_stack_init, c2_stack_for_copy, found_point_end_itr - 1, found_point_begin_itr - 1);
-        // now copy back into the respective children
-        transfer_forward(c2_stack_for_copy, c1.get_values(), found_point_begin_itr, found_point_end_itr);
-        transfer_forward(c1_stack_for_copy, c2.get_values(), crossover_point_begin_itr, crossover_point_end_itr);
-        // now copy after the crossover point back to the correct children
-        transfer_forward(c1_stack_after_copy, c1.get_values(), crossover_point_end_itr, c1_ops.end());
-        transfer_forward(c2_stack_after_copy, c2.get_values(), found_point_end_itr, c2_ops.end());
+        c1_stack.copy_to(copy_ptr_c1, c1_total);
+        c1_stack.pop_bytes(c1_total);
         
+        c2_stack.copy_to(copy_ptr_c2, c2_total);
+        c2_stack.pop_bytes(c2_total);
+        
+        c2_stack.copy_from(copy_ptr_c1, c1_stack_for_bytes);
+        c2_stack.copy_from(copy_ptr_c2 + c2_stack_for_bytes, c2_stack_after_bytes);
+        
+        c1_stack.copy_from(copy_ptr_c2, c2_stack_for_bytes);
+        c1_stack.copy_from(copy_ptr_c1 + c1_stack_for_bytes, c1_stack_after_bytes);
+
         // now swap the operators
         auto insert_point_c1 = crossover_point_begin_itr - 1;
         auto insert_point_c2 = found_point_begin_itr - 1;
@@ -195,26 +223,18 @@ namespace blt::gp
         auto& new_ops_r = new_tree.get_operations();
         auto& new_vals_r = new_tree.get_values();
         
-        stack_allocator stack_after;
-        blt::size_t total_bytes_after = 0;
-        for (auto it = end_itr; it != ops_r.end(); it++)
-        {
-            if (it->is_value)
-                total_bytes_after += stack_allocator::aligned_size(it->type_size);
-        }
-//        transfer_backward(vals_r, stack_after, ops_r.end() - 1, end_itr - 1);
-        stack_after.copy_from(vals_r, total_bytes_after);
-        vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after));
-        for (auto it = end_itr - 1; it != begin_itr - 1; it--)
-        {
-            if (it->is_value)
-                vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(it->type_size)));
-        }
+        blt::size_t total_bytes_after = accumulate_type_sizes(end_itr, ops_r.end());
+        auto* stack_after_data = get_thread_pointer_for_size<struct mutation>(total_bytes_after);
         
+        // make a copy of any stack data after the mutation point / children.
+        vals_r.copy_to(stack_after_data, total_bytes_after);
+        
+        // remove the bytes of the data after the mutation point and the data for the children of the mutation node.
+        vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after + accumulate_type_sizes(begin_itr, end_itr)));
+        
+        // insert the new tree then move back the data from after the original mutation point.
         vals_r.insert(std::move(new_vals_r));
-        //transfer_forward(stack_after, vals_r, end_itr, ops_r.end());
-        vals_r.copy_from(stack_after, total_bytes_after);
-        stack_after = {};
+        vals_r.copy_from(stack_after_data, total_bytes_after);
         
         auto before = begin_itr - 1;
         ops_r.erase(begin_itr, end_itr);
@@ -223,7 +243,7 @@ namespace blt::gp
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
         BLT_ASSERT(new_vals_r.empty());
-        BLT_ASSERT(stack_after.empty());
+        //BLT_ASSERT(stack_after.empty());
         blt::size_t bytes_expected = 0;
         auto bytes_size = vals_r.size().total_used_bytes;
         
@@ -266,9 +286,6 @@ namespace blt::gp
         
         return c;
     }
-    
-    mutation_t::config_t::config_t(): generator(grow_generator)
-    {}
     
     blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t index)
     {

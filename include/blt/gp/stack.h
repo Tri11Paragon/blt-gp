@@ -143,51 +143,11 @@ namespace blt::gp
                     BLT_WARN("This stack is empty, we will copy no bytes from it!");
                     return;
                 }
-                auto start_block = stack.head;
-                auto bytes_left = static_cast<blt::ptrdiff_t>(bytes);
-                blt::u8* start_point = nullptr;
-                while (bytes_left > 0)
-                {
-                    if (start_block == nullptr)
-                    {
-                        BLT_WARN("This stack doesn't contain enough space to copy %ld bytes!", bytes);
-                        BLT_WARN_STREAM << "State: " << size() << "\n";
-                        BLT_ABORT("Stack doesn't contain enough data for this copy operation!");
-                    }
-                    if (start_block->used_bytes_in_block() < bytes_left)
-                    {
-                        bytes_left -= start_block->used_bytes_in_block();
-                        start_block = start_block->metadata.prev;
-                    } else if (start_block->used_bytes_in_block() == bytes_left)
-                    {
-                        start_point = start_block->buffer;
-                        break;
-                    } else
-                    {
-                        start_point = start_block->metadata.offset - bytes_left;
-                        break;
-                    }
-                }
+                auto [start_block, bytes_left, start_point] = get_start_from_bytes(stack, bytes);
+                
                 if (bytes_left > 0)
                 {
-                    auto insert = head;
-                    while (insert != nullptr)
-                    {
-                        if (insert->remaining_bytes_in_block() >= bytes_left)
-                            break;
-                        insert = insert->metadata.next;
-                    }
-                    // can directly copy into a block. this stack's head is now the insert point
-                    if (insert != nullptr && insert->remaining_bytes_in_block() >= bytes_left)
-                        head = insert;
-                    else
-                    {
-                        // need to push a block to the end.
-                        // make sure head is at the end.
-                        while (head != nullptr && head->metadata.next != nullptr)
-                            head = head->metadata.next;
-                        push_block(bytes_left);
-                    }
+                    allocate_block_to_head_for_size(bytes_left);
                     std::memcpy(head->metadata.offset, start_point, bytes_left);
                     head->metadata.offset += bytes_left;
                     start_block = start_block->metadata.next;
@@ -195,23 +155,40 @@ namespace blt::gp
                 // we now copy whole blocks at a time.
                 while (start_block != nullptr)
                 {
-                    auto prev = head;
-                    auto insert = head;
-                    while (insert != nullptr)
-                    {
-                        if (insert->remaining_bytes_in_block() >= start_block->used_bytes_in_block())
-                            break;
-                        prev = insert;
-                        insert = insert->metadata.next;
-                    }
-                    if (insert == nullptr)
-                    {
-                        head = prev;
-                        push_block(start_block->used_bytes_in_block());
-                    } else
-                        head = insert;
+                    allocate_block_to_head_for_size(start_block->used_bytes_in_block());
                     std::memcpy(head->metadata.offset, start_block->buffer, start_block->used_bytes_in_block());
                     head->metadata.offset += start_block->used_bytes_in_block();
+                    start_block = start_block->metadata.next;
+                }
+            }
+            
+            void copy_from(blt::u8* data, blt::size_t bytes)
+            {
+                if (bytes == 0 || data == nullptr)
+                    return;
+                allocate_block_to_head_for_size(bytes);
+                std::memcpy(head->metadata.offset, data, bytes);
+                head->metadata.offset += bytes;
+            }
+            
+            void copy_to(blt::u8* data, blt::size_t bytes) const
+            {
+                if (bytes == 0 || data == nullptr)
+                    return;
+                auto [start_block, bytes_left, start_point] = get_start_from_bytes(*this, bytes);
+                
+                blt::size_t write_point = 0;
+                if (bytes_left > 0)
+                {
+                    std::memcpy(data + write_point, start_point, bytes_left);
+                    write_point += bytes_left;
+                    start_block = start_block->metadata.next;
+                }
+                // we now copy whole blocks at a time.
+                while (start_block != nullptr)
+                {
+                    std::memcpy(data + write_point, start_block->buffer, start_block->used_bytes_in_block());
+                    write_point += start_block->used_bytes_in_block();
                     start_block = start_block->metadata.next;
                 }
             }
@@ -294,8 +271,21 @@ namespace blt::gp
             
             void pop_bytes(blt::ptrdiff_t bytes)
             {
+                if (bytes == 0)
+                    return;
+                if (empty())
+                {
+                    BLT_WARN("Cannot pop %ld bytes", bytes);
+                    BLT_ABORT("Stack is empty, we cannot pop!");
+                }
                 while (bytes > 0)
                 {
+                    if (head == nullptr)
+                    {
+                        BLT_WARN("The head is null, this stack doesn't contain enough data inside to pop %ld bytes!", bytes);
+                        BLT_WARN_STREAM << "Stack State: " << size() << "\n";
+                        BLT_ABORT("Stack doesn't contain enough data to preform a pop!");
+                    }
                     auto diff = head->used_bytes_in_block() - bytes;
                     // if there is not enough room left to pop completely off the block, then move to the next previous block
                     // and pop from it, update the amount of bytes to reflect the amount removed from the current block
@@ -351,7 +341,7 @@ namespace blt::gp
                         ()), ...);
             }
             
-            [[nodiscard]] bool empty() const
+            [[nodiscard]] bool empty() const noexcept
             {
                 if (head == nullptr)
                     return true;
@@ -360,7 +350,7 @@ namespace blt::gp
                 return head->used_bytes_in_block() == 0;
             }
             
-            [[nodiscard]] blt::ptrdiff_t bytes_in_head() const
+            [[nodiscard]] blt::ptrdiff_t bytes_in_head() const noexcept
             {
                 if (head == nullptr)
                     return 0;
@@ -371,7 +361,7 @@ namespace blt::gp
              * Warning this function is slow!
              * @return the size of the stack allocator in bytes
              */
-            [[nodiscard]] size_data_t size() const
+            [[nodiscard]] size_data_t size() const noexcept
             {
                 size_data_t size_data;
                 auto* prev = head;
@@ -404,7 +394,7 @@ namespace blt::gp
             
             // TODO: cleanup this allocator!
             // if you keep track of type size information you can memcpy between stack allocators as you already only allow trivially copyable types
-            stack_allocator(const stack_allocator& copy)
+            stack_allocator(const stack_allocator& copy) noexcept
             {
                 if (copy.empty())
                     return;
@@ -444,7 +434,7 @@ namespace blt::gp
                 return *this;
             }
             
-            ~stack_allocator()
+            ~stack_allocator() noexcept
             {
                 if (head != nullptr)
                 {
@@ -470,27 +460,27 @@ namespace blt::gp
                 return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
             }
             
-            inline static constexpr auto metadata_size()
+            inline static constexpr auto metadata_size() noexcept
             {
                 return sizeof(typename block::block_metadata_t);
             }
             
-            inline static constexpr auto block_size()
+            inline static constexpr auto block_size() noexcept
             {
                 return sizeof(block);
             }
             
-            inline static constexpr auto page_size()
+            inline static constexpr auto page_size() noexcept
             {
                 return PAGE_SIZE;
             }
             
-            inline static constexpr auto page_size_no_meta()
+            inline static constexpr auto page_size_no_meta() noexcept
             {
                 return page_size() - metadata_size();
             }
             
-            inline static constexpr auto page_size_no_block()
+            inline static constexpr auto page_size_no_block() noexcept
             {
                 return page_size() - block_size();
             }
@@ -507,7 +497,7 @@ namespace blt::gp
                 } metadata;
                 blt::u8 buffer[8]{};
                 
-                explicit block(blt::size_t size)
+                explicit block(blt::size_t size) noexcept
                 {
 #if BLT_DEBUG_LEVEL > 0
                     if (size < PAGE_SIZE)
@@ -520,25 +510,32 @@ namespace blt::gp
                     metadata.offset = buffer;
                 }
                 
-                void reset()
+                void reset() noexcept
                 {
                     metadata.offset = buffer;
                 }
                 
-                [[nodiscard]] blt::ptrdiff_t storage_size() const
+                [[nodiscard]] blt::ptrdiff_t storage_size() const noexcept
                 {
                     return static_cast<blt::ptrdiff_t>(metadata.size - sizeof(typename block::block_metadata_t));
                 }
                 
-                [[nodiscard]] blt::ptrdiff_t used_bytes_in_block() const
+                [[nodiscard]] blt::ptrdiff_t used_bytes_in_block() const noexcept
                 {
                     return static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
                 }
                 
-                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const
+                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const noexcept
                 {
                     return storage_size() - used_bytes_in_block();
                 }
+            };
+            
+            struct copy_start_point
+            {
+                block* start_block;
+                blt::ptrdiff_t bytes_left;
+                blt::u8* start_point;
             };
             
             template<typename T>
@@ -551,25 +548,35 @@ namespace blt::gp
             {
                 auto ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
-                {
-                    while (head != nullptr && head->metadata.next != nullptr)
-                    {
-                        head = head->metadata.next;
-                        if (head != nullptr)
-                            head->reset();
-                        if (head->remaining_bytes_in_block() >= static_cast<blt::ptrdiff_t>(size))
-                            break;
-                    }
-                    if (head == nullptr || head->remaining_bytes_in_block() < static_cast<blt::ptrdiff_t>(size))
-                        push_block(aligned_size(size) + sizeof(typename block::block_metadata_t));
-                }
+                    allocate_block_to_head_for_size(aligned_size(size));
                 ptr = get_aligned_pointer(size);
                 if (ptr == nullptr)
                     throw std::bad_alloc();
                 return ptr;
             }
             
-            void* get_aligned_pointer(blt::size_t bytes)
+            /**
+             * Moves forward through the list of "deallocated" blocks, if none meet size requirements it'll allocate a new block.
+             * This function will take into account the size of the block metadata, but requires the size input to be aligned.
+             * It will perform no modification to the size value.
+             *
+             * The block which allows for size is now at head.
+             */
+            void allocate_block_to_head_for_size(const blt::size_t size) noexcept
+            {
+                while (head != nullptr && head->metadata.next != nullptr)
+                {
+                    head = head->metadata.next;
+                    if (head != nullptr)
+                        head->reset();
+                    if (head->remaining_bytes_in_block() >= static_cast<blt::ptrdiff_t>(size))
+                        break;
+                }
+                if (head == nullptr || head->remaining_bytes_in_block() < static_cast<blt::ptrdiff_t>(size))
+                    push_block(size + sizeof(typename block::block_metadata_t));
+            }
+            
+            void* get_aligned_pointer(blt::size_t bytes) noexcept
             {
                 if (head == nullptr)
                     return nullptr;
@@ -578,7 +585,7 @@ namespace blt::gp
                 return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
             }
             
-            void push_block(blt::size_t size)
+            void push_block(blt::size_t size) noexcept
             {
                 auto blk = allocate_block(size);
                 if (head == nullptr)
@@ -591,13 +598,13 @@ namespace blt::gp
                 head = blk;
             }
             
-            static size_t to_nearest_page_size(blt::size_t bytes)
+            static size_t to_nearest_page_size(blt::size_t bytes) noexcept
             {
                 constexpr static blt::size_t MASK = ~(PAGE_SIZE - 1);
                 return (bytes & MASK) + PAGE_SIZE;
             }
             
-            static block* allocate_block(blt::size_t bytes)
+            static block* allocate_block(blt::size_t bytes) noexcept
             {
                 auto size = to_nearest_page_size(bytes);
                 auto* data = std::aligned_alloc(PAGE_SIZE, size);
@@ -606,7 +613,7 @@ namespace blt::gp
                 return reinterpret_cast<block*>(data);
             }
             
-            static void free_chain(block* current)
+            static void free_chain(block* current) noexcept
             {
                 while (current != nullptr)
                 {
@@ -617,12 +624,12 @@ namespace blt::gp
                 }
             }
             
-            static void free_block(block* ptr)
+            static void free_block(block* ptr) noexcept
             {
                 std::free(ptr);
             }
             
-            inline bool move_back()
+            inline bool move_back() noexcept
             {
                 auto old = head;
                 head = head->metadata.prev;
@@ -632,6 +639,36 @@ namespace blt::gp
                     return false;
                 }
                 return true;
+            }
+            
+            [[nodiscard]] inline static copy_start_point get_start_from_bytes(const stack_allocator& stack, blt::size_t bytes)
+            {
+                auto start_block = stack.head;
+                auto bytes_left = static_cast<blt::ptrdiff_t>(bytes);
+                blt::u8* start_point = nullptr;
+                while (bytes_left > 0)
+                {
+                    if (start_block == nullptr)
+                    {
+                        BLT_WARN("This stack doesn't contain enough space to copy %ld bytes!", bytes);
+                        BLT_WARN_STREAM << "State: " << stack.size() << "\n";
+                        BLT_ABORT("Stack doesn't contain enough data for this copy operation!");
+                    }
+                    if (start_block->used_bytes_in_block() < bytes_left)
+                    {
+                        bytes_left -= start_block->used_bytes_in_block();
+                        start_block = start_block->metadata.prev;
+                    } else if (start_block->used_bytes_in_block() == bytes_left)
+                    {
+                        start_point = start_block->buffer;
+                        break;
+                    } else
+                    {
+                        start_point = start_block->metadata.offset - bytes_left;
+                        break;
+                    }
+                }
+                return copy_start_point{start_block, bytes_left, start_point};
             }
         
         private:
