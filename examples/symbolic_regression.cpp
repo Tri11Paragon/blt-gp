@@ -76,7 +76,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     }
     fitness.standardized_fitness = fitness.raw_fitness;
     fitness.adjusted_fitness = (1.0 / (1.0 + fitness.standardized_fitness));
-    //BLT_TRACE("fitness: %lf raw: %lf", fitness.adjusted_fitness, fitness.raw_fitness);
+    return fitness.hits == fitness_cases.size();
 };
 
 float example_function(float x)

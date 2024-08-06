@@ -138,13 +138,15 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 info.function = op.template make_callable<Context>();
-
+                
                 storage.operators.push_back(info);
                 storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
-                    if constexpr (blt::meta::is_streamable_v<Return>) {
+                    if constexpr (blt::meta::is_streamable_v<Return>)
+                    {
                         out << stack.pop<Return>();
-                        (void)(op); // remove warning
-                    } else {
+                        (void) (op); // remove warning
+                    } else
+                    {
                         out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
                     }
                 });
@@ -283,6 +285,7 @@ namespace blt::gp
             template<typename FitnessFunc>
             void generate_population(type_id root_type, FitnessFunc& fitness_function, bool eval_fitness_now = true)
             {
+                using LambdaReturn = typename decltype(blt::meta::lambda_helper(fitness_function))::Return;
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 if (config.threads == 1)
@@ -291,7 +294,16 @@ namespace blt::gp
                     thread_execution_service = new std::function([this, &fitness_function](blt::size_t) {
                         for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
                         {
-                            fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                            if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
+                            {
+                                auto result = fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                                if (result)
+                                    fitness_should_exit = true;
+                            } else
+                            {
+                                fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                            }
+                            
                             if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
                                 current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
                             
@@ -325,7 +337,16 @@ namespace blt::gp
                                 {
                                     auto& ind = current_pop.get_individuals()[i];
                                     
-                                    fitness_function(ind.tree, ind.fitness, i);
+                                    
+                                    if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
+                                    {
+                                        auto result = fitness_function(ind.tree, ind.fitness, i);
+                                        if (result)
+                                            fitness_should_exit = true;
+                                    } else
+                                    {
+                                        fitness_function(ind.tree, ind.fitness, i);
+                                    }
                                     
                                     auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
                                     while (ind.fitness.adjusted_fitness > old_best &&
@@ -407,7 +428,7 @@ namespace blt::gp
             
             [[nodiscard]] bool should_terminate() const
             {
-                return current_generation >= config.max_generations;
+                return current_generation >= config.max_generations || fitness_should_exit;
             }
             
             [[nodiscard]] bool should_thread_terminate() const
@@ -520,6 +541,7 @@ namespace blt::gp
             population_stats current_stats{};
             population_t next_pop;
             std::atomic_uint64_t current_generation = 0;
+            bool fitness_should_exit = false;
             
             blt::u64 seed;
             prog_config_t config{};
