@@ -541,7 +541,7 @@ namespace blt::gp
             population_stats current_stats{};
             population_t next_pop;
             std::atomic_uint64_t current_generation = 0;
-            bool fitness_should_exit = false;
+            std::atomic_bool fitness_should_exit = false;
             
             blt::u64 seed;
             prog_config_t config{};
