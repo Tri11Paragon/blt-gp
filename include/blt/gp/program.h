@@ -103,15 +103,7 @@ namespace blt::gp
         
         public:
             explicit operator_builder(type_provider& system): system(system)
-            {
-//                // ensure every storage has a vec defined for every type!
-//                for (const auto& type : system)
-//                {
-//                    storage.terminals[type.second.id()] = {};
-//                    storage.non_terminals[type.second.id()] = {};
-//                    storage.operators_ordered_terminals[type.second.id()] = {};
-//                }
-            }
+            {}
             
             template<typename ArgType, typename Return, typename... Args>
             operator_builder& add_operator(operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
@@ -156,7 +148,7 @@ namespace blt::gp
                 return *this;
             }
             
-            operator_storage&& build()
+            operator_storage& build()
             {
                 blt::hashset_t<type_id> has_terminals;
                 
@@ -216,6 +208,11 @@ namespace blt::gp
                     storage.operators_ordered_terminals[return_type] = ordered_terminals;
                 }
                 
+                return storage;
+            }
+            
+            operator_storage&& grab()
+            {
                 return std::move(storage);
             }
         
@@ -374,6 +371,15 @@ namespace blt::gp
                     evaluate_fitness_internal();
             }
             
+            void reset_program(type_id root_type, bool eval_fitness_now = true)
+            {
+                current_generation = 0;
+                current_pop = config.pop_initializer.get().generate(
+                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+                if (eval_fitness_now)
+                    evaluate_fitness_internal();
+            }
+            
             void next_generation()
             {
                 current_pop = std::move(next_pop);
@@ -498,7 +504,7 @@ namespace blt::gp
                 return storage.static_types.contains(static_cast<blt::size_t>(id));
             }
             
-            inline void set_operations(operator_storage&& op)
+            inline void set_operations(operator_storage op)
             {
                 storage = std::move(op);
             }
