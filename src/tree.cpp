@@ -201,4 +201,22 @@ namespace blt::gp
         
         return depth;
     }
+    
+    blt::ptrdiff_t tree_t::find_endpoint(gp_program& program, blt::ptrdiff_t index)
+    {
+        blt::i64 children_left = 0;
+        
+        do
+        {
+            const auto& type = program.get_operator_info(operations[index].id);
+            // this is a child to someone
+            if (children_left != 0)
+                children_left--;
+            if (type.argc.argc > 0)
+                children_left += type.argc.argc;
+            index++;
+        } while (children_left > 0);
+        
+        return index;
+    }
 }

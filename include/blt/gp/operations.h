@@ -177,6 +177,11 @@ namespace blt::gp
                 return name;
             }
             
+            inline constexpr const auto& get_function() const
+            {
+                return func;
+            }
+            
             operator_id id = -1;
         private:
             function_t func;

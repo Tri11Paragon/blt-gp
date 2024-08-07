@@ -71,10 +71,10 @@ namespace blt::gp
             return blt::unexpected(point.error());
         
         auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
-        auto crossover_point_end_itr = c1_ops.begin() + find_endpoint(program, c1_ops, point->p1_crossover_point);
+        auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
         
         auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
-        auto found_point_end_itr = c2_ops.begin() + find_endpoint(program, c2_ops, point->p2_crossover_point);
+        auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
         
         stack_allocator& c1_stack = c1.get_values();
         stack_allocator& c2_stack = c2.get_values();
@@ -215,13 +215,13 @@ namespace blt::gp
         return c;
     }
     
-    void mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
+    blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
     {
         auto& ops_r = c.get_operations();
         auto& vals_r = c.get_values();
         
         auto begin_point = static_cast<blt::ptrdiff_t>(node);
-        auto end_point = find_endpoint(program, ops_r, begin_point);
+        auto end_point = c.find_endpoint(program, begin_point);
         auto begin_operator_id = ops_r[begin_point].id;
         const auto& type_info = program.get_operator_info(begin_operator_id);
         
@@ -293,23 +293,6 @@ namespace blt::gp
             throw std::exception();
         }
 #endif
-    }
-    
-    blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t index)
-    {
-        blt::i64 children_left = 0;
-        
-        do
-        {
-            const auto& type = program.get_operator_info(container[index].id);
-            // this is a child to someone
-            if (children_left != 0)
-                children_left--;
-            if (type.argc.argc > 0)
-                children_left += type.argc.argc;
-            index++;
-        } while (children_left > 0);
-        
-        return index;
+        return begin_point + new_ops_r.size();
     }
 }

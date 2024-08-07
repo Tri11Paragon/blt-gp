@@ -32,8 +32,6 @@ namespace blt::gp
         using op_iter = std::vector<blt::gp::op_container_t>::iterator;
     }
     
-    blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, const std::vector<blt::gp::op_container_t>& container, blt::ptrdiff_t start);
-    
     class crossover_t
     {
         public:
@@ -108,7 +106,8 @@ namespace blt::gp
             
             virtual tree_t apply(gp_program& program, const tree_t& p); // NOLINT
             
-            void mutate_point(gp_program& program, tree_t& c, blt::size_t node);
+            // returns the point after the mutation
+            blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node);
             
             virtual ~mutation_t() = default;
         

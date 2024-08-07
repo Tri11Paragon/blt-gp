@@ -112,6 +112,8 @@ namespace blt::gp
             }
             
             void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false) const;
+            
+            blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start);
         
         private:
             std::vector<op_container_t> operations;
