@@ -254,7 +254,7 @@ namespace blt::gp
                     if (bytes_available < 0)
                     {
                         remaining_bytes -= blk->used_bytes_in_block();
-                        blk = head->metadata.prev;
+                        blk = blk->metadata.prev;
                     } else
                         break;
                 }
