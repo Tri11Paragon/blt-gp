@@ -26,7 +26,7 @@ namespace blt::gp
 {
     inline auto empty_callable = detail::callable_t([](void*, stack_allocator&, stack_allocator&) { BLT_ABORT("This should never be called!"); });
     
-    evaluation_context tree_t::evaluate(void* context)
+    evaluation_context tree_t::evaluate(void* context) const
     {
 #if BLT_DEBUG_LEVEL >= 2
         blt::size_t expected_bytes = 0;
@@ -218,5 +218,62 @@ namespace blt::gp
         } while (children_left > 0);
         
         return index;
+    }
+    
+    bool tree_t::check(gp_program& program, void* context) const
+    {
+        blt::size_t bytes_expected = 0;
+        auto bytes_size = values.size().total_used_bytes;
+        
+        for (const auto& op : get_operations())
+        {
+            if (op.is_value)
+                bytes_expected += stack_allocator::aligned_size(op.type_size);
+        }
+        
+        if (bytes_expected != bytes_size)
+        {
+            BLT_WARN_STREAM << "Stack state: " << values.size() << "\n";
+            BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
+                     static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
+            BLT_WARN("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+            return false;
+        }
+        
+        // copy the initial values
+        evaluation_context results{};
+        
+        auto value_stack = values;
+        auto& values_process = results.values;
+        
+        blt::size_t total_produced = 0;
+        blt::size_t total_consumed = 0;
+        
+        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
+        {
+            if (operation.is_value)
+            {
+                value_stack.transfer_bytes(values_process, operation.type_size);
+                total_produced += stack_allocator::aligned_size(operation.type_size);
+                continue;
+            }
+            auto& info = program.get_operator_info(operation.id);
+            for (auto& arg : info.argument_types)
+                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
+            operation.func(context, values_process, values_process);
+            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
+        }
+        
+        auto v1 = results.values.bytes_in_head();
+        auto v2 = static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operations.front().type_size));
+        if (v1 != v2)
+        {
+            auto vd = std::abs(v1 - v2);
+            BLT_ERROR("found %ld bytes expected %ld bytes, total difference: %ld", v1, v2, vd);
+            BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
+                      std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
+            return false;
+        }
+        return true;
     }
 }

@@ -79,7 +79,7 @@ namespace blt::gp
                 return values;
             }
             
-            evaluation_context evaluate(void* context);
+            evaluation_context evaluate(void* context) const;
             
             blt::size_t get_depth(gp_program& program);
             
@@ -112,6 +112,8 @@ namespace blt::gp
             }
             
             void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false) const;
+            
+            bool check(gp_program& program, void* context) const;
             
             blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start);
         
