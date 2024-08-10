@@ -247,7 +247,11 @@ namespace blt::gp
                 while (remaining_bytes > 0)
                 {
                     if (blk == nullptr)
+                    {
+                        BLT_WARN_STREAM << "Stack state: " << size() << "\n";
+                        BLT_WARN_STREAM << "Requested " << bytes << " bytes which becomes " << (bytes + TYPE_SIZE) << "\n";
                         throw std::runtime_error("Requested size is beyond the scope of this stack!");
+                    }
                     
                     auto bytes_available = blk->used_bytes_in_block() - remaining_bytes;
                     
@@ -263,7 +267,7 @@ namespace blt::gp
                 if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(TYPE_SIZE))
                 {
                     BLT_WARN_STREAM << size() << "\n";
-                    throw std::runtime_error((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
+                    BLT_ABORT((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
                 }
                 return *reinterpret_cast<NO_REF_T*>(blk->metadata.offset - remaining_bytes);
