@@ -63,7 +63,6 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DDEBUG_LEVEL=3
         -DENABLE_ADDRSAN=ON
         -DENABLE_UBSAN=ON
         -DBUILD_GP_TESTS=ON
