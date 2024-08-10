@@ -267,6 +267,8 @@ namespace blt::gp
                 if (blk->used_bytes_in_block() < static_cast<blt::ptrdiff_t>(TYPE_SIZE))
                 {
                     BLT_WARN_STREAM << size() << "\n";
+                    BLT_WARN_STREAM << "Requested " << bytes << " bytes which becomes " << (bytes + TYPE_SIZE) << "\n";
+                    BLT_WARN_STREAM << "Block size: " << blk->storage_size() << "\n";
                     BLT_ABORT((std::string("Mismatched Types! Not enough space left in block! Bytes: ") += std::to_string(
                             blk->used_bytes_in_block()) += " Size: " + std::to_string(sizeof(NO_REF_T))).c_str());
                 }
