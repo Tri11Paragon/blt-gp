@@ -83,12 +83,17 @@ namespace blt::gp
             return offset;
         }
         
+        template<blt::u64... indices>
+        void print_args(std::integer_sequence<blt::u64, indices...>)
+        {
+            BLT_INFO("Arguments:");
+            (BLT_INFO("%ld: %s", indices, blt::type_string<Args>().c_str()), ...);
+        }
+        
         template<typename Func, blt::u64... indices, typename... ExtraArgs>
         inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
                                                                 ExtraArgs&& ... args)
         {
-            //BLT_INFO("Arguments:");
-            //(BLT_INFO("%ld: %s", indices, blt::type_string<Args>().c_str()) , ...);
             //blt::size_t arg_size = (stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...);
             //BLT_TRACE(arg_size);
             // expands Args and indices, providing each argument with its index calculating the current argument byte offset
@@ -100,10 +105,21 @@ namespace blt::gp
         Return operator()(Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
         {
             constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
-            Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
-            read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
-            read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
-            return ret;
+#if BLT_DEBUG_LEVEL > 0
+            try
+            {
+#endif
+                Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
+                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
+                read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
+                return ret;
+#if BLT_DEBUG_LEVEL > 0
+            } catch (const std::runtime_error& e)
+            {
+                print_args(seq);
+                throw std::runtime_error(e.what());
+            }
+#endif
         }
     };
     
