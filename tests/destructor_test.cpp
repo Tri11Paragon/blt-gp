@@ -52,13 +52,23 @@ class move_float
         move_float(): f(new float())
         { constructions++; }
         
-        move_float(float f): f(new float(f)) // NOLINT
+        explicit move_float(float f): f(new float(f))
         {
             constructions++;
             // BLT_TRACE("Value Constructed");
         }
         
-        operator float() // NOLINT
+        explicit operator float() const
+        {
+            return *f;
+        }
+        
+        float get() const
+        {
+            return *f;
+        }
+        
+        float operator*() const
         {
             return *f;
         }
@@ -99,27 +109,27 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
 
-blt::gp::operation_t add([](move_float a, move_float b) { return move_float(a + b); }, "add");
-blt::gp::operation_t sub([](move_float a, move_float b) { return move_float(a - b); }, "sub");
-blt::gp::operation_t mul([](move_float a, move_float b) { return move_float(a * b); }, "mul");
-blt::gp::operation_t pro_div([](move_float a, move_float b) { return move_float(b == 0.0f ? 1.0f : a / b); }, "div");
-blt::gp::operation_t op_sin([](move_float a) { return move_float(std::sin(a)); }, "sin");
-blt::gp::operation_t op_cos([](move_float a) { return move_float(std::cos(a)); }, "cos");
-blt::gp::operation_t op_exp([](move_float a) { return move_float(std::exp(a)); }, "exp");
-blt::gp::operation_t op_log([](move_float a) { return move_float(a == 0.0f ? 0.0f : std::log(a)); }, "log");
+blt::gp::operation_t add([](const move_float& a, const move_float& b) { return move_float(*a + *b); }, "add");
+blt::gp::operation_t sub([](const move_float& a, const move_float& b) { return move_float(*a - *b); }, "sub");
+blt::gp::operation_t mul([](const move_float& a, const move_float& b) { return move_float(*a * *b); }, "mul");
+blt::gp::operation_t pro_div([](const move_float& a, const move_float& b) { return move_float(*b == 0.0f ? 1.0f : *a / *b); }, "div");
+blt::gp::operation_t op_sin([](const move_float& a) { return move_float(std::sin(*a)); }, "sin");
+blt::gp::operation_t op_cos([](const move_float& a) { return move_float(std::cos(*a)); }, "cos");
+blt::gp::operation_t op_exp([](const move_float& a) { return move_float(std::exp(*a)); }, "exp");
+blt::gp::operation_t op_log([](const move_float& a) { return move_float(*a == 0.0f ? 0.0f : std::log(*a)); }, "log");
 
 blt::gp::operation_t lit([]() {
     return move_float(program.get_random().get_float(-320.0f, 320.0f));
 }, "lit");
 blt::gp::operation_t op_x([](const context& context) {
-    return move_float(context.x);
+    return context.x;
 }, "x");
 
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<move_float>(&fitness_case));
+        auto diff = std::abs(*fitness_case.y - *current_tree.get_evaluation_value<move_float>(&fitness_case));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
