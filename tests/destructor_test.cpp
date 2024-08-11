@@ -15,18 +15,72 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/*
+ *  <Short Description>
+ *  Copyright (C) 2024  Brett Terpstra
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <blt/gp/program.h>
 #include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 #include <iostream>
+#include <atomic>
+#include <type_traits>
 
 //static constexpr long SEED = 41912;
 static const unsigned long SEED = std::random_device()();
 
+inline std::atomic_uint64_t constructions = 0;
+inline std::atomic_uint64_t destructions = 0;
+
+class move_float
+{
+    public:
+        move_float(): f(new float())
+        { constructions++; }
+        
+        move_float(float f): f(new float(f)) // NOLINT
+        {
+            constructions++;
+            // BLT_TRACE("Value Constructed");
+        }
+        
+        operator float() // NOLINT
+        {
+            return *f;
+        }
+        
+        void drop() // NOLINT
+        {
+            //BLT_TRACE("Drop Called");
+            delete f;
+            f = nullptr;
+            destructions++;
+        }
+    
+    private:
+        float* f = nullptr;
+};
+
+static_assert(std::is_trivially_copyable_v<move_float>);
+//static_assert(std::is_standard_layout_v<move_float>);
+
 struct context
 {
-    float x, y;
+    move_float x, y;
 };
 
 std::array<context, 200> fitness_cases;
@@ -38,34 +92,34 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
-        .set_max_generations(50)
-        .set_pop_size(500)
+        .set_max_generations(1)
+        .set_pop_size(1)
         .set_thread_count(0);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
 
-blt::gp::operation_t add([](float a, float b) { return a + b; }, "add");
-blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub");
-blt::gp::operation_t mul([](float a, float b) { return a * b; }, "mul");
-blt::gp::operation_t pro_div([](float a, float b) { return b == 0.0f ? 1.0f : a / b; }, "div");
-blt::gp::operation_t op_sin([](float a) { return std::sin(a); }, "sin");
-blt::gp::operation_t op_cos([](float a) { return std::cos(a); }, "cos");
-blt::gp::operation_t op_exp([](float a) { return std::exp(a); }, "exp");
-blt::gp::operation_t op_log([](float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
+blt::gp::operation_t add([](move_float a, move_float b) { return move_float(a + b); }, "add");
+blt::gp::operation_t sub([](move_float a, move_float b) { return move_float(a - b); }, "sub");
+blt::gp::operation_t mul([](move_float a, move_float b) { return move_float(a * b); }, "mul");
+blt::gp::operation_t pro_div([](move_float a, move_float b) { return move_float(b == 0.0f ? 1.0f : a / b); }, "div");
+blt::gp::operation_t op_sin([](move_float a) { return move_float(std::sin(a)); }, "sin");
+blt::gp::operation_t op_cos([](move_float a) { return move_float(std::cos(a)); }, "cos");
+blt::gp::operation_t op_exp([](move_float a) { return move_float(std::exp(a)); }, "exp");
+blt::gp::operation_t op_log([](move_float a) { return move_float(a == 0.0f ? 0.0f : std::log(a)); }, "log");
 
 blt::gp::operation_t lit([]() {
-    return program.get_random().get_float(-320.0f, 320.0f);
+    return move_float(program.get_random().get_float(-320.0f, 320.0f));
 }, "lit");
 blt::gp::operation_t op_x([](const context& context) {
-    return context.x;
+    return move_float(context.x);
 }, "x");
 
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case));
+        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<move_float>(&fitness_case));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
@@ -95,11 +149,11 @@ int main()
         constexpr float half_range = range / 2.0;
         auto x = program.get_random().get_float(-half_range, half_range);
         auto y = example_function(x);
-        fitness_case = {x, y};
+        fitness_case = {move_float(x), move_float(y)};
     }
     
     BLT_DEBUG("Setup Types and Operators");
-    type_system.register_type<float>();
+    type_system.register_type<move_float>();
     
     blt::gp::operator_builder<context> builder{type_system};
     builder.add_operator(add);
@@ -158,6 +212,9 @@ int main()
     // TODO: make stats helper
     
     BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
+    
+    BLT_TRACE("Constructions %ld Destructions %ld Difference %ld", constructions.load(), destructions.load(),
+              std::abs(static_cast<blt::ptrdiff_t>(constructions) - static_cast<blt::ptrdiff_t>(destructions)));
     
     return 0;
 }

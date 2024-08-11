@@ -181,11 +181,11 @@ namespace blt::gp
                     if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
                     {
                         // first arg is context
-                        write_allocator.push(std::move(this->operator()(context, read_allocator)));
+                        write_allocator.push(this->operator()(context, read_allocator));
                     } else
                     {
                         // first arg isn't context
-                        write_allocator.push(std::move(this->operator()(read_allocator)));
+                        write_allocator.push(this->operator()(read_allocator));
                     }
                 };
             }

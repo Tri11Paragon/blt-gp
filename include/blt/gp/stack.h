@@ -23,6 +23,7 @@
 #include <blt/std/assert.h>
 #include <blt/std/logging.h>
 #include <blt/std/allocator.h>
+#include <blt/std/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <utility>
 #include <stdexcept>
@@ -34,6 +35,11 @@
 
 namespace blt::gp
 {
+    
+    namespace detail
+    {
+        BLT_META_MAKE_FUNCTION_CHECK(drop);
+    }
     
     class stack_allocator
     {
@@ -226,7 +232,8 @@ namespace blt::gp
                 // make copy
                 NO_REF_T t = *reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE);
                 // call destructor
-                reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE)->~NO_REF_T();
+                if constexpr (detail::has_func_drop_v<T>)
+                    reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE)->~NO_REF_T();
                 // move offset back
                 head->metadata.offset -= TYPE_SIZE;
                 // moving back allows us to allocate with other data, if there is room.
@@ -313,7 +320,7 @@ namespace blt::gp
             
             /**
              * Warning this function should be used to transfer types, not arrays of types! It will produce an error if you attempt to pass more
-             * than one type # of bytes at a time~!
+             * than one type # of bytes at a time!
              * @param to stack to push to
              * @param bytes number of bytes to transfer out.
              */
@@ -343,8 +350,7 @@ namespace blt::gp
             {
                 blt::size_t offset = 0;
                 
-                ((from<NO_REF_T<Args >>(offset).~NO_REF_T<Args>(), offset += stack_allocator::aligned_size<NO_REF_T<Args>>
-                        ()), ...);
+                ((call_drop<Args>(offset), offset += stack_allocator::aligned_size<NO_REF_T<Args>>()), ...);
             }
             
             [[nodiscard]] bool empty() const noexcept
@@ -543,6 +549,15 @@ namespace blt::gp
                 blt::ptrdiff_t bytes_left;
                 blt::u8* start_point;
             };
+            
+            template<typename T>
+            inline void call_drop(blt::size_t offset)
+            {
+                if constexpr (detail::has_func_drop_v<T>)
+                {
+                    from<NO_REF_T<T>>(offset).drop();
+                }
+            }
             
             template<typename T>
             void* allocate_bytes()
