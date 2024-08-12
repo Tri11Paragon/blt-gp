@@ -150,7 +150,10 @@ namespace blt::gp
                             alloc.call_destructors<Args...>(mask);
                             break;
                         case detail::destroy_t::RETURN:
-                            alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                            if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
+                            {
+                                alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                            }
                             break;
                     }
                 });
