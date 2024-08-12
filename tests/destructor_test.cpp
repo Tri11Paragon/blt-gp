@@ -43,39 +43,46 @@
 //static constexpr long SEED = 41912;
 static const unsigned long SEED = std::random_device()();
 
+inline std::atomic_uint64_t last_value = 0;
 inline std::atomic_uint64_t constructions = 0;
 inline std::atomic_uint64_t destructions = 0;
 
 class move_float
 {
     public:
-        move_float(): f(new float())
-        { constructions++; }
-        
-        explicit move_float(float f): f(new float(f))
+        move_float(): f(new float()), assignment(++last_value)
         {
             constructions++;
-            // BLT_TRACE("Value Constructed");
+            BLT_TRACE("Value %ld Default Constructed", assignment);
+        }
+        
+        explicit move_float(float f): f(new float(f)), assignment(++last_value)
+        {
+            constructions++;
+            BLT_TRACE("Value %ld Constructed", assignment);
         }
         
         explicit operator float() const
         {
+            BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
-        float get() const
+        [[nodiscard]] float get() const
         {
+            BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
         float operator*() const
         {
+            BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
         void drop() // NOLINT
         {
-            //BLT_TRACE("Drop Called");
+            BLT_TRACE("Drop Called On %ld", assignment);
             delete f;
             f = nullptr;
             destructions++;
@@ -83,6 +90,7 @@ class move_float
     
     private:
         float* f = nullptr;
+        blt::size_t assignment;
 };
 
 static_assert(std::is_trivially_copyable_v<move_float>);
@@ -90,7 +98,7 @@ static_assert(std::is_trivially_copyable_v<move_float>);
 
 struct context
 {
-    move_float x, y;
+    float x, y;
 };
 
 std::array<context, 200> fitness_cases;
@@ -104,32 +112,32 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_reproduction_chance(0)
         .set_max_generations(1)
         .set_pop_size(1)
-        .set_thread_count(0);
+        .set_thread_count(1);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
 
-blt::gp::operation_t add([](const move_float& a, const move_float& b) { return move_float(*a + *b); }, "add");
-blt::gp::operation_t sub([](const move_float& a, const move_float& b) { return move_float(*a - *b); }, "sub");
-blt::gp::operation_t mul([](const move_float& a, const move_float& b) { return move_float(*a * *b); }, "mul");
-blt::gp::operation_t pro_div([](const move_float& a, const move_float& b) { return move_float(*b == 0.0f ? 1.0f : *a / *b); }, "div");
-blt::gp::operation_t op_sin([](const move_float& a) { return move_float(std::sin(*a)); }, "sin");
-blt::gp::operation_t op_cos([](const move_float& a) { return move_float(std::cos(*a)); }, "cos");
-blt::gp::operation_t op_exp([](const move_float& a) { return move_float(std::exp(*a)); }, "exp");
-blt::gp::operation_t op_log([](const move_float& a) { return move_float(*a == 0.0f ? 0.0f : std::log(*a)); }, "log");
+blt::gp::operation_t add([](const move_float& a, const move_float& b) { return move_float(*a + *b); }, "add");                          // 0
+blt::gp::operation_t sub([](const move_float& a, const move_float& b) { return move_float(*a - *b); }, "sub");                          // 1
+blt::gp::operation_t mul([](const move_float& a, const move_float& b) { return move_float(*a * *b); }, "mul");                          // 2
+blt::gp::operation_t pro_div([](const move_float& a, const move_float& b) { return move_float(*b == 0.0f ? 1.0f : *a / *b); }, "div");  // 3
+blt::gp::operation_t op_sin([](const move_float& a) { return move_float(std::sin(*a)); }, "sin");                                       // 4
+blt::gp::operation_t op_cos([](const move_float& a) { return move_float(std::cos(*a)); }, "cos");                                       // 5
+blt::gp::operation_t op_exp([](const move_float& a) { return move_float(std::exp(*a)); }, "exp");                                       // 6
+blt::gp::operation_t op_log([](const move_float& a) { return move_float(*a == 0.0f ? 0.0f : std::log(*a)); }, "log");                   // 7
 
-blt::gp::operation_t lit([]() {
+blt::gp::operation_t lit([]() {                                                                                                         // 8
     return move_float(program.get_random().get_float(-320.0f, 320.0f));
 }, "lit");
-blt::gp::operation_t op_x([](const context& context) {
-    return context.x;
+blt::gp::operation_t op_x([](const context& context) {                                                                                  // 9
+    return move_float(context.x);
 }, "x");
 
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(*fitness_case.y - *current_tree.get_evaluation_value<move_float>(&fitness_case));
+        auto diff = std::abs(fitness_case.y - *current_tree.get_evaluation_value<move_float>(&fitness_case));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
@@ -159,7 +167,7 @@ int main()
         constexpr float half_range = range / 2.0;
         auto x = program.get_random().get_float(-half_range, half_range);
         auto y = example_function(x);
-        fitness_case = {move_float(x), move_float(y)};
+        fitness_case = {x, y};
     }
     
     BLT_DEBUG("Setup Types and Operators");

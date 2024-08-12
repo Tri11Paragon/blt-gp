@@ -205,14 +205,15 @@ namespace blt::gp
              * @param value universal reference to the object to push
              */
             template<typename T>
-            void push(T&& value)
+            void push(const T& value)
             {
                 using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
                 static_assert(std::is_trivially_copyable_v<NO_REF_T> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF_T) <= MAX_ALIGNMENT && "Type must not be greater than the max alignment!");
                 auto ptr = allocate_bytes<NO_REF_T>();
                 head->metadata.offset = static_cast<blt::u8*>(ptr) + aligned_size<NO_REF_T>();
-                new(ptr) NO_REF_T(std::forward<T>(value));
+                //new(ptr) NO_REF_T(std::forward<T>(value));
+                std::memcpy(ptr, &value, sizeof(NO_REF_T));
             }
             
             template<typename T>
@@ -233,7 +234,7 @@ namespace blt::gp
                 NO_REF_T t = *reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE);
                 // call destructor
                 if constexpr (detail::has_func_drop_v<T>)
-                    reinterpret_cast<NO_REF_T*>(head->metadata.offset - TYPE_SIZE)->~NO_REF_T();
+                    call_drop<NO_REF_T>(0);
                 // move offset back
                 head->metadata.offset -= TYPE_SIZE;
                 // moving back allows us to allocate with other data, if there is room.
@@ -348,9 +349,9 @@ namespace blt::gp
             template<typename... Args>
             void call_destructors()
             {
-                blt::size_t offset = 0;
-                
-                ((call_drop<Args>(offset), offset += stack_allocator::aligned_size<NO_REF_T<Args>>()), ...);
+                blt::size_t offset = (stack_allocator::aligned_size<NO_REF_T<Args>>() + ...) -
+                                     stack_allocator::aligned_size<NO_REF_T<typename blt::meta::arg_helper<Args...>::First>>();
+                ((call_drop<Args>(offset), offset -= stack_allocator::aligned_size<NO_REF_T<Args>>()), ...);
             }
             
             [[nodiscard]] bool empty() const noexcept

@@ -101,18 +101,30 @@ namespace blt::gp
                                             allocator.from<detail::remove_cv_ref<Args>>(getByteOffset<indices>())...);
         }
         
+        template<typename context = void, typename... NoCtxArgs>
+        void call_destructors_without_first(stack_allocator& read_allocator)
+        {
+            if constexpr (sizeof...(NoCtxArgs) > 0)
+            {
+                read_allocator.call_destructors<detail::remove_cv_ref<NoCtxArgs>...>();
+            }
+        }
+        
         template<typename Func, typename... ExtraArgs>
-        Return operator()(Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
+        Return operator()(bool, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
         {
             constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
 #if BLT_DEBUG_LEVEL > 0
             try
             {
 #endif
-                Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
-                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
-                read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
-                return ret;
+            Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
+            /*if (has_context)
+                call_destructors_without_first<Args...>(read_allocator);
+            else
+                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();*/
+            read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
+            return ret;
 #if BLT_DEBUG_LEVEL > 0
             } catch (const std::runtime_error& e)
             {
@@ -153,7 +165,7 @@ namespace blt::gp
                     return func();
                 } else
                 {
-                    return call_with<Return, Args...>()(func, read_allocator);
+                    return call_with<Return, Args...>()(false, func, read_allocator);
                 }
             }
             
@@ -170,7 +182,7 @@ namespace blt::gp
                     return func(ctx_ref);
                 } else
                 {
-                    return call_without_first<Return, Args...>()(func, read_allocator, ctx_ref);
+                    return call_without_first<Return, Args...>()(true, func, read_allocator, ctx_ref);
                 }
             }
             
@@ -214,16 +226,24 @@ namespace blt::gp
     };
     
     template<typename Lambda>
-    operation_t(Lambda) -> operation_t<Lambda, decltype(&Lambda::operator())>;
+    operation_t(Lambda)
+    ->
+    operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...)) -> operation_t<Return(*)(Args...), Return(Args...)>;
+    operation_t(Return(*)
+            (Args...)) ->
+    operation_t<Return(*)(Args...), Return(Args...)>;
     
     template<typename Lambda>
-    operation_t(Lambda, std::optional<std::string_view>) -> operation_t<Lambda, decltype(&Lambda::operator())>;
+    operation_t(Lambda, std::optional<std::string_view>
+               ) ->
+    operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(*)(Args...), Return(Args...)>;
+    operation_t(Return(*)
+            (Args...), std::optional<std::string_view>) ->
+    operation_t<Return(*)(Args...), Return(Args...)>;
 }
 
 #endif //BLT_GP_OPERATIONS_H
