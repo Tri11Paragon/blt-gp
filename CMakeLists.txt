@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.137)
+project(blt-gp VERSION 0.0.138)
 
 include(CTest)
 
@@ -78,7 +78,7 @@ macro(blt_add_project name source type)
 
 #    set (passRegex "Pass" "Passed" "PASS" "PASSED")
 #    set (failRegex "WARN" "FAIL" "ERROR" "FATAL")
-    set (failRegex "\[WARN\]" "FAIL" "ERROR" "FATAL" "exception")
+    set (failRegex "\\[WARN\\]" "FAIL" "ERROR" "FATAL" "exception")
 
 #    set_property (TEST ${name} PROPERTY PASS_REGULAR_EXPRESSION "${passRegex}")
     set_property (TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")

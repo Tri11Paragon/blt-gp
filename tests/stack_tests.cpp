@@ -301,7 +301,7 @@ void test_basic()
         stack.push(50.0f);
         stack.push(10.0f);
         BLT_TRACE_STREAM << stack.size() << "\n";
-        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<float>();
         RUN_TEST(val != 60.000000f, stack, "Basic 2 Test Passed", "Basic 2 Test Failed. Unexpected value produced '%lf'", val);
@@ -317,7 +317,7 @@ void test_basic()
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
-        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        basic_2.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<float>();
         stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>>();
@@ -338,7 +338,7 @@ void test_mixed()
         stack.push(false);
         
         BLT_TRACE_STREAM << stack.size() << "\n";
-        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<float>();
         RUN_TEST(val != 50.000000f, stack, "Mixed 4 Test Passed", "Mixed 4 Test Failed. Unexpected value produced '%lf'", val);
@@ -356,7 +356,7 @@ void test_mixed()
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
-        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        basic_mixed_4.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<float>();
         stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(float)>>();
@@ -376,7 +376,7 @@ void test_large_256()
         stack.push(69.420f);
         
         BLT_TRACE_STREAM << stack.size() << "\n";
-        large_256_basic_3.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_256_basic_3.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_256>();
         RUN_TEST(!compare(val, base_256), stack, "Large 256 3 Test Passed", "Large 256 3 Test Failed. Unexpected value produced '%lf'", val);
@@ -393,7 +393,7 @@ void test_large_256()
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
-        large_256_basic_3.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_256_basic_3.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_256>();
         stack.pop<std::array<blt::u8, blt::gp::stack_allocator::page_size_no_block() - sizeof(large_256)>>();
@@ -412,7 +412,7 @@ void test_large_4096()
         stack.push(33.0f);
         stack.push(true);
         BLT_TRACE_STREAM << stack.size() << "\n";
-        large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_4096>();
         RUN_TEST(!compare(val, base_4096), stack, "Large 4096 3 Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);
@@ -428,7 +428,7 @@ void test_large_4096()
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
-        large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_4096_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_4096>();
         RUN_TEST(!compare(val, base_4096), stack, "Large 4096 3 Boundary Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);
@@ -446,7 +446,7 @@ void test_large_18290()
         stack.push(-2543.0f);
         stack.push(true);
         BLT_TRACE_STREAM << stack.size() << "\n";
-        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_18290>();
         RUN_TEST(!compare(val, base_18290), stack, "Large 18290 3 Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);
@@ -463,7 +463,7 @@ void test_large_18290()
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
         BLT_ASSERT(size.blocks > 1 && "Stack doesn't have more than one block!");
-        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_18290>();
         stack.pop<std::array<blt::u8, 20480 - 18290 - blt::gp::stack_allocator::block_size()>>();
@@ -479,12 +479,12 @@ void test_large_18290()
         stack.push(true);
         auto size = stack.size();
         BLT_TRACE_STREAM << size << "\n";
-        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         stack.push(-2543.0f);
         stack.push(true);
         BLT_TRACE_STREAM << stack.size() << "\n";
-        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack);
+        large_18290_basic_3b.make_callable<blt::gp::detail::empty_t>()(nullptr, stack, stack, nullptr);
         BLT_TRACE_STREAM << stack.size() << "\n";
         auto val = stack.pop<large_18290>();
         RUN_TEST(!compare(val, base_18290), stack, "Large 18290 3 Boundary Test Passed", "Large 4096 3 Test Failed. Unexpected value produced '%lf'", val);

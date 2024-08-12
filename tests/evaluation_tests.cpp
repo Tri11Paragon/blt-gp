@@ -63,7 +63,7 @@ blt::gp::op_container_t make_container(blt::gp::operator_id id)
 
 blt::gp::op_container_t make_value(const blt::gp::type& id)
 {
-    static blt::gp::detail::callable_t empty([](void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&) {});
+    static blt::gp::detail::callable_t empty([](void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&, blt::gp::detail::bitmask_t*) {});
     return {empty, id.size(), 0, true};
 }
 

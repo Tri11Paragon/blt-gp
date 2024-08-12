@@ -24,7 +24,8 @@
 
 namespace blt::gp
 {
-    inline auto empty_callable = detail::callable_t([](void*, stack_allocator&, stack_allocator&) { BLT_ABORT("This should never be called!"); });
+    inline auto empty_callable = detail::callable_t(
+            [](void*, stack_allocator&, stack_allocator&, detail::bitmask_t*) { BLT_ABORT("This should never be called!"); });
     
     evaluation_context tree_t::evaluate(void* context) const
     {
@@ -47,15 +48,19 @@ namespace blt::gp
         
         auto value_stack = values;
         auto& values_process = results.values;
+        static thread_local detail::bitmask_t bitfield;
+        bitfield.clear();
         
         for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
         {
             if (operation.is_value)
             {
                 value_stack.transfer_bytes(values_process, operation.type_size);
+                bitfield.push_back(false);
                 continue;
             }
-            operation.func(context, values_process, values_process);
+            operation.func(context, values_process, values_process, &bitfield);
+            bitfield.push_back(true);
         }
         
         return results;
@@ -222,6 +227,8 @@ namespace blt::gp
     
     bool tree_t::check(gp_program& program, void* context) const
     {
+        static thread_local detail::bitmask_t bitfield;
+        bitfield.clear();
         blt::size_t bytes_expected = 0;
         auto bytes_size = values.size().total_used_bytes;
         
@@ -255,12 +262,14 @@ namespace blt::gp
             {
                 value_stack.transfer_bytes(values_process, operation.type_size);
                 total_produced += stack_allocator::aligned_size(operation.type_size);
+                bitfield.push_back(false);
                 continue;
             }
             auto& info = program.get_operator_info(operation.id);
             for (auto& arg : info.argument_types)
                 total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
-            operation.func(context, values_process, values_process);
+            operation.func(context, values_process, values_process, &bitfield);
+            bitfield.push_back(true);
             total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
         }
         
@@ -275,5 +284,39 @@ namespace blt::gp
             return false;
         }
         return true;
+    }
+    
+    void tree_t::drop(gp_program& program)
+    {
+        return;
+        if (values.empty())
+            return;
+        std::cout << "---- NEW TREE ---- References " << *reference_counter << " ----" << std::endl;
+        if (reference_counter->load() > 1)
+            return;
+        static blt::hashset_t<blt::size_t> sets;
+        while (!operations.empty())
+        {
+            auto operation = operations.back();
+            if (operation.is_value)
+            {
+                struct hello
+                {
+                    float* f;
+                    blt::size_t i;
+                };
+                auto h = values.from<hello>(0);
+                if (sets.find(h.i) != sets.end())
+                    std::cout << "HEY ASSHOLE Duplicate Value " << h.i << std::endl;
+                else
+                {
+                    std::cout << "Destroying Value " << h.i << std::endl;
+                    sets.insert(h.i);
+                }
+                program.get_destroy_func(operation.id)(detail::destroy_t::RETURN, nullptr, values);
+                values.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operation.type_size)));
+            }
+            operations.pop_back();
+        }
     }
 }

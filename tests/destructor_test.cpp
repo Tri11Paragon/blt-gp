@@ -53,41 +53,47 @@ class move_float
         move_float(): f(new float()), assignment(++last_value)
         {
             constructions++;
-            BLT_TRACE("Value %ld Default Constructed", assignment);
+            //BLT_TRACE("Value %ld Default Constructed", assignment);
         }
         
         explicit move_float(float f): f(new float(f)), assignment(++last_value)
         {
             constructions++;
-            BLT_TRACE("Value %ld Constructed", assignment);
+            //BLT_TRACE("Value %ld Constructed", assignment);
         }
         
         explicit operator float() const
         {
-            BLT_TRACE("Using value %ld", assignment);
+            //BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
         [[nodiscard]] float get() const
         {
-            BLT_TRACE("Using value %ld", assignment);
+            //BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
         float operator*() const
         {
-            BLT_TRACE("Using value %ld", assignment);
+            //BLT_TRACE("Using value %ld", assignment);
             return *f;
         }
         
         void drop() // NOLINT
         {
-            BLT_TRACE("Drop Called On %ld", assignment);
+            //BLT_TRACE("Drop Called On %ld", assignment);
             delete f;
             f = nullptr;
             destructions++;
         }
-    
+        
+        friend std::ostream& operator<<(std::ostream& stream, const move_float& e)
+        {
+            stream << *e;
+            return stream;
+        }
+        
     private:
         float* f = nullptr;
         blt::size_t assignment;
@@ -106,13 +112,13 @@ std::array<context, 200> fitness_cases;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(2)
+        .set_elite_count(0)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
-        .set_max_generations(1)
-        .set_pop_size(1)
-        .set_thread_count(1);
+        .set_max_generations(5)
+        .set_pop_size(500)
+        .set_thread_count(0);
 
 blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
@@ -137,7 +143,10 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(fitness_case.y - *current_tree.get_evaluation_value<move_float>(&fitness_case));
+        auto ctx = current_tree.evaluate(&fitness_case);
+        auto diff = std::abs(fitness_case.y - *current_tree.get_evaluation_ref<move_float>(ctx));
+        // this will call the drop function.
+        current_tree.get_evaluation_value<move_float>(ctx);
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
@@ -211,7 +220,7 @@ int main()
     
     BLT_END_INTERVAL("Symbolic Regression", "Main");
     
-    auto best = program.get_best_individuals<3>();
+    auto best = program.get_best_individuals<1>();
     
     BLT_INFO("Best approximations:");
     for (auto& i_ref : best)

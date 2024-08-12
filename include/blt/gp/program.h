@@ -91,6 +91,7 @@ namespace blt::gp
         blt::hashset_t<operator_id> static_types;
         std::vector<operator_info> operators;
         std::vector<detail::print_func_t> print_funcs;
+        std::vector<detail::destroy_func_t> destroy_funcs;
         std::vector<std::optional<std::string_view>> names;
     };
     
@@ -135,11 +136,22 @@ namespace blt::gp
                 storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
                     if constexpr (blt::meta::is_streamable_v<Return>)
                     {
-                        out << stack.pop<Return>();
+                        out << stack.from<Return>(0);
                         (void) (op); // remove warning
                     } else
                     {
                         out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                    }
+                });
+                storage.destroy_funcs.push_back([](detail::destroy_t type, detail::bitmask_t* mask, stack_allocator& alloc) {
+                    switch (type)
+                    {
+                        case detail::destroy_t::ARGS:
+                            alloc.call_destructors<Args...>(mask);
+                            break;
+                        case detail::destroy_t::RETURN:
+                            alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                            break;
                     }
                 });
                 storage.names.push_back(op.get_name());
@@ -374,6 +386,8 @@ namespace blt::gp
             void reset_program(type_id root_type, bool eval_fitness_now = true)
             {
                 current_generation = 0;
+                for (auto& pop : current_pop)
+                    pop.tree.drop(*this);
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 if (eval_fitness_now)
@@ -484,6 +498,11 @@ namespace blt::gp
                 return storage.print_funcs[id];
             }
             
+            inline detail::destroy_func_t& get_destroy_func(operator_id id)
+            {
+                return storage.destroy_funcs[id];
+            }
+            
             inline std::optional<std::string_view> get_name(operator_id id)
             {
                 return storage.names[id];
@@ -521,6 +540,12 @@ namespace blt::gp
             
             ~gp_program()
             {
+                std::cout << ("Destroying Program!") << std::endl;
+                for (auto& pop : current_pop.get_individuals())
+                {
+                    pop.tree.drop(*this);
+                    pop = {};
+                }
                 thread_helper.lifetime_over = true;
                 thread_helper.barrier.notify_all();
                 thread_helper.thread_function_condition.notify_all();
