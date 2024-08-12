@@ -58,6 +58,7 @@ namespace blt::gp
     
     class tree_t
     {
+            using iter_type = std::vector<op_container_t>::const_iterator;
         public:
             [[nodiscard]] inline std::vector<op_container_t>& get_operations()
             {
@@ -111,11 +112,40 @@ namespace blt::gp
                 return results.values.pop<T>();
             }
             
-            void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false, bool include_types = false) const;
+            void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false,
+                       bool include_types = false) const;
             
             bool check(gp_program& program, void* context) const;
             
             blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start);
+            
+            // valid for [begin, end)
+            static blt::size_t total_value_bytes(iter_type begin, iter_type end)
+            {
+                blt::size_t total = 0;
+                for (auto it = begin; it != end; it++)
+                {
+                    if (it->is_value)
+                        total += stack_allocator::aligned_size(it->type_size);
+                }
+                return total;
+            }
+            
+            [[nodiscard]] blt::size_t total_value_bytes(blt::size_t begin, blt::size_t end) const
+            {
+                return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin),
+                                         operations.begin() + static_cast<blt::ptrdiff_t>(end));
+            }
+            
+            [[nodiscard]] blt::size_t total_value_bytes(blt::size_t begin) const
+            {
+                return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin), operations.end());
+            }
+            
+            [[nodiscard]] blt::size_t total_value_bytes() const
+            {
+                return total_value_bytes(operations.begin(), operations.end());
+            }
         
         private:
             std::vector<op_container_t> operations;
