@@ -207,7 +207,7 @@ namespace blt::gp
         return depth;
     }
     
-    blt::ptrdiff_t tree_t::find_endpoint(gp_program& program, blt::ptrdiff_t index)
+    blt::ptrdiff_t tree_t::find_endpoint(gp_program& program, blt::ptrdiff_t index) const
     {
         blt::i64 children_left = 0;
         
@@ -220,6 +220,28 @@ namespace blt::gp
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
             index++;
+        } while (children_left > 0);
+        
+        return index;
+    }
+    
+    blt::ptrdiff_t tree_t::find_parent(gp_program& program, blt::ptrdiff_t index) const
+    {
+        if (index == 0)
+            return 0;
+        blt::i64 children_left = 1;
+        // move to the left
+        --index;
+        do
+        {
+            const auto& type = program.get_operator_info(operations[index].id);
+            BLT_TRACE_STREAM << "Operating on index " << index << " with children left: " << children_left << " and argc = " << type.argc.argc << "\n";
+            --index;
+            if (type.argc.argc > 0)
+                children_left -= type.argc.argc;
+            if (children_left <= 0)
+                break;
+            children_left++;
         } while (children_left > 0);
         
         return index;

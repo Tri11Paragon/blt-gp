@@ -60,31 +60,6 @@ namespace blt::gp
     {
             using iter_type = std::vector<op_container_t>::const_iterator;
         public:
-            tree_t(): reference_counter(new std::atomic_int64_t(1))
-            {}
-            
-            tree_t(const tree_t& copy): operations(copy.operations), values(copy.values), reference_counter(copy.reference_counter)
-            {
-                reference_counter->operator++();
-            }
-            
-            tree_t(tree_t&& move) noexcept:
-                    operations(std::move(move.operations)), values(std::move(move.values)), reference_counter(move.reference_counter)
-            {
-                move.reference_counter = nullptr;
-            }
-            
-            tree_t& operator=(const tree_t& copy) = delete;
-            
-            tree_t& operator=(tree_t&& move) noexcept
-            {
-                operations = std::exchange(operations, std::move(move.operations));
-                values = std::exchange(values, std::move(move.values));
-                reference_counter = std::exchange(reference_counter, move.reference_counter);
-                return *this;
-            }
-            
-            
             [[nodiscard]] inline std::vector<op_container_t>& get_operations()
             {
                 return operations;
@@ -142,7 +117,8 @@ namespace blt::gp
             
             bool check(gp_program& program, void* context) const;
             
-            blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start);
+            blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
+            blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             
             // valid for [begin, end)
             static blt::size_t total_value_bytes(iter_type begin, iter_type end)
@@ -173,16 +149,6 @@ namespace blt::gp
             }
             
             void drop(gp_program& program);
-            
-            ~tree_t()
-            {
-                if (reference_counter == nullptr)
-                    return;
-                reference_counter->operator--();
-                if (*reference_counter == 0)
-                    delete reference_counter;
-            }
-        
         private:
             std::vector<op_container_t> operations;
             blt::gp::stack_allocator values;
