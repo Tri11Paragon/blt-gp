@@ -225,24 +225,22 @@ namespace blt::gp
         return index;
     }
     
+    // this function doesn't work!
     blt::ptrdiff_t tree_t::find_parent(gp_program& program, blt::ptrdiff_t index) const
     {
-        if (index == 0)
-            return 0;
-        blt::i64 children_left = 1;
-        // move to the left
-        --index;
+        blt::i64 children_left = 0;
         do
         {
+            if (index == 0)
+                return 0;
             const auto& type = program.get_operator_info(operations[index].id);
-            BLT_TRACE_STREAM << "Operating on index " << index << " with children left: " << children_left << " and argc = " << type.argc.argc << "\n";
-            --index;
             if (type.argc.argc > 0)
                 children_left -= type.argc.argc;
+            children_left++;
             if (children_left <= 0)
                 break;
-            children_left++;
-        } while (children_left > 0);
+            --index;
+        } while (true);
         
         return index;
     }
