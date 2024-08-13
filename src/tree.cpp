@@ -291,7 +291,7 @@ namespace blt::gp
         return;
         if (values.empty())
             return;
-        std::cout << "---- NEW TREE ---- References " << *reference_counter << " ----" << std::endl;
+        //std::cout << "---- NEW TREE ---- References " << *reference_counter << " ----" << std::endl;
         if (reference_counter->load() > 1)
             return;
         static blt::hashset_t<blt::size_t> sets;
@@ -305,18 +305,24 @@ namespace blt::gp
                     float* f;
                     blt::size_t i;
                 };
-                auto h = values.from<hello>(0);
-                if (sets.find(h.i) != sets.end())
+                //auto h = values.from<hello>(0);
+                /*if (sets.find(h.i) != sets.end())
                     std::cout << "HEY ASSHOLE Duplicate Value " << h.i << std::endl;
                 else
                 {
                     std::cout << "Destroying Value " << h.i << std::endl;
                     sets.insert(h.i);
-                }
+                }*/
                 program.get_destroy_func(operation.id)(detail::destroy_t::RETURN, nullptr, values);
                 values.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operation.type_size)));
             }
             operations.pop_back();
         }
+    }
+    
+    void population_t::drop(gp_program& program)
+    {
+        for (auto& pop : get_individuals())
+            pop.tree.drop(program);
     }
 }

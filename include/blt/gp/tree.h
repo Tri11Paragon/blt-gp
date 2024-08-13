@@ -337,6 +337,7 @@ namespace blt::gp
             
             population_t& operator=(population_t&&) = default;
         
+            void drop(gp_program& program);
         private:
             std::vector<individual> individuals;
     };
