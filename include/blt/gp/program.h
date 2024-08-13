@@ -399,6 +399,7 @@ namespace blt::gp
             
             void next_generation()
             {
+                current_pop.drop(*this);
                 current_pop = std::move(next_pop);
                 current_generation++;
             }
@@ -543,12 +544,7 @@ namespace blt::gp
             
             ~gp_program()
             {
-                std::cout << ("Destroying Program!") << std::endl;
-                for (auto& pop : current_pop.get_individuals())
-                {
-                    pop.tree.drop(*this);
-                    pop = {};
-                }
+                current_pop.drop(*this);
                 thread_helper.lifetime_over = true;
                 thread_helper.barrier.notify_all();
                 thread_helper.thread_function_condition.notify_all();
