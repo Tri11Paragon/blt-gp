@@ -60,6 +60,13 @@ namespace blt::gp
     {
             using iter_type = std::vector<op_container_t>::const_iterator;
         public:
+            struct child_t
+            {
+                blt::ptrdiff_t start;
+                // one past the end
+                blt::ptrdiff_t end;
+            };
+            
             [[nodiscard]] inline std::vector<op_container_t>& get_operations()
             {
                 return operations;
@@ -117,6 +124,7 @@ namespace blt::gp
             
             bool check(gp_program& program, void* context) const;
             
+            void find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
             blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             

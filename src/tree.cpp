@@ -340,6 +340,26 @@ namespace blt::gp
         }
     }
     
+    void tree_t::find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const
+    {
+        while (vec.size() < argc)
+        {
+            auto current_point = vec.size();
+            child_t prev{};
+            if (current_point == 0)
+            {
+                // first child.
+                prev = {static_cast<blt::ptrdiff_t>(parent_node + 1),
+                        find_endpoint(program, static_cast<blt::ptrdiff_t>(parent_node + 1))};
+                vec.push_back(prev);
+                continue;
+            } else
+                prev = vec[current_point - 1];
+            child_t next = {prev.end, find_endpoint(program, prev.end)};
+            vec.push_back(next);
+        }
+    }
+    
     void population_t::drop(gp_program& program)
     {
         for (auto& pop : get_individuals())
