@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.143)
+project(blt-gp VERSION 0.0.144)
 
 include(CTest)
 
@@ -24,8 +24,8 @@ file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_library(blt-gp ${PROJECT_BUILD_FILES})
 
-target_compile_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
-target_link_options(blt-gp PRIVATE -Wall -Wextra -Werror -Wpedantic -Wno-comment)
+target_compile_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+target_link_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
 
 target_include_directories(blt-gp PUBLIC include/)
 

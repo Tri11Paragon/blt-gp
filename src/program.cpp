@@ -23,7 +23,7 @@ namespace blt::gp
     // default static references for mutation, crossover, and initializer
     // this is largely to not break the tests :3
     // it's also to allow for quick setup of a gp program if you don't care how crossover or mutation is handled
-    static mutation_t s_mutator;
+    static advanced_mutation_t s_mutator;
     static crossover_t s_crossover;
     static ramped_half_initializer_t s_init;
     

@@ -40,7 +40,6 @@ namespace blt::gp
         
         std::reference_wrapper<detail::callable_t> func;
         blt::size_t type_size;
-        //std::reference_wrapper<detail::transfer_t> transfer;
         operator_id id;
         bool is_value;
     };

@@ -24,6 +24,19 @@
 
 namespace blt::gp
 {
+    // this one will copy previous bytes over
+    template<typename T>
+    blt::span<blt::u8> get_pointer_for_size(blt::size_t size)
+    {
+        static blt::span<blt::u8> buffer{nullptr, 0};
+        if (buffer.size() < size)
+        {
+            delete[] buffer.data();
+            buffer = {new blt::u8[size], size};
+        }
+        return buffer;
+    }
+    
     inline auto empty_callable = detail::callable_t(
             [](void*, stack_allocator&, stack_allocator&, detail::bitmask_t*) { BLT_ABORT("This should never be called!"); });
     

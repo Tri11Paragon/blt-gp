@@ -33,7 +33,7 @@ struct log_box
         
         ~log_box()
         {
-            for (auto& _ : text)
+            for ([[maybe_unused]] auto& _ : text)
                 logger << '-';
             logger << '\n';
         }

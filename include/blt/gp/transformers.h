@@ -30,6 +30,30 @@ namespace blt::gp
     namespace detail
     {
         using op_iter = std::vector<blt::gp::op_container_t>::iterator;
+        
+        template<typename T>
+        inline static constexpr double sum(const T& array)
+        {
+            double init = 0.0;
+            for (double i : array)
+                init += i;
+            return init;
+        }
+        
+        template<blt::size_t size, typename... Args>
+        static constexpr std::array<double, size> aggregate_array(Args... list)
+        {
+            std::array<double, size> data{list...};
+            auto total_prob = sum(data);
+            double sum_of_prob = 0;
+            for (auto& d : data)
+            {
+                auto prob = d / total_prob;
+                d = prob + sum_of_prob;
+                sum_of_prob += prob;
+            }
+            return data;
+        }
     }
     
     class crossover_t
@@ -104,7 +128,7 @@ namespace blt::gp
             explicit mutation_t(const config_t& config): config(config)
             {}
             
-            virtual tree_t apply(gp_program& program, const tree_t& p); // NOLINT
+            virtual tree_t apply(gp_program& program, const tree_t& p);
             
             // returns the point after the mutation
             blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node);
@@ -114,6 +138,47 @@ namespace blt::gp
         protected:
             config_t config;
     };
+    
+    class advanced_mutation_t : public mutation_t
+    {
+        public:
+            enum class mutation_operator : blt::i32
+            {
+                EXPRESSION,     // Generate a new random expression
+                ADJUST,         // adjust the value of the type. (if it is a function it will mutate it to a different one)
+                SUB_FUNC,       // subexpression becomes argument to new random function. Other args are generated.
+                JUMP_FUNC,      // subexpression becomes this new node. Other arguments discarded.
+                COPY,           // node can become copy of another subexpression.
+                END,            // helper
+            };
+            
+            advanced_mutation_t() = default;
+            
+            explicit advanced_mutation_t(const config_t& config): mutation_t(config)
+            {}
+            
+            tree_t apply(gp_program& program, const tree_t& p) final;
+            
+            advanced_mutation_t& set_per_node_mutation_chance(double v)
+            {
+                per_node_mutation_chance = v;
+                return *this;
+            }
+        
+        private:
+            static constexpr auto operators_size = static_cast<blt::i32>(mutation_operator::END);
+        private:
+            // this value is adjusted inversely to the size of the tree.
+            double per_node_mutation_chance = 5.0;
+            
+            static constexpr std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array<operators_size>(
+                    0.1,       // EXPRESSION
+                    0.25,        // ADJUST
+                    0.01,       // SUB_FUNC
+                    0.25,       // JUMP_FUNC
+                    0.12        // COPY
+                                                                                                                                   );
+};
     
 }
 
