@@ -23,6 +23,7 @@
 #include <blt/std/assert.h>
 #include <blt/std/logging.h>
 #include <blt/std/allocator.h>
+#include <blt/std/ranges.h>
 #include <blt/std/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <utility>
@@ -42,6 +43,165 @@ namespace blt::gp
     }
     
     class stack_allocator
+    {
+            constexpr static blt::size_t PAGE_SIZE = 0x1000;
+            constexpr static blt::size_t MAX_ALIGNMENT = 8;
+            template<typename T>
+            using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
+        public:
+            stack_allocator() = default;
+            
+            stack_allocator(const stack_allocator& copy)
+            {
+                expand(copy.size_);
+                std::memcpy(data_, copy.data_, copy.used_index);
+                used_index = copy.used_index;
+            }
+            
+            stack_allocator(stack_allocator&& move) noexcept:
+                    data_(std::exchange(move.data_, nullptr)), used_index(move.used_index), size_(move.size_)
+            {}
+            
+            stack_allocator& operator=(const stack_allocator& copy) = delete;
+            
+            stack_allocator& operator=(stack_allocator&& move) noexcept
+            {
+                data_ = std::exchange(move.data_, data_);
+                size_ = std::exchange(move.size_, size_);
+                used_index = std::exchange(move.used_index, used_index);
+                return *this;
+            }
+            
+            ~stack_allocator()
+            {
+                std::free(data_);
+            }
+            
+            void insert(const stack_allocator& stack)
+            {
+                if (size_ < stack.used_index + used_index)
+                    expand(stack.used_index + used_index);
+                std::memcpy(data_ + used_index, stack.data_, stack.used_index);
+                used_index += stack.used_index;
+            }
+            
+            void copy_from(const stack_allocator& stack, blt::size_t bytes)
+            {
+                if (size_ < bytes + used_index)
+                    expand(bytes + used_index);
+                std::memcpy(data_ + used_index, stack.data_ + (stack.used_index - bytes), bytes);
+                used_index += bytes;
+            }
+            
+            void copy_from(blt::u8* data, blt::size_t bytes)
+            {
+                if (size_ < bytes + used_index)
+                    expand(bytes + used_index);
+                std::memcpy(data_ + used_index, data, bytes);
+                used_index += bytes;
+            }
+            
+            void copy_to(blt::u8* data, blt::size_t bytes)
+            {
+                std::memcpy(data, data_ + (used_index - bytes), bytes);
+            }
+            
+            template<typename T, typename NO_REF = NO_REF_T<T>>
+            void push(const T& t)
+            {
+                static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
+                static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
+                auto ptr = allocate_bytes_for_size(sizeof(NO_REF));
+                std::memcpy(ptr, &t, sizeof(NO_REF));
+            }
+            
+            template<typename T, typename NO_REF = NO_REF_T<T>>
+            T pop()
+            {
+                static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
+                static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
+                constexpr auto size = aligned_size(sizeof(NO_REF));
+                T t;
+                std::memcpy(&t, data_ + used_index - size, size);
+                used_index -= size;
+            }
+            
+            template<typename T, typename NO_REF = NO_REF_T<T>>
+            T& from(blt::size_t bytes)
+            {
+                static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
+                static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
+                constexpr auto size = aligned_size(sizeof(NO_REF)) + bytes;
+                return *reinterpret_cast<NO_REF*>(data_ + used_index - size);
+            }
+            
+            
+            
+            [[nodiscard]] bool empty() const noexcept
+            {
+                return used_index == 0;
+            }
+            
+            [[nodiscard]] blt::size_t remaining_bytes_in_block() const noexcept
+            {
+                return size_ - used_index;
+            }
+            
+            static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
+            {
+                return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
+            }
+        
+        private:
+            void expand(blt::size_t bytes)
+            {
+                bytes = to_nearest_page_size(bytes);
+                auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
+                if (used_index > 0)
+                    std::memcpy(new_data, data_, used_index);
+                std::free(data_);
+                data_ = new_data;
+                size_ = bytes;
+            }
+            
+            static size_t to_nearest_page_size(blt::size_t bytes) noexcept
+            {
+                constexpr static blt::size_t MASK = ~(PAGE_SIZE - 1);
+                return (bytes & MASK) + PAGE_SIZE;
+            }
+            
+            void* get_aligned_pointer(blt::size_t bytes) noexcept
+            {
+                if (data_ == nullptr)
+                    return nullptr;
+                blt::size_t remaining_bytes = remaining_bytes_in_block();
+                auto* pointer = static_cast<void*>(data_ + used_index);
+                return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
+            }
+            
+            void* allocate_bytes_for_size(blt::size_t bytes)
+            {
+                auto aligned_ptr = get_aligned_pointer(bytes);
+                if (aligned_ptr == nullptr)
+                {
+                    expand(bytes + MAX_ALIGNMENT);
+                    aligned_ptr = get_aligned_pointer(bytes);
+                }
+                if (aligned_ptr == nullptr)
+                    throw std::bad_alloc();
+                // TODO: this whole process could be better
+                auto used_bytes = static_cast<blt::size_t>(std::abs(data_ - static_cast<blt::u8*>(aligned_ptr)));
+                used_index += used_bytes;
+                return aligned_ptr;
+            }
+            
+            blt::u8* data_ = nullptr;
+            // place in the data_ array which has a free spot.
+            blt::size_t used_index = 0;
+            blt::size_t size_ = 0;
+    };
+    
+    class stack_allocator_old
     {
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
@@ -88,7 +248,7 @@ namespace blt::gp
                 }
             };
             
-            void insert(stack_allocator stack)
+            void insert(stack_allocator_old stack)
             {
                 if (stack.empty())
                     return;
@@ -140,7 +300,7 @@ namespace blt::gp
             /**
              * Bytes must be the number of bytes to move, all types must have alignment accounted for
              */
-            void copy_from(const stack_allocator& stack, blt::size_t bytes)
+            void copy_from(const stack_allocator_old& stack, blt::size_t bytes)
             {
                 if (bytes == 0)
                     return;
@@ -325,7 +485,7 @@ namespace blt::gp
              * @param to stack to push to
              * @param bytes number of bytes to transfer out.
              */
-            void transfer_bytes(stack_allocator& to, blt::size_t bytes)
+            void transfer_bytes(stack_allocator_old& to, blt::size_t bytes)
             {
                 while (head->used_bytes_in_block() == 0 && move_back());
                 if (empty())
@@ -349,13 +509,14 @@ namespace blt::gp
             template<typename... Args>
             void call_destructors(detail::bitmask_t* mask)
             {
-                if constexpr (sizeof...(Args) > 0) {
-                    blt::size_t offset = (stack_allocator::aligned_size<NO_REF_T<Args>>() + ...) -
-                                         stack_allocator::aligned_size<NO_REF_T<typename blt::meta::arg_helper<Args...>::First>>();
+                if constexpr (sizeof...(Args) > 0)
+                {
+                    blt::size_t offset = (stack_allocator_old::aligned_size<NO_REF_T<Args>>() + ...) -
+                                         stack_allocator_old::aligned_size<NO_REF_T<typename blt::meta::arg_helper<Args...>::First>>();
                     blt::size_t index = 0;
                     if (mask != nullptr)
                         index = mask->size() - sizeof...(Args);
-                    ((call_drop<Args>(offset, index, mask), offset -= stack_allocator::aligned_size<NO_REF_T<Args>>(), ++index), ...);
+                    ((call_drop<Args>(offset, index, mask), offset -= stack_allocator_old::aligned_size<NO_REF_T<Args>>(), ++index), ...);
                     if (mask != nullptr)
                     {
                         auto& mask_r = *mask;
@@ -414,11 +575,11 @@ namespace blt::gp
                 return size_data;
             }
             
-            stack_allocator() = default;
+            stack_allocator_old() = default;
             
             // TODO: cleanup this allocator!
             // if you keep track of type size information you can memcpy between stack allocators as you already only allow trivially copyable types
-            stack_allocator(const stack_allocator& copy) noexcept
+            stack_allocator_old(const stack_allocator_old& copy) noexcept
             {
                 if (copy.empty())
                     return;
@@ -444,21 +605,21 @@ namespace blt::gp
                 }
             }
             
-            stack_allocator& operator=(const stack_allocator& copy) = delete;
+            stack_allocator_old& operator=(const stack_allocator_old& copy) = delete;
             
-            stack_allocator(stack_allocator&& move) noexcept
+            stack_allocator_old(stack_allocator_old&& move) noexcept
             {
                 head = move.head;
                 move.head = nullptr;
             }
             
-            stack_allocator& operator=(stack_allocator&& move) noexcept
+            stack_allocator_old& operator=(stack_allocator_old&& move) noexcept
             {
                 move.head = std::exchange(head, move.head);
                 return *this;
             }
             
-            ~stack_allocator() noexcept
+            ~stack_allocator_old() noexcept
             {
                 if (head != nullptr)
                 {
@@ -652,6 +813,7 @@ namespace blt::gp
                 return reinterpret_cast<block*>(data);
             }
             
+            
             static void free_chain(block* current) noexcept
             {
                 while (current != nullptr)
@@ -680,7 +842,7 @@ namespace blt::gp
                 return true;
             }
             
-            [[nodiscard]] inline static copy_start_point get_start_from_bytes(const stack_allocator& stack, blt::size_t bytes)
+            [[nodiscard]] inline static copy_start_point get_start_from_bytes(const stack_allocator_old& stack, blt::size_t bytes)
             {
                 auto start_block = stack.head;
                 auto bytes_left = static_cast<blt::ptrdiff_t>(bytes);
