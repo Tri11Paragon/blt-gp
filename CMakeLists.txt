@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.0.144)
+project(blt-gp VERSION 0.0.145)
 
 include(CTest)
 
@@ -17,7 +17,7 @@ find_package(Threads REQUIRED)
 
 if (NOT TARGET BLT)
     add_subdirectory(lib/blt)
-endif()
+endif ()
 
 include_directories(include/)
 file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -26,6 +26,12 @@ add_library(blt-gp ${PROJECT_BUILD_FILES})
 
 target_compile_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
 target_link_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+
+find_program(MOLD "mold")
+
+if (NOT ${MOLD} STREQUAL MOLD-NOTFOUND)
+    target_compile_options(blt-gp PUBLIC -fuse-ld=mold)
+endif ()
 
 target_include_directories(blt-gp PUBLIC include/)
 
@@ -50,6 +56,8 @@ endif ()
 macro(blt_add_project name source type)
 
     project(${name}-${type})
+
+    #add_compile_options(-fuse-ld=mold)
 
     add_executable(${name}-${type} ${source})
 
@@ -76,12 +84,12 @@ macro(blt_add_project name source type)
 
     add_test(NAME ${name} COMMAND ${name}-${type})
 
-#    set (passRegex "Pass" "Passed" "PASS" "PASSED")
-#    set (failRegex "WARN" "FAIL" "ERROR" "FATAL")
-    set (failRegex "\\[WARN\\]" "FAIL" "ERROR" "FATAL" "exception")
+    #    set (passRegex "Pass" "Passed" "PASS" "PASSED")
+    #    set (failRegex "WARN" "FAIL" "ERROR" "FATAL")
+    set(failRegex "\\[WARN\\]" "FAIL" "ERROR" "FATAL" "exception")
 
-#    set_property (TEST ${name} PROPERTY PASS_REGULAR_EXPRESSION "${passRegex}")
-    set_property (TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
+    #    set_property (TEST ${name} PROPERTY PASS_REGULAR_EXPRESSION "${passRegex}")
+    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
 
     project(blt-gp)
 endmacro()
