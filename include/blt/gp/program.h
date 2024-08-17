@@ -378,6 +378,30 @@ namespace blt::gp
                                 }
                             }
                         }
+                        if (thread_helper.next_gen_left > 0)
+                        {
+                            while (thread_helper.next_gen_left > 0)
+                            {
+                                blt::size_t size = 0;
+                                blt::size_t begin = 0;
+                                blt::size_t end = thread_helper.next_gen_left.load(std::memory_order_relaxed);
+                                do
+                                {
+                                    size = std::min(end, config.evaluation_size);
+                                    begin = end - size;
+                                } while (!thread_helper.next_gen_left.compare_exchange_weak(end, end - size,
+                                                                                            std::memory_order::memory_order_relaxed,
+                                                                                            std::memory_order::memory_order_relaxed));
+                                
+                                static thread_local std::vector<tree_t> new_children;
+                                new_children.clear();
+                                
+                                for (blt::size_t i = begin; i < end; i++)
+                                {
+                                    
+                                }
+                            }
+                        }
                         thread_helper.barrier.wait();
                     });
                     thread_helper.thread_function_condition.notify_all();
@@ -584,6 +608,7 @@ namespace blt::gp
                 std::condition_variable thread_function_condition{};
                 
                 std::atomic_uint64_t evaluation_left = 0;
+                std::atomic_uint64_t next_gen_left = 0;
                 
                 std::atomic_bool lifetime_over = false;
                 blt::barrier barrier;
