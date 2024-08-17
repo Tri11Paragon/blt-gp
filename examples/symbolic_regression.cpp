@@ -39,7 +39,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(5000)
+        .set_pop_size(50000)
         .set_thread_count(0);
 
 blt::gp::type_provider type_system;
