@@ -31,7 +31,7 @@ namespace blt::gp
     struct selector_args
     {
         gp_program& program;
-        population_t& next_pop;
+        std::vector<tree_t>& next_pop;
         population_t& current_pop;
         population_stats& current_stats;
         prog_config_t& config;
@@ -70,119 +70,58 @@ namespace blt::gp
             }
             
             for (blt::size_t i = 0; i < config.elites; i++)
-                next_pop.get_individuals().push_back(current_pop.get_individuals()[values[i].first]);
-        }
-    };
-    
-    template<typename Crossover, typename Mutation, typename Reproduction>
-    constexpr inline auto proportionate_next_pop_creator = [](
-            const selector_args& args, Crossover crossover_selection, Mutation mutation_selection, Reproduction reproduction_selection) {
-        auto& [program, next_pop, current_pop, current_stats, config, random] = args;
-        
-        double total_prob = config.mutation_chance + config.crossover_chance;
-        double crossover_chance = config.crossover_chance / total_prob;
-        double mutation_chance = crossover_chance + config.mutation_chance / total_prob;
-        
-        perform_elitism(args);
-        
-        while (next_pop.get_individuals().size() < config.population_size)
-        {
-            auto type = random.get_double();
-            if (type > crossover_chance && type < mutation_chance)
-            {
-                // crossover
-                auto& p1 = crossover_selection.select(program, current_pop, current_stats);
-                auto& p2 = crossover_selection.select(program, current_pop, current_stats);
-                
-                auto results = config.crossover.get().apply(program, p1, p2);
-                
-                // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
-                if (results)
-                {
-                    next_pop.get_individuals().emplace_back(std::move(results->child1));
-                    // annoying check
-                    if (next_pop.get_individuals().size() < config.population_size)
-                        next_pop.get_individuals().emplace_back(std::move(results->child2));
-                } else
-                {
-                    if (config.try_mutation_on_crossover_failure && random.choice(config.mutation_chance))
-                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p1)));
-                    else
-                        next_pop.get_individuals().push_back(individual{p1});
-                    // annoying check.
-                    if (next_pop.get_individuals().size() < config.population_size)
-                    {
-                        if (config.try_mutation_on_crossover_failure && random.choice(config.mutation_chance))
-                            next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p2)));
-                        else
-                            next_pop.get_individuals().push_back(individual{p2});
-                    }
-                }
-            } else if (type > mutation_chance)
-            {
-                // mutation
-                auto& p = mutation_selection.select(program, current_pop, current_stats);
-                next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p)));
-            } else
-            {
-                // reproduction
-                auto& p = reproduction_selection.select(program, current_pop, current_stats);
-                next_pop.get_individuals().push_back(individual{p});
-            }
+                next_pop.push_back(current_pop.get_individuals()[values[i].first].tree);
         }
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>
     constexpr inline auto default_next_pop_creator = [](
-            const blt::gp::selector_args& args, Crossover crossover_selection, Mutation mutation_selection, Reproduction reproduction_selection) {
+            blt::gp::selector_args& args, Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection) {
         auto& [program, next_pop, current_pop, current_stats, config, random] = args;
         
-        perform_elitism(args);
-        
-        while (next_pop.get_individuals().size() < config.population_size)
+        int sel = random.get_i32(0, 3);
+        switch (sel)
         {
-            int sel = random.get_i32(0, 3);
-            switch (sel)
-            {
-                case 0:
-                    // everyone gets a chance once per loop.
-                    if (random.choice(config.crossover_chance))
+            case 0:
+                // everyone gets a chance once per loop.
+                if (random.choice(config.crossover_chance))
+                {
+                    // crossover
+                    auto& p1 = crossover_selection.select(program, current_pop, current_stats);
+                    auto& p2 = crossover_selection.select(program, current_pop, current_stats);
+                    
+                    auto results = config.crossover.get().apply(program, p1, p2);
+                    
+                    // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
+                    if (results)
                     {
-                        // crossover
-                        auto& p1 = crossover_selection.select(program, current_pop, current_stats);
-                        auto& p2 = crossover_selection.select(program, current_pop, current_stats);
-                        
-                        auto results = config.crossover.get().apply(program, p1, p2);
-                        
-                        // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
-                        if (results)
-                        {
-                            next_pop.get_individuals().emplace_back(std::move(results->child1));
-                            // annoying check
-                            if (next_pop.get_individuals().size() < config.population_size)
-                                next_pop.get_individuals().emplace_back(std::move(results->child2));
-                        }
+                        next_pop.push_back(std::move(results->child1));
+                        next_pop.push_back(std::move(results->child2));
                     }
-                    break;
-                case 1:
-                    if (random.choice(config.mutation_chance))
-                    {
-                        // mutation
-                        auto& p = mutation_selection.select(program, current_pop, current_stats);
-                        next_pop.get_individuals().emplace_back(std::move(config.mutator.get().apply(program, p)));
-                    }
-                    break;
-                case 2:
-                    if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
-                    {
-                        // reproduction
-                        auto& p = reproduction_selection.select(program, current_pop, current_stats);
-                        next_pop.get_individuals().push_back(individual{p});
-                    }
-                    break;
-                default:
-                    BLT_ABORT("This is not possible!");
-            }
+                }
+                break;
+            case 1:
+                if (random.choice(config.mutation_chance))
+                {
+                    // mutation
+                    auto& p = mutation_selection.select(program, current_pop, current_stats);
+                    next_pop.push_back(std::move(config.mutator.get().apply(program, p)));
+                }
+                break;
+            case 2:
+                if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
+                {
+                    // reproduction
+                    auto& p = reproduction_selection.select(program, current_pop, current_stats);
+                    next_pop.push_back(p);
+                }
+                break;
+            default:
+#if BLT_DEBUG_LEVEL > 0
+                BLT_ABORT("This is not possible!");
+#else
+                BLT_UNREACHABLE;
+#endif
         }
     };
     

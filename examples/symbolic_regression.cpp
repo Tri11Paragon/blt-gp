@@ -39,7 +39,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(50000)
+        .set_pop_size(500)
         .set_thread_count(0);
 
 blt::gp::type_provider type_system;
@@ -117,15 +117,15 @@ int main()
     program.set_operations(builder.build());
     
     BLT_DEBUG("Generate Initial Population");
-    program.generate_population(type_system.get_type<float>().id(), fitness_function);
+    auto sel = blt::gp::select_fitness_proportionate_t{};
+    program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
     while (!program.should_terminate())
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
-        auto sel = blt::gp::select_fitness_proportionate_t{};
-        program.create_next_generation(sel, sel, sel);
+        program.create_next_generation();
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");

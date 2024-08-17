@@ -264,19 +264,12 @@ namespace blt::gp
                     system(system), seed(seed), config(config)
             { create_threads(); }
             
-            template<typename Crossover, typename Mutation, typename Reproduction, typename CreationFunc = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
-            void create_next_generation(Crossover&& crossover_selection, Mutation&& mutation_selection, Reproduction&& reproduction_selection,
-                                        CreationFunc& func = default_next_pop_creator<Crossover, Mutation, Reproduction>)
+            void create_next_generation()
             {
                 // should already be empty
                 next_pop.clear();
-                crossover_selection.pre_process(*this, current_pop, current_stats);
-                mutation_selection.pre_process(*this, current_pop, current_stats);
-                reproduction_selection.pre_process(*this, current_pop, current_stats);
-                
-                auto args = get_selector_args();
-                func(args, std::forward<Crossover>(crossover_selection), std::forward<Mutation>(mutation_selection),
-                     std::forward<Reproduction>(reproduction_selection));
+                thread_helper.next_gen_left.store(config.population_size, std::memory_order_release);
+                (*thread_execution_service)(0);
             }
             
             void evaluate_fitness()
@@ -294,8 +287,10 @@ namespace blt::gp
              *
              * NOTE: 0 is considered the best, in terms of standardized fitness
              */
-            template<typename FitnessFunc>
-            void generate_population(type_id root_type, FitnessFunc& fitness_function, bool eval_fitness_now = true)
+            template<typename FitnessFunc, typename Crossover, typename Mutation, typename Reproduction, typename CreationFunc = decltype(default_next_pop_creator<Crossover, Mutation, Reproduction>)>
+            void generate_population(type_id root_type, FitnessFunc& fitness_function,
+                                     Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection,
+                                     CreationFunc& func = default_next_pop_creator<Crossover, Mutation, Reproduction>, bool eval_fitness_now = true)
             {
                 using LambdaReturn = typename decltype(blt::meta::lambda_helper(fitness_function))::Return;
                 current_pop = config.pop_initializer.get().generate(
@@ -303,107 +298,157 @@ namespace blt::gp
                 if (config.threads == 1)
                 {
                     BLT_INFO("Starting with single thread variant!");
-                    thread_execution_service = new std::function([this, &fitness_function](blt::size_t) {
-                        for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                        {
-                            if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
-                            {
-                                auto result = fitness_function(ind.second.tree, ind.second.fitness, ind.first);
-                                if (result)
-                                    fitness_should_exit = true;
-                            } else
-                            {
-                                fitness_function(ind.second.tree, ind.second.fitness, ind.first);
-                            }
-                            
-                            if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
-                                current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
-                            
-                            if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
-                                current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
-                            
-                            current_stats.overall_fitness = current_stats.overall_fitness + ind.second.fitness.adjusted_fitness;
-                        }
-                    });
+                    thread_execution_service = new std::function(
+                            [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t) {
+                                if (thread_helper.evaluation_left > 0)
+                                {
+                                    for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                                    {
+                                        if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
+                                        {
+                                            auto result = fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                                            if (result)
+                                                fitness_should_exit = true;
+                                        } else
+                                        {
+                                            fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                                        }
+                                        
+                                        if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
+                                            current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
+                                        
+                                        if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
+                                            current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
+                                        
+                                        current_stats.overall_fitness = current_stats.overall_fitness + ind.second.fitness.adjusted_fitness;
+                                    }
+                                    thread_helper.evaluation_left = 0;
+                                }
+                                if (thread_helper.next_gen_left > 0)
+                                {
+                                    static thread_local std::vector<tree_t> new_children;
+                                    new_children.clear();
+                                    auto args = get_selector_args(new_children);
+                                    
+                                    crossover_selection.pre_process(*this, current_pop, current_stats);
+                                    mutation_selection.pre_process(*this, current_pop, current_stats);
+                                    reproduction_selection.pre_process(*this, current_pop, current_stats);
+                                    
+                                    perform_elitism(args);
+                                    
+                                    while (new_children.size() < config.population_size)
+                                        func(args, crossover_selection, mutation_selection, reproduction_selection);
+                                    
+                                    for (auto& i : new_children)
+                                        next_pop.get_individuals().emplace_back(std::move(i));
+                                    
+                                    thread_helper.next_gen_left = 0;
+                                }
+                            });
                 } else
                 {
                     BLT_INFO("Starting thread execution service!");
                     std::scoped_lock lock(thread_helper.thread_function_control);
-                    thread_execution_service = new std::function([this, &fitness_function](blt::size_t) {
-                        thread_helper.barrier.wait();
-                        if (thread_helper.evaluation_left > 0)
-                        {
-                            while (thread_helper.evaluation_left > 0)
-                            {
-                                blt::size_t size = 0;
-                                blt::size_t begin = 0;
-                                blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_relaxed);
-                                do
+                    thread_execution_service = new std::function(
+                            [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t id) {
+                                thread_helper.barrier.wait();
+                                if (thread_helper.evaluation_left > 0)
                                 {
-                                    size = std::min(end, config.evaluation_size);
-                                    begin = end - size;
-                                } while (!thread_helper.evaluation_left.compare_exchange_weak(end, end - size,
-                                                                                              std::memory_order::memory_order_relaxed,
-                                                                                              std::memory_order::memory_order_relaxed));
-                                for (blt::size_t i = begin; i < end; i++)
-                                {
-                                    auto& ind = current_pop.get_individuals()[i];
-                                    
-                                    
-                                    if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
+                                    while (thread_helper.evaluation_left > 0)
                                     {
-                                        auto result = fitness_function(ind.tree, ind.fitness, i);
-                                        if (result)
-                                            fitness_should_exit = true;
-                                    } else
-                                    {
-                                        fitness_function(ind.tree, ind.fitness, i);
+                                        blt::size_t size = 0;
+                                        blt::size_t begin = 0;
+                                        blt::size_t end = thread_helper.evaluation_left.load(std::memory_order_relaxed);
+                                        do
+                                        {
+                                            size = std::min(end, config.evaluation_size);
+                                            begin = end - size;
+                                        } while (!thread_helper.evaluation_left.compare_exchange_weak(end, end - size,
+                                                                                                      std::memory_order::memory_order_relaxed,
+                                                                                                      std::memory_order::memory_order_relaxed));
+                                        for (blt::size_t i = begin; i < end; i++)
+                                        {
+                                            auto& ind = current_pop.get_individuals()[i];
+                                            
+                                            
+                                            if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
+                                            {
+                                                auto result = fitness_function(ind.tree, ind.fitness, i);
+                                                if (result)
+                                                    fitness_should_exit = true;
+                                            } else
+                                            {
+                                                fitness_function(ind.tree, ind.fitness, i);
+                                            }
+                                            
+                                            auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
+                                            while (ind.fitness.adjusted_fitness > old_best &&
+                                                   !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
+                                                                                                     std::memory_order_relaxed,
+                                                                                                     std::memory_order_relaxed));
+                                            
+                                            auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
+                                            while (ind.fitness.adjusted_fitness < old_worst &&
+                                                   !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
+                                                                                                      std::memory_order_relaxed,
+                                                                                                      std::memory_order_relaxed));
+                                            
+                                            auto old_overall = current_stats.overall_fitness.load(std::memory_order_relaxed);
+                                            while (!current_stats.overall_fitness.compare_exchange_weak(old_overall,
+                                                                                                        ind.fitness.adjusted_fitness + old_overall,
+                                                                                                        std::memory_order_relaxed,
+                                                                                                        std::memory_order_relaxed));
+                                        }
                                     }
-                                    
-                                    auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
-                                    while (ind.fitness.adjusted_fitness > old_best &&
-                                           !current_stats.best_fitness.compare_exchange_weak(old_best, ind.fitness.adjusted_fitness,
-                                                                                             std::memory_order_relaxed, std::memory_order_relaxed));
-                                    
-                                    auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
-                                    while (ind.fitness.adjusted_fitness < old_worst &&
-                                           !current_stats.worst_fitness.compare_exchange_weak(old_worst, ind.fitness.adjusted_fitness,
-                                                                                              std::memory_order_relaxed, std::memory_order_relaxed));
-                                    
-                                    auto old_overall = current_stats.overall_fitness.load(std::memory_order_relaxed);
-                                    while (!current_stats.overall_fitness.compare_exchange_weak(old_overall,
-                                                                                                ind.fitness.adjusted_fitness + old_overall,
-                                                                                                std::memory_order_relaxed,
-                                                                                                std::memory_order_relaxed));
                                 }
-                            }
-                        }
-                        if (thread_helper.next_gen_left > 0)
-                        {
-                            while (thread_helper.next_gen_left > 0)
-                            {
-                                blt::size_t size = 0;
-                                blt::size_t begin = 0;
-                                blt::size_t end = thread_helper.next_gen_left.load(std::memory_order_relaxed);
-                                do
+                                if (thread_helper.next_gen_left > 0)
                                 {
-                                    size = std::min(end, config.evaluation_size);
-                                    begin = end - size;
-                                } while (!thread_helper.next_gen_left.compare_exchange_weak(end, end - size,
-                                                                                            std::memory_order::memory_order_relaxed,
-                                                                                            std::memory_order::memory_order_relaxed));
-                                
-                                static thread_local std::vector<tree_t> new_children;
-                                new_children.clear();
-                                
-                                for (blt::size_t i = begin; i < end; i++)
-                                {
+                                    static thread_local std::vector<tree_t> new_children;
+                                    new_children.clear();
+                                    auto args = get_selector_args(new_children);
+                                    if (id == 0)
+                                    {
+                                        crossover_selection.pre_process(*this, current_pop, current_stats);
+                                        mutation_selection.pre_process(*this, current_pop, current_stats);
+                                        reproduction_selection.pre_process(*this, current_pop, current_stats);
+                                        
+                                        perform_elitism(args);
+                                        
+                                        for (auto& i : new_children)
+                                            next_pop.get_individuals().emplace_back(std::move(i));
+                                        thread_helper.next_gen_left -= new_children.size();
+                                        new_children.clear();
+                                    }
+                                    thread_helper.barrier.wait();
                                     
+                                    while (thread_helper.next_gen_left > 0)
+                                    {
+                                        blt::size_t size = 0;
+                                        blt::size_t begin = 0;
+                                        blt::size_t end = thread_helper.next_gen_left.load(std::memory_order_relaxed);
+                                        do
+                                        {
+                                            size = std::min(end, config.evaluation_size);
+                                            begin = end - size;
+                                        } while (!thread_helper.next_gen_left.compare_exchange_weak(end, end - size,
+                                                                                                    std::memory_order::memory_order_relaxed,
+                                                                                                    std::memory_order::memory_order_relaxed));
+                                        
+                                        for (blt::size_t i = begin; i < end; i++)
+                                            func(args, crossover_selection, mutation_selection, reproduction_selection);
+                                        
+                                        {
+                                            std::scoped_lock lock(thread_helper.thread_generation_lock);
+                                            for (auto& i : new_children)
+                                            {
+                                                if (next_pop.get_individuals().size() < config.population_size)
+                                                    next_pop.get_individuals().emplace_back(i);
+                                            }
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                        thread_helper.barrier.wait();
-                    });
+                                thread_helper.barrier.wait();
+                            });
                     thread_helper.thread_function_condition.notify_all();
                 }
                 if (eval_fitness_now)
@@ -605,6 +650,7 @@ namespace blt::gp
                 std::vector<std::unique_ptr<std::thread>> threads;
                 
                 std::mutex thread_function_control;
+                std::mutex thread_generation_lock;
                 std::condition_variable thread_function_condition{};
                 
                 std::atomic_uint64_t evaluation_left = 0;
@@ -620,9 +666,9 @@ namespace blt::gp
             // for convenience, shouldn't decrease performance too much
             std::atomic<std::function<void(blt::size_t)>*> thread_execution_service = nullptr;
             
-            inline selector_args get_selector_args()
+            inline selector_args get_selector_args(std::vector<tree_t>& next_pop_trees)
             {
-                return {*this, next_pop, current_pop, current_stats, config, get_random()};
+                return {*this, next_pop_trees, current_pop, current_stats, config, get_random()};
             }
             
             template<typename Return, blt::size_t size, typename Accessor, blt::size_t... indexes>
@@ -637,8 +683,7 @@ namespace blt::gp
             void evaluate_fitness_internal()
             {
                 current_stats.clear();
-                if (config.threads != 1)
-                    thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
+                thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
                 (*thread_execution_service)(0);
                 
                 current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);

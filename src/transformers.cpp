@@ -243,7 +243,7 @@ namespace blt::gp
         vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after + accumulate_type_sizes(begin_itr, end_itr)));
         
         // insert the new tree then move back the data from after the original mutation point.
-        vals_r.insert(std::move(new_vals_r));
+        vals_r.insert(new_vals_r);
         vals_r.copy_from(stack_after_data, total_bytes_after);
         
         auto before = begin_itr - 1;
@@ -252,7 +252,7 @@ namespace blt::gp
         
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
-        BLT_ASSERT(new_vals_r.empty());
+//        BLT_ASSERT(new_vals_r.empty());
         //BLT_ASSERT(stack_after.empty());
         blt::size_t bytes_expected = 0;
         auto bytes_size = vals_r.size().total_used_bytes;
@@ -690,7 +690,7 @@ namespace blt::gp
                     vals.copy_from(from_ptr, from_bytes);
                     vals.copy_from(after_ptr, after_to_bytes);
                     
-                    static std::vector<op_container_t> op_copy;
+                    static thread_local std::vector<op_container_t> op_copy;
                     op_copy.clear();
                     op_copy.insert(op_copy.begin(), ops.begin() + from_child.start, ops.begin() + from_child.end);
                     

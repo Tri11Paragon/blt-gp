@@ -54,37 +54,14 @@ namespace blt::gp
                 blt::size_t total_size_bytes = 0;
                 blt::size_t total_used_bytes = 0;
                 blt::size_t total_remaining_bytes = 0;
-                blt::size_t total_no_meta_bytes = 0;
-                
-                blt::size_t total_dealloc = 0;
-                blt::size_t total_dealloc_used = 0;
-                blt::size_t total_dealloc_remaining = 0;
-                blt::size_t total_dealloc_no_meta = 0;
-                
-                blt::size_t blocks = 0;
                 
                 friend std::ostream& operator<<(std::ostream& stream, const size_data_t& data)
                 {
                     stream << "[";
-                    stream << data.total_used_bytes << "/";
-                    stream << data.total_size_bytes << "(";
-                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) * 100) << "%), ";
-                    stream << data.total_used_bytes << "/";
-                    stream << data.total_no_meta_bytes << "(";
-                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes) * 100)
-                           << "%), (empty space: ";
-                    stream << data.total_remaining_bytes << ") blocks: " << data.blocks << " || unallocated space: ";
-                    stream << data.total_dealloc_used << "/";
-                    stream << data.total_dealloc;
-                    if (static_cast<double>(data.total_dealloc) > 0)
-                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc) * 100) << "%)";
-                    stream << ", ";
-                    stream << data.total_dealloc_used << "/";
-                    stream << data.total_dealloc_no_meta;
-                    if (data.total_dealloc_no_meta > 0)
-                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta * 100))
-                               << "%)";
-                    stream << ", (empty space: " << data.total_dealloc_remaining << ")]";
+                    stream << data.total_used_bytes << " / " << data.total_size_bytes;
+                    stream << " ("
+                           << (data.total_size_bytes != 0 ? (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) *
+                                                             100) : 0) << "%); space left: " << data.total_remaining_bytes << "]";
                     return stream;
                 }
             };
@@ -132,6 +109,10 @@ namespace blt::gp
             
             void insert(const stack_allocator& stack)
             {
+#if BLT_DEBUG_LEVEL > 1
+                if (stack.empty())
+                    BLT_WARN("Insert called on an empty stack!");
+#endif
                 if (size_ < stack.bytes_stored + bytes_stored)
                     expand(stack.bytes_stored + bytes_stored);
                 std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
@@ -140,6 +121,12 @@ namespace blt::gp
             
             void copy_from(const stack_allocator& stack, blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (stack.empty())
+                    BLT_WARN("Copy From called on an empty stack");
+                if (bytes == 0)
+                    BLT_WARN("Requested 0 bytes to be copied. This seems to be an error!");
+#endif
                 if (size_ < bytes + bytes_stored)
                     expand(bytes + bytes_stored);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
@@ -148,6 +135,12 @@ namespace blt::gp
             
             void copy_from(blt::u8* data, blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (data == nullptr)
+                    BLT_ABORT("Nullptr provided to copy_from function!");
+                if (bytes == 0)
+                    BLT_WARN("Requested 0 bytes to be copied from, nothing will happen.");
+#endif
                 if (size_ < bytes + bytes_stored)
                     expand(bytes + bytes_stored);
                 std::memcpy(data_ + bytes_stored, data, bytes);
@@ -156,6 +149,12 @@ namespace blt::gp
             
             void copy_to(blt::u8* data, blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (data == nullptr)
+                    BLT_ABORT("Nullptr provided to copy_to function!");
+                if (bytes == 0)
+                    BLT_WARN("Requested 0 to be copied to, nothing will happen!");
+#endif
                 std::memcpy(data, data_ + (bytes_stored - bytes), bytes);
             }
             
@@ -174,6 +173,10 @@ namespace blt::gp
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
                 constexpr auto size = aligned_size(sizeof(NO_REF));
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < size)
+                    BLT_ABORT("Not enough bytes left to pop!");
+#endif
                 bytes_stored -= size;
                 return *reinterpret_cast<T*>(data_ + bytes_stored);
             }
@@ -184,16 +187,31 @@ namespace blt::gp
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
                 auto size = aligned_size(sizeof(NO_REF)) + bytes;
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < size)
+                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(size) + " bytes requested but " + std::to_string(bytes) +
+                               " bytes stored!").c_str());
+#endif
                 return *reinterpret_cast<NO_REF*>(data_ + bytes_stored - size);
             }
             
             void pop_bytes(blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < bytes)
+                    BLT_ABORT(("Not enough bytes in stack to pop " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                               " bytes stored!").c_str());
+#endif
                 bytes_stored -= bytes;
             }
             
             void transfer_bytes(stack_allocator& to, blt::size_t bytes)
             {
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < bytes)
+                    BLT_ABORT(("Not enough bytes in stack to transfer " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                               " bytes stored!").c_str());
+#endif
                 to.copy_from(*this, aligned_size(bytes));
                 pop_bytes(bytes);
             }
@@ -297,7 +315,7 @@ namespace blt::gp
                         if (!mask_r[index])
                             return;
                     }
-                    from<NO_REF_T<T>>(offset).drop();
+                    from<NO_REF_T<T >>(offset).drop();
                 }
             }
             
