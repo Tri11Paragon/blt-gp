@@ -49,17 +49,70 @@ namespace blt::gp
             template<typename T>
             using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
         public:
+            struct size_data_t
+            {
+                blt::size_t total_size_bytes = 0;
+                blt::size_t total_used_bytes = 0;
+                blt::size_t total_remaining_bytes = 0;
+                blt::size_t total_no_meta_bytes = 0;
+                
+                blt::size_t total_dealloc = 0;
+                blt::size_t total_dealloc_used = 0;
+                blt::size_t total_dealloc_remaining = 0;
+                blt::size_t total_dealloc_no_meta = 0;
+                
+                blt::size_t blocks = 0;
+                
+                friend std::ostream& operator<<(std::ostream& stream, const size_data_t& data)
+                {
+                    stream << "[";
+                    stream << data.total_used_bytes << "/";
+                    stream << data.total_size_bytes << "(";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) * 100) << "%), ";
+                    stream << data.total_used_bytes << "/";
+                    stream << data.total_no_meta_bytes << "(";
+                    stream << (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_no_meta_bytes) * 100)
+                           << "%), (empty space: ";
+                    stream << data.total_remaining_bytes << ") blocks: " << data.blocks << " || unallocated space: ";
+                    stream << data.total_dealloc_used << "/";
+                    stream << data.total_dealloc;
+                    if (static_cast<double>(data.total_dealloc) > 0)
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc) * 100) << "%)";
+                    stream << ", ";
+                    stream << data.total_dealloc_used << "/";
+                    stream << data.total_dealloc_no_meta;
+                    if (data.total_dealloc_no_meta > 0)
+                        stream << "(" << (static_cast<double>(data.total_dealloc_used) / static_cast<double>(data.total_dealloc_no_meta * 100))
+                               << "%)";
+                    stream << ", (empty space: " << data.total_dealloc_remaining << ")]";
+                    return stream;
+                }
+            };
+            
+            template<typename T>
+            static inline constexpr blt::size_t aligned_size() noexcept
+            {
+                return aligned_size(sizeof(NO_REF_T<T>));
+            }
+            
+            static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
+            {
+                return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
+            }
+            
             stack_allocator() = default;
             
             stack_allocator(const stack_allocator& copy)
             {
+                if (copy.data_ == nullptr || copy.bytes_stored == 0)
+                    return;
                 expand(copy.size_);
-                std::memcpy(data_, copy.data_, copy.used_index);
-                used_index = copy.used_index;
+                std::memcpy(data_, copy.data_, copy.bytes_stored);
+                bytes_stored = copy.bytes_stored;
             }
             
             stack_allocator(stack_allocator&& move) noexcept:
-                    data_(std::exchange(move.data_, nullptr)), used_index(move.used_index), size_(move.size_)
+                    data_(std::exchange(move.data_, nullptr)), bytes_stored(move.bytes_stored), size_(move.size_)
             {}
             
             stack_allocator& operator=(const stack_allocator& copy) = delete;
@@ -68,7 +121,7 @@ namespace blt::gp
             {
                 data_ = std::exchange(move.data_, data_);
                 size_ = std::exchange(move.size_, size_);
-                used_index = std::exchange(move.used_index, used_index);
+                bytes_stored = std::exchange(move.bytes_stored, bytes_stored);
                 return *this;
             }
             
@@ -79,31 +132,32 @@ namespace blt::gp
             
             void insert(const stack_allocator& stack)
             {
-                if (size_ < stack.used_index + used_index)
-                    expand(stack.used_index + used_index);
-                std::memcpy(data_ + used_index, stack.data_, stack.used_index);
-                used_index += stack.used_index;
+                if (size_ < stack.bytes_stored + bytes_stored)
+                    expand(stack.bytes_stored + bytes_stored);
+                std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
+                bytes_stored += stack.bytes_stored;
             }
             
             void copy_from(const stack_allocator& stack, blt::size_t bytes)
             {
-                if (size_ < bytes + used_index)
-                    expand(bytes + used_index);
-                std::memcpy(data_ + used_index, stack.data_ + (stack.used_index - bytes), bytes);
-                used_index += bytes;
+                BLT_ASSERT(stack.data_ != nullptr);
+                if (size_ < bytes + bytes_stored)
+                    expand(bytes + bytes_stored);
+                std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
+                bytes_stored += bytes;
             }
             
             void copy_from(blt::u8* data, blt::size_t bytes)
             {
-                if (size_ < bytes + used_index)
-                    expand(bytes + used_index);
-                std::memcpy(data_ + used_index, data, bytes);
-                used_index += bytes;
+                if (size_ < bytes + bytes_stored)
+                    expand(bytes + bytes_stored);
+                std::memcpy(data_ + bytes_stored, data, bytes);
+                bytes_stored += bytes;
             }
             
             void copy_to(blt::u8* data, blt::size_t bytes)
             {
-                std::memcpy(data, data_ + (used_index - bytes), bytes);
+                std::memcpy(data, data_ + (bytes_stored - bytes), bytes);
             }
             
             template<typename T, typename NO_REF = NO_REF_T<T>>
@@ -122,8 +176,8 @@ namespace blt::gp
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
                 constexpr auto size = aligned_size(sizeof(NO_REF));
                 T t;
-                std::memcpy(&t, data_ + used_index - size, size);
-                used_index -= size;
+                std::memcpy(&t, data_ + bytes_stored - size, size);
+                bytes_stored -= size;
             }
             
             template<typename T, typename NO_REF = NO_REF_T<T>>
@@ -131,25 +185,65 @@ namespace blt::gp
             {
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-                constexpr auto size = aligned_size(sizeof(NO_REF)) + bytes;
-                return *reinterpret_cast<NO_REF*>(data_ + used_index - size);
+                auto size = aligned_size(sizeof(NO_REF)) + bytes;
+                return *reinterpret_cast<NO_REF*>(data_ + bytes_stored - size);
             }
             
+            void pop_bytes(blt::size_t bytes)
+            {
+                bytes_stored -= bytes;
+            }
             
+            void transfer_bytes(stack_allocator& to, blt::size_t bytes)
+            {
+                to.copy_from(*this, bytes);
+                pop_bytes(bytes);
+            }
+            
+            template<typename... Args>
+            void call_destructors(detail::bitmask_t* mask)
+            {
+                if constexpr (sizeof...(Args) > 0)
+                {
+                    blt::size_t offset = (stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)) + ...) -
+                                         stack_allocator::aligned_size(sizeof(NO_REF_T<typename blt::meta::arg_helper<Args...>::First>));
+                    blt::size_t index = 0;
+                    if (mask != nullptr)
+                        index = mask->size() - sizeof...(Args);
+                    ((call_drop<Args>(offset, index, mask), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)), ++index), ...);
+                    if (mask != nullptr)
+                    {
+                        auto& mask_r = *mask;
+                        for (blt::size_t i = 0; i < sizeof...(Args); i++)
+                            mask_r.pop_back();
+                    }
+                }
+            }
             
             [[nodiscard]] bool empty() const noexcept
             {
-                return used_index == 0;
+                return bytes_stored == 0;
             }
             
-            [[nodiscard]] blt::size_t remaining_bytes_in_block() const noexcept
+            [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const noexcept
             {
-                return size_ - used_index;
+                return static_cast<blt::ptrdiff_t>(size_ - bytes_stored);
             }
             
-            static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
+            [[nodiscard]] blt::ptrdiff_t bytes_in_head() const noexcept
             {
-                return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
+                return static_cast<blt::ptrdiff_t>(bytes_stored);
+            }
+            
+            [[nodiscard]] size_data_t size() const noexcept
+            {
+                size_data_t data;
+                
+                data.total_used_bytes = bytes_stored;
+                data.total_size_bytes = size_;
+                data.total_remaining_bytes = remaining_bytes_in_block();
+                
+                return data;
             }
         
         private:
@@ -157,8 +251,8 @@ namespace blt::gp
             {
                 bytes = to_nearest_page_size(bytes);
                 auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
-                if (used_index > 0)
-                    std::memcpy(new_data, data_, used_index);
+                if (bytes_stored > 0)
+                    std::memcpy(new_data, data_, bytes_stored);
                 std::free(data_);
                 data_ = new_data;
                 size_ = bytes;
@@ -175,7 +269,7 @@ namespace blt::gp
                 if (data_ == nullptr)
                     return nullptr;
                 blt::size_t remaining_bytes = remaining_bytes_in_block();
-                auto* pointer = static_cast<void*>(data_ + used_index);
+                auto* pointer = static_cast<void*>(data_ + bytes_stored);
                 return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
             }
             
@@ -191,13 +285,28 @@ namespace blt::gp
                     throw std::bad_alloc();
                 // TODO: this whole process could be better
                 auto used_bytes = static_cast<blt::size_t>(std::abs(data_ - static_cast<blt::u8*>(aligned_ptr)));
-                used_index += used_bytes;
+                bytes_stored += used_bytes;
                 return aligned_ptr;
+            }
+            
+            template<typename T>
+            inline void call_drop(blt::size_t offset, blt::size_t index, detail::bitmask_t* mask)
+            {
+                if constexpr (detail::has_func_drop_v<T>)
+                {
+                    if (mask != nullptr)
+                    {
+                        auto& mask_r = *mask;
+                        if (!mask_r[index])
+                            return;
+                    }
+                    from<NO_REF_T<T>>(offset).drop();
+                }
             }
             
             blt::u8* data_ = nullptr;
             // place in the data_ array which has a free spot.
-            blt::size_t used_index = 0;
+            blt::size_t bytes_stored = 0;
             blt::size_t size_ = 0;
     };
     
