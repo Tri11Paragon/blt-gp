@@ -140,7 +140,6 @@ namespace blt::gp
             
             void copy_from(const stack_allocator& stack, blt::size_t bytes)
             {
-                BLT_ASSERT(stack.data_ != nullptr);
                 if (size_ < bytes + bytes_stored)
                     expand(bytes + bytes_stored);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
@@ -175,9 +174,8 @@ namespace blt::gp
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
                 constexpr auto size = aligned_size(sizeof(NO_REF));
-                T t;
-                std::memcpy(&t, data_ + bytes_stored - size, size);
                 bytes_stored -= size;
+                return *reinterpret_cast<T*>(data_ + bytes_stored);
             }
             
             template<typename T, typename NO_REF = NO_REF_T<T>>
@@ -196,7 +194,7 @@ namespace blt::gp
             
             void transfer_bytes(stack_allocator& to, blt::size_t bytes)
             {
-                to.copy_from(*this, bytes);
+                to.copy_from(*this, aligned_size(bytes));
                 pop_bytes(bytes);
             }
             
@@ -283,8 +281,7 @@ namespace blt::gp
                 }
                 if (aligned_ptr == nullptr)
                     throw std::bad_alloc();
-                // TODO: this whole process could be better
-                auto used_bytes = static_cast<blt::size_t>(std::abs(data_ - static_cast<blt::u8*>(aligned_ptr)));
+                auto used_bytes = aligned_size(bytes);
                 bytes_stored += used_bytes;
                 return aligned_ptr;
             }
