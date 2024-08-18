@@ -20,6 +20,7 @@
 #define BLT_GP_STACK_H
 
 #include <blt/std/types.h>
+#include <blt/std/atomic_allocator.h>
 #include <blt/std/assert.h>
 #include <blt/std/logging.h>
 #include <blt/std/allocator.h>
