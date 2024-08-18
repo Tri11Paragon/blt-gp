@@ -409,8 +409,10 @@ namespace blt::gp
                                     if (id == 0)
                                     {
                                         crossover_selection.pre_process(*this, current_pop, current_stats);
-                                        mutation_selection.pre_process(*this, current_pop, current_stats);
-                                        reproduction_selection.pre_process(*this, current_pop, current_stats);
+                                        if (&crossover_selection != &mutation_selection)
+                                            mutation_selection.pre_process(*this, current_pop, current_stats);
+                                        if (&crossover_selection != &reproduction_selection)
+                                            reproduction_selection.pre_process(*this, current_pop, current_stats);
                                         
                                         perform_elitism(args);
                                         
