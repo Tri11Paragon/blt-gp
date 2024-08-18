@@ -109,10 +109,8 @@ namespace blt::gp
             
             void insert(const stack_allocator& stack)
             {
-#if BLT_DEBUG_LEVEL > 1
                 if (stack.empty())
-                    BLT_WARN("Insert called on an empty stack!");
-#endif
+                    return;
                 if (size_ < stack.bytes_stored + bytes_stored)
                     expand(stack.bytes_stored + bytes_stored);
                 std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
@@ -121,12 +119,8 @@ namespace blt::gp
             
             void copy_from(const stack_allocator& stack, blt::size_t bytes)
             {
-#if BLT_DEBUG_LEVEL > 0
-                if (stack.empty())
-                    BLT_WARN("Copy From called on an empty stack");
                 if (bytes == 0)
-                    BLT_WARN("Requested 0 bytes to be copied. This seems to be an error!");
-#endif
+                    return;
                 if (size_ < bytes + bytes_stored)
                     expand(bytes + bytes_stored);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
@@ -135,12 +129,8 @@ namespace blt::gp
             
             void copy_from(blt::u8* data, blt::size_t bytes)
             {
-#if BLT_DEBUG_LEVEL > 0
-                if (data == nullptr)
-                    BLT_ABORT("Nullptr provided to copy_from function!");
-                if (bytes == 0)
-                    BLT_WARN("Requested 0 bytes to be copied from, nothing will happen.");
-#endif
+                if (bytes == 0 || data == nullptr)
+                    return;
                 if (size_ < bytes + bytes_stored)
                     expand(bytes + bytes_stored);
                 std::memcpy(data_ + bytes_stored, data, bytes);
@@ -149,12 +139,8 @@ namespace blt::gp
             
             void copy_to(blt::u8* data, blt::size_t bytes)
             {
-#if BLT_DEBUG_LEVEL > 0
-                if (data == nullptr)
-                    BLT_ABORT("Nullptr provided to copy_to function!");
-                if (bytes == 0)
-                    BLT_WARN("Requested 0 to be copied to, nothing will happen!");
-#endif
+                if (bytes == 0 || data == nullptr)
+                    return;
                 std::memcpy(data, data_ + (bytes_stored - bytes), bytes);
             }
             
