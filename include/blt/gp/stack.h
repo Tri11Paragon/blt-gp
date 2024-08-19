@@ -43,13 +43,29 @@ namespace blt::gp
         BLT_META_MAKE_FUNCTION_CHECK(drop);
     }
     
+    class aligned_allocator
+    {
+        public:
+            void* allocate(blt::size_t bytes) // NOLINT
+            {
+                return std::aligned_alloc(8, bytes);
+            }
+            
+            void deallocate(void* ptr, blt::size_t) // NOLINT
+            {
+                std::free(ptr);
+            }
+    };
+    
     class stack_allocator
     {
             constexpr static blt::size_t PAGE_SIZE = 0x1000;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
             template<typename T>
             using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
+            using Allocator = aligned_allocator;
         public:
+            static Allocator& get_allocator();
             struct size_data_t
             {
                 blt::size_t total_size_bytes = 0;
@@ -105,7 +121,8 @@ namespace blt::gp
             
             ~stack_allocator()
             {
-                std::free(data_);
+                //std::free(data_);
+                get_allocator().deallocate(data_, size_);
             }
             
             void insert(const stack_allocator& stack)
@@ -253,10 +270,12 @@ namespace blt::gp
             void expand(blt::size_t bytes)
             {
                 bytes = to_nearest_page_size(bytes);
-                auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
+//                auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
+                auto new_data = static_cast<blt::u8*>(get_allocator().allocate(bytes));
                 if (bytes_stored > 0)
                     std::memcpy(new_data, data_, bytes_stored);
-                std::free(data_);
+//                std::free(data_);
+                get_allocator().deallocate(data_, size_);
                 data_ = new_data;
                 size_ = bytes;
             }
@@ -311,6 +330,8 @@ namespace blt::gp
             blt::size_t bytes_stored = 0;
             blt::size_t size_ = 0;
     };
+    
+    
 }
 
 #endif //BLT_GP_STACK_H

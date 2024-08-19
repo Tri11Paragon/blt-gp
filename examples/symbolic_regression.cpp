@@ -86,10 +86,6 @@ float example_function(float x)
 
 int main()
 {
-    BLT_TRACE("Hello %ld", blt::align_size_to(532, 8));
-    BLT_TRACE("Align %ld", blt::gp::stack_allocator::aligned_size(532));
-    return 0;
-    
     BLT_INFO("Starting BLT-GP Symbolic Regression Example");
     BLT_START_INTERVAL("Symbolic Regression", "Main");
     BLT_DEBUG("Setup Fitness cases");
