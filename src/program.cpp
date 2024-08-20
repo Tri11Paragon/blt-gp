@@ -50,6 +50,12 @@ namespace blt::gp
         return random_engine;
     }
     
+    stack_allocator::Allocator& stack_allocator::get_allocator()
+    {
+        thread_local static Allocator allocator;
+        return allocator;
+    }
+    
     void gp_program::create_threads()
     {
         if (config.threads == 0)
