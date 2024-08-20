@@ -75,10 +75,6 @@ namespace blt::gp
         type_id return_type;
         // number of arguments for this operator
         argc_t argc;
-        // function to call this operator
-        detail::callable_t function;
-        // function used to transfer values between stacks
-        //detail::transfer_t transfer;
     };
     
     struct operator_storage
@@ -93,6 +89,8 @@ namespace blt::gp
         std::vector<detail::print_func_t> print_funcs;
         std::vector<detail::destroy_func_t> destroy_funcs;
         std::vector<std::optional<std::string_view>> names;
+        
+        detail::eval_func_t eval_func;
     };
     
     template<typename Context = detail::empty_t>
@@ -106,65 +104,41 @@ namespace blt::gp
             explicit operator_builder(type_provider& system): system(system)
             {}
             
-            template<typename ArgType, typename Return, typename... Args>
-            operator_builder& add_operator(operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
+            template<typename... Operators>
+            operator_storage& build(Operators& ... operators)
             {
-                auto return_type_id = system.get_type<Return>().id();
-                auto operator_id = blt::gp::operator_id(storage.operators.size());
-                op.id = operator_id;
+                std::vector<blt::size_t> sizes;
+                (sizes.push_back(add_operator(operators)), ...);
+                blt::size_t largest = 0;
+                for (auto v : sizes)
+                    largest = std::max(v, largest);
                 
-                operator_info info;
-                
-                if constexpr (sizeof...(Args) > 0)
-                {
-                    (add_non_context_argument<detail::remove_cv_ref<Args>>(info.argument_types), ...);
-                }
-                
-                info.argc.argc_context = info.argc.argc = sizeof...(Args);
-                info.return_type = system.get_type<Return>().id();
-                
-                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
-                
-                auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
-                operator_list[return_type_id].push_back(operator_id);
-                
-                BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
-                
-                info.function = op.template make_callable<Context>();
-                
-                storage.operators.push_back(info);
-                storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
-                    if constexpr (blt::meta::is_streamable_v<Return>)
+                storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) {
+                    const auto& ops = tree.get_operations();
+                    const auto& vals = tree.get_values();
+                    
+                    evaluation_context results{};
+                    
+                    auto value_stack = vals;
+                    auto& values_process = results.values;
+                    static thread_local detail::bitmask_t bitfield;
+                    bitfield.clear();
+                    
+                    for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
                     {
-                        out << stack.from<Return>(0);
-                        (void) (op); // remove warning
-                    } else
-                    {
-                        out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                        if (operation.is_value)
+                        {
+                            value_stack.transfer_bytes(values_process, operation.type_size);
+                            bitfield.push_back(false);
+                            continue;
+                        }
+                        call_jmp_table(operation.id, context, values_process, values_process, &bitfield, operators...);
+                        bitfield.push_back(true);
                     }
-                });
-                storage.destroy_funcs.push_back([](detail::destroy_t type, detail::bitmask_t* mask, stack_allocator& alloc) {
-                    switch (type)
-                    {
-                        case detail::destroy_t::ARGS:
-                            alloc.call_destructors<Args...>(mask);
-                            break;
-                        case detail::destroy_t::RETURN:
-                            if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
-                            {
-                                alloc.from<detail::remove_cv_ref<Return>>(0).drop();
-                            }
-                            break;
-                    }
-                });
-                storage.names.push_back(op.get_name());
-                if (is_static)
-                    storage.static_types.insert(operator_id);
-                return *this;
-            }
-            
-            operator_storage& build()
-            {
+                    
+                    return results;
+                };
+                
                 blt::hashset_t<type_id> has_terminals;
                 
                 for (const auto& v : blt::enumerate(storage.terminals))
@@ -232,6 +206,64 @@ namespace blt::gp
             }
         
         private:
+            template<typename RawFunction, typename Return, typename... Args>
+            auto add_operator(operation_t<RawFunction, Return(Args...)>& op)
+            {
+                auto total_size_required = stack_allocator::aligned_size(sizeof(Return));
+                ((total_size_required += stack_allocator::aligned_size(sizeof(Args))) , ...);
+                
+                auto return_type_id = system.get_type<Return>().id();
+                auto operator_id = blt::gp::operator_id(storage.operators.size());
+                op.id = operator_id;
+                
+                operator_info info;
+                
+                if constexpr (sizeof...(Args) > 0)
+                {
+                    (add_non_context_argument<detail::remove_cv_ref<Args>>(info.argument_types), ...);
+                }
+                
+                info.argc.argc_context = info.argc.argc = sizeof...(Args);
+                info.return_type = return_type_id;
+                
+                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
+                
+                auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
+                operator_list[return_type_id].push_back(operator_id);
+                
+                BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
+                
+                storage.operators.push_back(info);
+                storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
+                    if constexpr (blt::meta::is_streamable_v<Return>)
+                    {
+                        out << stack.from<Return>(0);
+                        (void) (op); // remove warning
+                    } else
+                    {
+                        out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                    }
+                });
+                storage.destroy_funcs.push_back([](detail::destroy_t type, detail::bitmask_t* mask, stack_allocator& alloc) {
+                    switch (type)
+                    {
+                        case detail::destroy_t::ARGS:
+                            alloc.call_destructors<Args...>(mask);
+                            break;
+                        case detail::destroy_t::RETURN:
+                            if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
+                            {
+                                alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                            }
+                            break;
+                    }
+                });
+                storage.names.push_back(op.get_name());
+                if (op.is_ephemeral())
+                    storage.static_types.insert(operator_id);
+                return total_size_required;
+            }
+            
             template<typename T>
             void add_non_context_argument(decltype(operator_info::argument_types)& types)
             {
@@ -239,6 +271,42 @@ namespace blt::gp
                 {
                     types.push_back(system.get_type<T>().id());
                 }
+            }
+            
+            template<bool HasContext, size_t id, typename Lambda>
+            static inline bool execute(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
+                                       Lambda lambda)
+            {
+                if (op == id)
+                {
+                    if constexpr (HasContext)
+                    {
+                        write_stack.push(lambda(context, read_stack, mask));
+                    } else
+                    {
+                        write_stack.push(lambda(read_stack, mask));
+                    }
+                    return false;
+                }
+                return true;
+            }
+            
+            template<typename... Lambdas, size_t... operator_ids>
+            static inline void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
+                                                       detail::bitmask_t* mask, std::integer_sequence<size_t, operator_ids...>, Lambdas... lambdas)
+            {
+                if (op > sizeof...(operator_ids))
+                    BLT_UNREACHABLE;
+                (execute<detail::is_same_v<typename Lambdas::First_Arg, Context>, operator_ids>(
+                        op, context, write_stack, read_stack, mask, lambdas) && ...);
+            }
+            
+            template<typename... Lambdas>
+            static inline void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
+                                              detail::bitmask_t* mask, Lambdas... lambdas)
+            {
+                call_jmp_table_internal(op, context, write_stack, read_stack, mask, std::index_sequence_for<Lambdas...>(),
+                                        lambdas...);
             }
             
             type_provider& system;
@@ -601,6 +669,11 @@ namespace blt::gp
             inline void set_operations(operator_storage op)
             {
                 storage = std::move(op);
+            }
+            
+            inline detail::eval_func_t& get_eval_func()
+            {
+                return storage.eval_func;
             }
             
             [[nodiscard]] inline auto get_current_generation() const

@@ -34,11 +34,10 @@ namespace blt::gp
     
     struct op_container_t
     {
-        op_container_t(detail::callable_t& func, blt::size_t type_size, operator_id id, bool is_value):
-                func(func), type_size(type_size), id(id), is_value(is_value)
+        op_container_t(blt::size_t type_size, operator_id id, bool is_value):
+                type_size(type_size), id(id), is_value(is_value)
         {}
         
-        std::reference_wrapper<detail::callable_t> func;
         blt::size_t type_size;
         operator_id id;
         bool is_value;
@@ -46,11 +45,8 @@ namespace blt::gp
     
     class evaluation_context
     {
-            friend class tree_t;
-        
-        private:
-            explicit evaluation_context()
-            {}
+        public:
+            explicit evaluation_context() = default;
             
             blt::gp::stack_allocator values;
     };
@@ -86,7 +82,7 @@ namespace blt::gp
                 return values;
             }
             
-            evaluation_context evaluate(void* context) const;
+            evaluation_context evaluate(void* context, detail::eval_func_t& func) const;
             
             blt::size_t get_depth(gp_program& program);
             
@@ -112,9 +108,9 @@ namespace blt::gp
              * Helper template for returning the result of evaluation (this calls it)
              */
             template<typename T>
-            T get_evaluation_value(void* context)
+            T get_evaluation_value(void* context, detail::eval_func_t& func)
             {
-                auto results = evaluate(context);
+                auto results = evaluate(context, func);
                 return results.values.pop<T>();
             }
             

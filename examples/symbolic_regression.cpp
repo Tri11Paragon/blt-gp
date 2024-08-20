@@ -54,9 +54,9 @@ blt::gp::operation_t op_cos([](float a) { return std::cos(a); }, "cos");
 blt::gp::operation_t op_exp([](float a) { return std::exp(a); }, "exp");
 blt::gp::operation_t op_log([](float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
 
-blt::gp::operation_t lit([]() {
+auto lit = blt::gp::operation_t([]() {
     return program.get_random().get_float(-320.0f, 320.0f);
-}, "lit");
+}, "lit").set_ephemeral();
 blt::gp::operation_t op_x([](const context& context) {
     return context.x;
 }, "x");
@@ -65,7 +65,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case));
+        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case, program.get_eval_func()));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
@@ -102,19 +102,19 @@ int main()
     type_system.register_type<float>();
     
     blt::gp::operator_builder<context> builder{type_system};
-    builder.add_operator(add);
-    builder.add_operator(sub);
-    builder.add_operator(mul);
-    builder.add_operator(pro_div);
-    builder.add_operator(op_sin);
-    builder.add_operator(op_cos);
-    builder.add_operator(op_exp);
-    builder.add_operator(op_log);
+//    builder.add_operator(add);
+//    builder.add_operator(sub);
+//    builder.add_operator(mul);
+//    builder.add_operator(pro_div);
+//    builder.add_operator(op_sin);
+//    builder.add_operator(op_cos);
+//    builder.add_operator(op_exp);
+//    builder.add_operator(op_log);
+//
+//    builder.add_operator(lit, true);
+//    builder.add_operator(op_x);
     
-    builder.add_operator(lit, true);
-    builder.add_operator(op_x);
-    
-    program.set_operations(builder.build());
+    program.set_operations(builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x));
     
     BLT_DEBUG("Generate Initial Population");
     auto sel = blt::gp::select_fitness_proportionate_t{};

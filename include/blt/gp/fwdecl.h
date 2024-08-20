@@ -57,7 +57,8 @@ namespace blt::gp
         
         class operator_storage_test;
         // context*, read stack, write stack
-        using callable_t = std::function<void(void*, stack_allocator&, stack_allocator&, bitmask_t*)>;
+        //using callable_t = std::function<void(void*, stack_allocator&, stack_allocator&, bitmask_t*)>;
+        using eval_func_t = std::function<evaluation_context(const tree_t& tree, void* context)>;
         // debug function,
         using print_func_t = std::function<void(std::ostream&, stack_allocator&)>;
         

@@ -93,8 +93,8 @@ namespace blt::gp
         
         blt::size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
         blt::size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
-        blt::size_t c2_stack_after_bytes =  accumulate_type_sizes(found_point_end_itr, c2_ops.end());
-        blt::size_t c2_stack_for_bytes =  accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
+        blt::size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
+        blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
         auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
         auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
         auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1>(c1_total);
@@ -111,7 +111,7 @@ namespace blt::gp
         
         c1_stack.copy_from(copy_ptr_c2, c2_stack_for_bytes);
         c1_stack.copy_from(copy_ptr_c1 + c1_stack_for_bytes, c1_stack_after_bytes);
-
+        
         // now swap the operators
         auto insert_point_c1 = crossover_point_begin_itr - 1;
         auto insert_point_c2 = found_point_begin_itr - 1;
@@ -252,46 +252,46 @@ namespace blt::gp
         
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
-//        BLT_ASSERT(new_vals_r.empty());
-        //BLT_ASSERT(stack_after.empty());
-        blt::size_t bytes_expected = 0;
-        auto bytes_size = vals_r.size().total_used_bytes;
-        
-        for (const auto& op : c.get_operations())
-        {
-            if (op.is_value)
-                bytes_expected += stack_allocator::aligned_size(op.type_size);
-        }
-        
-        if (bytes_expected != bytes_size)
-        {
-            BLT_WARN_STREAM << "Stack state: " << vals_r.size() << "\n";
-            BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
-                     static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
-            BLT_TRACE("Total bytes after: %ld", total_bytes_after);
-            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
-        }
-        auto copy = c;
-        try
-        {
-            auto result = copy.evaluate(nullptr);
-            blt::black_box(result);
-        } catch (...)
-        {
-            std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
-            std::cout << "our root type is " << ops_r[begin_point].id << " with size " << stack_allocator::aligned_size(ops_r[begin_point].type_size)
-                      << "\n";
-            std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id) ? *program.get_name(ops_r[begin_point].id) : "Unnamed") << "\n";
-            std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
-            //std::cout << "Parent:" << std::endl;
-            //p.print(program, std::cout, false, true);
-            std::cout << "Child:" << std::endl;
-            c.print(program, std::cout, false, true);
-            std::cout << std::endl;
-            c.print(program, std::cout, true, true);
-            std::cout << std::endl;
-            throw std::exception();
-        }
+        //        BLT_ASSERT(new_vals_r.empty());
+                //BLT_ASSERT(stack_after.empty());
+                blt::size_t bytes_expected = 0;
+                auto bytes_size = vals_r.size().total_used_bytes;
+                
+                for (const auto& op : c.get_operations())
+                {
+                    if (op.is_value)
+                        bytes_expected += stack_allocator::aligned_size(op.type_size);
+                }
+                
+                if (bytes_expected != bytes_size)
+                {
+                    BLT_WARN_STREAM << "Stack state: " << vals_r.size() << "\n";
+                    BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
+                             static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
+                    BLT_TRACE("Total bytes after: %ld", total_bytes_after);
+                    BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+                }
+                auto copy = c;
+                try
+                {
+                    auto result = copy.evaluate(nullptr);
+                    blt::black_box(result);
+                } catch (...)
+                {
+                    std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
+                    std::cout << "our root type is " << ops_r[begin_point].id << " with size " << stack_allocator::aligned_size(ops_r[begin_point].type_size)
+                              << "\n";
+                    std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id) ? *program.get_name(ops_r[begin_point].id) : "Unnamed") << "\n";
+                    std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
+                    //std::cout << "Parent:" << std::endl;
+                    //p.print(program, std::cout, false, true);
+                    std::cout << "Child:" << std::endl;
+                    c.print(program, std::cout, false, true);
+                    std::cout << std::endl;
+                    c.print(program, std::cout, true, true);
+                    std::cout << std::endl;
+                    throw std::exception();
+                }
 #endif
         return begin_point + new_ops_r.size();
     }
@@ -457,8 +457,8 @@ namespace blt::gp
                             vals.copy_from(data, total_bytes_after);
                         }
                         // now finally update the type.
-                        ops[c_node] = {replacement_func_info.function, program.get_typesystem().get_type(replacement_func_info.return_type).size(),
-                                       random_replacement, program.is_static(random_replacement)};
+                        ops[c_node] = {program.get_typesystem().get_type(replacement_func_info.return_type).size(), random_replacement,
+                                       program.is_static(random_replacement)};
                     }
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(program, nullptr))
@@ -543,7 +543,7 @@ namespace blt::gp
                     vals.copy_from(combined_ptr + for_bytes, after_bytes);
                     
                     ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(c_node),
-                               {replacement_func_info.function, program.get_typesystem().get_type(replacement_func_info.return_type).size(),
+                               {program.get_typesystem().get_type(replacement_func_info.return_type).size(),
                                 random_replacement, program.is_static(random_replacement)});
 
 #if BLT_DEBUG_LEVEL >= 2

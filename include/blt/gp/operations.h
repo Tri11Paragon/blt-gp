@@ -144,11 +144,12 @@ namespace blt::gp
     template<typename, typename>
     class operation_t;
     
-    template<typename ArgType, typename Return, typename... Args>
-    class operation_t<ArgType, Return(Args...)>
+    template<typename RawFunction, typename Return, typename... Args>
+    class operation_t<RawFunction, Return(Args...)>
     {
         public:
-            using function_t = ArgType;
+            using function_t = RawFunction;
+            using First_Arg = typename blt::meta::arg_helper<Args...>::First;
             
             constexpr operation_t(const operation_t& copy) = default;
             
@@ -186,21 +187,21 @@ namespace blt::gp
                 }
             }
             
-            template<typename Context>
-            [[nodiscard]] detail::callable_t make_callable() const
-            {
-                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator, detail::bitmask_t* mask) {
-                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
-                    {
-                        // first arg is context
-                        write_allocator.push(this->operator()(context, read_allocator, mask));
-                    } else
-                    {
-                        // first arg isn't context
-                        write_allocator.push(this->operator()(read_allocator, mask));
-                    }
-                };
-            }
+//            template<typename Context>
+//            [[nodiscard]] detail::callable_t make_callable() const
+//            {
+//                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator, detail::bitmask_t* mask) {
+//                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
+//                    {
+//                        // first arg is context
+//                        write_allocator.push(this->operator()(context, read_allocator, mask));
+//                    } else
+//                    {
+//                        // first arg isn't context
+//                        write_allocator.push(this->operator()(read_allocator, mask));
+//                    }
+//                };
+//            }
             
             [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
             {
@@ -212,38 +213,42 @@ namespace blt::gp
                 return func;
             }
             
+            inline auto set_ephemeral()
+            {
+                is_ephemeral_ = true;
+                return *this;
+            }
+            
+            inline bool is_ephemeral()
+            {
+                return is_ephemeral_;
+            }
+            
             operator_id id = -1;
         private:
             function_t func;
             std::optional<std::string_view> name;
+            bool is_ephemeral_ = false;
     };
     
-    template<typename ArgType, typename Return, typename Class, typename... Args>
-    class operation_t<ArgType, Return (Class::*)(Args...) const> : public operation_t<ArgType, Return(Args...)>
+    template<typename RawFunction, typename Return, typename Class, typename... Args>
+    class operation_t<RawFunction, Return (Class::*)(Args...) const> : public operation_t<RawFunction, Return(Args...)>
     {
         public:
-            using operation_t<ArgType, Return(Args...)>::operation_t;
+            using operation_t<RawFunction, Return(Args...)>::operation_t;
     };
     
     template<typename Lambda>
-    operation_t(Lambda)
-    ->
-    operation_t<Lambda, decltype(&Lambda::operator())>;
+    operation_t(Lambda) -> operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)
-            (Args...)) ->
-    operation_t<Return(*)(Args...), Return(Args...)>;
+    operation_t(Return(*)(Args...)) -> operation_t<Return(*)(Args...), Return(Args...)>;
     
     template<typename Lambda>
-    operation_t(Lambda, std::optional<std::string_view>
-               ) ->
-    operation_t<Lambda, decltype(&Lambda::operator())>;
+    operation_t(Lambda, std::optional<std::string_view>) -> operation_t<Lambda, decltype(&Lambda::operator())>;
     
     template<typename Return, typename... Args>
-    operation_t(Return(*)
-            (Args...), std::optional<std::string_view>) ->
-    operation_t<Return(*)(Args...), Return(Args...)>;
+    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(*)(Args...), Return(Args...)>;
 }
 
 #endif //BLT_GP_OPERATIONS_H

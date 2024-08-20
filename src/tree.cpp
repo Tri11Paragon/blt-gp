@@ -37,10 +37,7 @@ namespace blt::gp
         return buffer;
     }
     
-    inline auto empty_callable = detail::callable_t(
-            [](void*, stack_allocator&, stack_allocator&, detail::bitmask_t*) { BLT_ABORT("This should never be called!"); });
-    
-    evaluation_context tree_t::evaluate(void* context) const
+    evaluation_context tree_t::evaluate(void* context, detail::eval_func_t& func) const
     {
 #if BLT_DEBUG_LEVEL >= 2
         blt::size_t expected_bytes = 0;
@@ -56,27 +53,27 @@ namespace blt::gp
             BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
         }
 #endif
-        // copy the initial values
-        evaluation_context results{};
+//        // copy the initial values
+//        evaluation_context results{};
+//
+//        auto value_stack = values;
+//        auto& values_process = results.values;
+//        static thread_local detail::bitmask_t bitfield;
+//        bitfield.clear();
+//
+//        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
+//        {
+//            if (operation.is_value)
+//            {
+//                value_stack.transfer_bytes(values_process, operation.type_size);
+//                bitfield.push_back(false);
+//                continue;
+//            }
+//            operation.func(context, values_process, values_process, &bitfield);
+//            bitfield.push_back(true);
+//        }
         
-        auto value_stack = values;
-        auto& values_process = results.values;
-        static thread_local detail::bitmask_t bitfield;
-        bitfield.clear();
-        
-        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
-        {
-            if (operation.is_value)
-            {
-                value_stack.transfer_bytes(values_process, operation.type_size);
-                bitfield.push_back(false);
-                continue;
-            }
-            operation.func(context, values_process, values_process, &bitfield);
-            bitfield.push_back(true);
-        }
-        
-        return results;
+        return func(*this, context);
     }
     
     std::ostream& create_indent(std::ostream& out, blt::size_t amount, bool pretty_print)
@@ -216,7 +213,7 @@ namespace blt::gp
                 values_process.pop_back();
             }
             value_stack.push_back(local_depth + 1);
-            operations_stack.emplace_back(empty_callable, operation.type_size, operation.id, true);
+            operations_stack.emplace_back(operation.type_size, operation.id, true);
         }
         
         return depth;
@@ -291,22 +288,22 @@ namespace blt::gp
         blt::size_t total_produced = 0;
         blt::size_t total_consumed = 0;
         
-        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
-        {
-            if (operation.is_value)
-            {
-                value_stack.transfer_bytes(values_process, operation.type_size);
-                total_produced += stack_allocator::aligned_size(operation.type_size);
-                bitfield.push_back(false);
-                continue;
-            }
-            auto& info = program.get_operator_info(operation.id);
-            for (auto& arg : info.argument_types)
-                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
-            operation.func(context, values_process, values_process, &bitfield);
-            bitfield.push_back(true);
-            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
-        }
+//        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
+//        {
+//            if (operation.is_value)
+//            {
+//                value_stack.transfer_bytes(values_process, operation.type_size);
+//                total_produced += stack_allocator::aligned_size(operation.type_size);
+//                bitfield.push_back(false);
+//                continue;
+//            }
+//            auto& info = program.get_operator_info(operation.id);
+//            for (auto& arg : info.argument_types)
+//                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
+//            operation.func(context, values_process, values_process, &bitfield);
+//            bitfield.push_back(true);
+//            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
+//        }
         
         auto v1 = results.values.bytes_in_head();
         auto v2 = static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operations.front().type_size));
