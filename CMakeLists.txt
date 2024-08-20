@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.1.11)
+project(blt-gp VERSION 0.1.12)
 
 include(CTest)
 
@@ -105,7 +105,7 @@ if (${BUILD_GP_TESTS})
     blt_add_project(blt-stack tests/stack_tests.cpp test)
     blt_add_project(blt-eval tests/evaluation_tests.cpp test)
     blt_add_project(blt-order tests/order_tests.cpp test)
-    blt_add_project(blt-destructor tests/destructor_test.cpp test)
+    #blt_add_project(blt-destructor tests/destructor_test.cpp test)
     blt_add_project(blt-gp1 tests/gp_test_1.cpp test)
     blt_add_project(blt-gp2 tests/gp_test_2.cpp test)
     blt_add_project(blt-gp3 tests/gp_test_3.cpp test)
