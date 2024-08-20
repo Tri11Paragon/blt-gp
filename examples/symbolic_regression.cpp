@@ -102,18 +102,6 @@ int main()
     type_system.register_type<float>();
     
     blt::gp::operator_builder<context> builder{type_system};
-//    builder.add_operator(add);
-//    builder.add_operator(sub);
-//    builder.add_operator(mul);
-//    builder.add_operator(pro_div);
-//    builder.add_operator(op_sin);
-//    builder.add_operator(op_cos);
-//    builder.add_operator(op_exp);
-//    builder.add_operator(op_log);
-//
-//    builder.add_operator(lit, true);
-//    builder.add_operator(op_x);
-    
     program.set_operations(builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x));
     
     BLT_DEBUG("Generate Initial Population");

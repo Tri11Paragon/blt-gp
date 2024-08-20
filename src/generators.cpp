@@ -70,7 +70,7 @@ namespace blt::gp
             
             if (args.program.is_static(top.id))
             {
-                //info.function(nullptr, tree.get_values(), tree.get_values(), nullptr);
+                info.func(nullptr, tree.get_values(), tree.get_values());
                 continue;
             }
             

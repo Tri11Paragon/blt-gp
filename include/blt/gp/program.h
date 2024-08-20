@@ -75,6 +75,8 @@ namespace blt::gp
         type_id return_type;
         // number of arguments for this operator
         argc_t argc;
+        // per operator function callable (slow)
+        detail::operator_func_t func;
     };
     
     struct operator_storage
@@ -225,6 +227,7 @@ namespace blt::gp
                 
                 info.argc.argc_context = info.argc.argc = sizeof...(Args);
                 info.return_type = return_type_id;
+                info.func = op.template make_callable<Context>();
                 
                 ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
                 

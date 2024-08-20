@@ -187,21 +187,21 @@ namespace blt::gp
                 }
             }
             
-//            template<typename Context>
-//            [[nodiscard]] detail::callable_t make_callable() const
-//            {
-//                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator, detail::bitmask_t* mask) {
-//                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
-//                    {
-//                        // first arg is context
-//                        write_allocator.push(this->operator()(context, read_allocator, mask));
-//                    } else
-//                    {
-//                        // first arg isn't context
-//                        write_allocator.push(this->operator()(read_allocator, mask));
-//                    }
-//                };
-//            }
+            template<typename Context>
+            [[nodiscard]] detail::operator_func_t make_callable() const
+            {
+                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator) {
+                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
+                    {
+                        // first arg is context
+                        write_allocator.push(this->operator()(context, read_allocator, nullptr));
+                    } else
+                    {
+                        // first arg isn't context
+                        write_allocator.push(this->operator()(read_allocator, nullptr));
+                    }
+                };
+            }
             
             [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
             {
