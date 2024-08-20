@@ -37,7 +37,7 @@ struct large_2048
 // not actually 4096 but will fill the whole page (4096)
 struct large_4096
 {
-    blt::u8 data[blt::gp::stack_allocator::page_size_no_block()];
+    blt::u8 data[4096];
 };
 
 struct large_6123

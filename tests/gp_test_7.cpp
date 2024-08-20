@@ -58,11 +58,11 @@ void print_best()
         auto& v = program.get_current_pop().get_individuals()[i];
         auto& tree = v.tree;
         auto size = tree.get_values().size();
-        BLT_TRACE("%lf [index %ld] (fitness: %lf, raw: %lf) (depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
+        BLT_TRACE("%lf [index %ld] (fitness: %lf, raw: %lf) (depth: %ld) (size: t: %ld u: %ld r: %ld) filled: %f%%",
                   tree.get_evaluation_value<float>(nullptr), i, v.fitness.adjusted_fitness, v.fitness.raw_fitness,
-                  tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
+                  tree.get_depth(program), size.total_size_bytes, size.total_used_bytes,
                   size.total_remaining_bytes,
-                  static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));
+                  static_cast<double>(size.total_used_bytes) / (size.total_size_bytes == 0 ? 1 : static_cast<double>(size.total_size_bytes)));
     }
     //std::string small("--------------------------");
     //for (blt::size_t i = 0; i < std::to_string(program.get_current_generation()).size(); i++)
@@ -109,12 +109,13 @@ int main()
     
     program.set_operations(builder.build());
     
-    program.generate_population(type_system.get_type<float>().id(), fitness_function);
+    auto sel = blt::gp::select_tournament_t{};
+    program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
     
     while (!program.should_terminate())
     {
         print_best();
-        program.create_next_generation(blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{}, blt::gp::select_tournament_t{});
+        program.create_next_generation();
         program.next_generation();
         program.evaluate_fitness();
     }

@@ -216,8 +216,9 @@ namespace blt::gp
                     BLT_ABORT(("Not enough bytes in stack to transfer " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
                                " bytes stored!").c_str());
 #endif
-                to.copy_from(*this, aligned_size(bytes));
-                pop_bytes(bytes);
+                auto alg = aligned_size(bytes);
+                to.copy_from(*this, alg);
+                pop_bytes(alg);
             }
             
             template<typename... Args>
@@ -300,7 +301,7 @@ namespace blt::gp
                 auto aligned_ptr = get_aligned_pointer(bytes);
                 if (aligned_ptr == nullptr)
                 {
-                    expand(bytes + MAX_ALIGNMENT);
+                    expand(size_ + bytes);
                     aligned_ptr = get_aligned_pointer(bytes);
                 }
                 if (aligned_ptr == nullptr)
