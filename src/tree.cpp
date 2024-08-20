@@ -135,8 +135,10 @@ namespace blt::gp
                 {
                     create_indent(out, indent, pretty_print);
                     if (program.is_static(v.id))
+                    {
                         program.get_print_func(v.id)(out, reversed);
-                    else
+                        reversed.pop_bytes(stack_allocator::aligned_size(v.type_size));
+                    } else
                         out << name;
                     out << return_type << end_indent(pretty_print);
                 } else

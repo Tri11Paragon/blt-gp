@@ -130,7 +130,7 @@ namespace blt::gp
                 if (stack.empty())
                     return;
                 if (size_ < stack.bytes_stored + bytes_stored)
-                    expand(stack.bytes_stored + bytes_stored);
+                    expand(stack.bytes_stored + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
                 bytes_stored += stack.bytes_stored;
             }
@@ -140,7 +140,7 @@ namespace blt::gp
                 if (bytes == 0)
                     return;
                 if (size_ < bytes + bytes_stored)
-                    expand(bytes + bytes_stored);
+                    expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
                 bytes_stored += bytes;
             }
@@ -150,7 +150,7 @@ namespace blt::gp
                 if (bytes == 0 || data == nullptr)
                     return;
                 if (size_ < bytes + bytes_stored)
-                    expand(bytes + bytes_stored);
+                    expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, data, bytes);
                 bytes_stored += bytes;
             }
@@ -196,7 +196,7 @@ namespace blt::gp
                     BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(size) + " bytes requested but " + std::to_string(bytes) +
                                " bytes stored!").c_str());
 #endif
-                return *reinterpret_cast<NO_REF*>(data_ + bytes_stored - size);
+                return *reinterpret_cast<NO_REF*>(data_ + (bytes_stored - size));
             }
             
             void pop_bytes(blt::size_t bytes)
@@ -298,15 +298,15 @@ namespace blt::gp
             
             void* allocate_bytes_for_size(blt::size_t bytes)
             {
-                auto aligned_ptr = get_aligned_pointer(bytes);
+                auto used_bytes = aligned_size(bytes);
+                auto aligned_ptr = get_aligned_pointer(used_bytes);
                 if (aligned_ptr == nullptr)
                 {
-                    expand(size_ + bytes);
-                    aligned_ptr = get_aligned_pointer(bytes);
+                    expand(size_ + used_bytes);
+                    aligned_ptr = get_aligned_pointer(used_bytes);
                 }
                 if (aligned_ptr == nullptr)
                     throw std::bad_alloc();
-                auto used_bytes = aligned_size(bytes);
                 bytes_stored += used_bytes;
                 return aligned_ptr;
             }
