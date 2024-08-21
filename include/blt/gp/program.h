@@ -120,21 +120,22 @@ namespace blt::gp
                     const auto& vals = tree.get_values();
                     
                     evaluation_context results{};
+                    results.values.reserve(largest);
                     
-                    auto value_stack = vals;
-                    auto& values_process = results.values;
                     static thread_local detail::bitmask_t bitfield;
                     bitfield.clear();
+                    blt::size_t total_so_far = 0;
                     
                     for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
                     {
                         if (operation.is_value)
                         {
-                            value_stack.transfer_bytes(values_process, operation.type_size);
+                            total_so_far += stack_allocator::aligned_size(operation.type_size);
+                            results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
                             bitfield.push_back(false);
                             continue;
                         }
-                        call_jmp_table(operation.id, context, values_process, values_process, &bitfield, operators...);
+                        call_jmp_table(operation.id, context, results.values, results.values, &bitfield, operators...);
                         bitfield.push_back(true);
                     }
                     
@@ -212,7 +213,7 @@ namespace blt::gp
             auto add_operator(operation_t<RawFunction, Return(Args...)>& op)
             {
                 auto total_size_required = stack_allocator::aligned_size(sizeof(Return));
-                ((total_size_required += stack_allocator::aligned_size(sizeof(Args))) , ...);
+                ((total_size_required += stack_allocator::aligned_size(sizeof(Args))), ...);
                 
                 auto return_type_id = system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
@@ -276,19 +277,26 @@ namespace blt::gp
                 }
             }
             
-            template<bool HasContext, size_t id, typename Lambda>
-            static inline bool execute(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
-                                       Lambda lambda)
+            template<typename Lambda>
+            static inline void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
+                                       Lambda& lambda)
             {
-                if (op == id)
+                if constexpr (std::is_same_v<detail::remove_cv_ref<typename Lambda::First_Arg>, Context>)
                 {
-                    if constexpr (HasContext)
-                    {
-                        write_stack.push(lambda(context, read_stack, mask));
-                    } else
-                    {
-                        write_stack.push(lambda(read_stack, mask));
-                    }
+                    write_stack.push(lambda(context, read_stack, mask));
+                } else
+                {
+                    write_stack.push(lambda(read_stack, mask));
+                }
+            }
+            
+            template<blt::size_t id, typename Lambda>
+            static inline bool call(blt::size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
+                                    Lambda& lambda)
+            {
+                if (id == op)
+                {
+                    execute(context, write_stack, read_stack, mask, lambda);
                     return false;
                 }
                 return true;
@@ -296,17 +304,20 @@ namespace blt::gp
             
             template<typename... Lambdas, size_t... operator_ids>
             static inline void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                                       detail::bitmask_t* mask, std::integer_sequence<size_t, operator_ids...>, Lambdas... lambdas)
+                                                       detail::bitmask_t* mask, std::integer_sequence<size_t, operator_ids...>, Lambdas& ... lambdas)
             {
-                if (op > sizeof...(operator_ids))
+                if (op >= sizeof...(operator_ids))
+                {
                     BLT_UNREACHABLE;
-                (execute<detail::is_same_v<typename Lambdas::First_Arg, Context>, operator_ids>(
-                        op, context, write_stack, read_stack, mask, lambdas) && ...);
+                }
+                (call<operator_ids>(op, context, write_stack, read_stack, mask, lambdas) && ...);
+//                std::initializer_list<int>{((op == operator_ids) ? (execute(context, write_stack, read_stack, mask, lambdas), 0) : 0)...};
+                
             }
             
             template<typename... Lambdas>
             static inline void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                              detail::bitmask_t* mask, Lambdas... lambdas)
+                                              detail::bitmask_t* mask, Lambdas& ... lambdas)
             {
                 call_jmp_table_internal(op, context, write_stack, read_stack, mask, std::index_sequence_for<Lambdas...>(),
                                         lambdas...);

@@ -66,6 +66,7 @@ namespace blt::gp
             using Allocator = aligned_allocator;
         public:
             static Allocator& get_allocator();
+            
             struct size_data_t
             {
                 blt::size_t total_size_bytes = 0;
@@ -185,18 +186,22 @@ namespace blt::gp
                 return *reinterpret_cast<T*>(data_ + bytes_stored);
             }
             
+            [[nodiscard]] blt::u8* from(blt::size_t bytes) const
+            {
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < bytes)
+                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                               " bytes stored!").c_str());
+#endif
+                return data_ + (bytes_stored - bytes);
+            }
+            
             template<typename T, typename NO_REF = NO_REF_T<T>>
             T& from(blt::size_t bytes)
             {
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-                auto size = aligned_size(sizeof(NO_REF)) + bytes;
-#if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < size)
-                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(size) + " bytes requested but " + std::to_string(bytes) +
-                               " bytes stored!").c_str());
-#endif
-                return *reinterpret_cast<NO_REF*>(data_ + (bytes_stored - size));
+                return *reinterpret_cast<NO_REF*>(from(aligned_size(sizeof(NO_REF)) + bytes));
             }
             
             void pop_bytes(blt::size_t bytes)
@@ -265,6 +270,12 @@ namespace blt::gp
                 data.total_remaining_bytes = remaining_bytes_in_block();
                 
                 return data;
+            }
+            
+            void reserve(blt::size_t bytes)
+            {
+                if (bytes > size_)
+                    expand(bytes);
             }
         
         private:
