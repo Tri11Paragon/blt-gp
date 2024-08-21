@@ -72,13 +72,13 @@ blt::gp::operation_t basic_sub([](float a, float b, bool choice) {
     }
 }, "sub");
 
-blt::gp::operation_t basic_lit_f([]() {
+auto basic_lit_f= blt::gp::operation_t([]() {
     return b_rand.choice() ? 5.0f : 10.0f;
-});
+}).set_ephemeral();
 
-blt::gp::operation_t basic_lit_b([]() {
+auto basic_lit_b = blt::gp::operation_t([]() {
     return false;
-});
+}).set_ephemeral();
 
 void basic_test()
 {
@@ -86,18 +86,14 @@ void basic_test()
     
     blt::gp::operator_builder<context> builder{type_system};
     
-    builder.add_operator(basic_sub);
-    builder.add_operator(basic_lit_f, true);
-    builder.add_operator(basic_lit_b, true);
-    
-    program.set_operations(builder.build());
+    program.set_operations(builder.build(basic_sub, basic_lit_f, basic_lit_b));
     
     blt::gp::grow_generator_t gen;
     blt::gp::generator_arguments args{program, type_system.get_type<float>().id(), 1, 1};
     auto tree = gen.generate(args);
     
     context ctx{&program};
-    auto result = tree.get_evaluation_value<float>(&ctx);
+    auto result = tree.get_evaluation_value<float>(&ctx, program.get_eval_func());
     BLT_TRACE(result);
     BLT_ASSERT(result == -5.0f || result == 5.0f || result == 0.0f);
     tree.print(program, std::cout, true, true);
