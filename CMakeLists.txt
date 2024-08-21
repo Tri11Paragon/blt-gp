@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.1.16)
+project(blt-gp VERSION 0.1.17)
 
 include(CTest)
 
