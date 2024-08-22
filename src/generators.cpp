@@ -53,7 +53,7 @@ namespace blt::gp
     {
         std::stack<stack> tree_generator = get_initial_stack(args.program, args.root_type);
         blt::size_t max_depth = 0;
-        tree_t tree;
+        tree_t tree{args.program};
         
         while (!tree_generator.empty())
         {
@@ -63,7 +63,6 @@ namespace blt::gp
             auto& info = args.program.get_operator_info(top.id);
             
             tree.get_operations().emplace_back(
-                    info.function,
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,
                     args.program.is_static(top.id));
@@ -71,7 +70,7 @@ namespace blt::gp
             
             if (args.program.is_static(top.id))
             {
-                info.function(nullptr, tree.get_values(), tree.get_values(), nullptr);
+                info.func(nullptr, tree.get_values(), tree.get_values());
                 continue;
             }
             

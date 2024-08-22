@@ -66,6 +66,7 @@ namespace blt::gp
             using Allocator = aligned_allocator;
         public:
             static Allocator& get_allocator();
+            
             struct size_data_t
             {
                 blt::size_t total_size_bytes = 0;
@@ -130,7 +131,7 @@ namespace blt::gp
                 if (stack.empty())
                     return;
                 if (size_ < stack.bytes_stored + bytes_stored)
-                    expand(stack.bytes_stored + bytes_stored);
+                    expand(stack.bytes_stored + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
                 bytes_stored += stack.bytes_stored;
             }
@@ -140,7 +141,7 @@ namespace blt::gp
                 if (bytes == 0)
                     return;
                 if (size_ < bytes + bytes_stored)
-                    expand(bytes + bytes_stored);
+                    expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
                 bytes_stored += bytes;
             }
@@ -150,7 +151,7 @@ namespace blt::gp
                 if (bytes == 0 || data == nullptr)
                     return;
                 if (size_ < bytes + bytes_stored)
-                    expand(bytes + bytes_stored);
+                    expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, data, bytes);
                 bytes_stored += bytes;
             }
@@ -185,18 +186,22 @@ namespace blt::gp
                 return *reinterpret_cast<T*>(data_ + bytes_stored);
             }
             
+            [[nodiscard]] blt::u8* from(blt::size_t bytes) const
+            {
+#if BLT_DEBUG_LEVEL > 0
+                if (bytes_stored < bytes)
+                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                               " bytes stored!").c_str());
+#endif
+                return data_ + (bytes_stored - bytes);
+            }
+            
             template<typename T, typename NO_REF = NO_REF_T<T>>
             T& from(blt::size_t bytes)
             {
                 static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
                 static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-                auto size = aligned_size(sizeof(NO_REF)) + bytes;
-#if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < size)
-                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(size) + " bytes requested but " + std::to_string(bytes) +
-                               " bytes stored!").c_str());
-#endif
-                return *reinterpret_cast<NO_REF*>(data_ + bytes_stored - size);
+                return *reinterpret_cast<NO_REF*>(from(aligned_size(sizeof(NO_REF)) + bytes));
             }
             
             void pop_bytes(blt::size_t bytes)
@@ -222,22 +227,13 @@ namespace blt::gp
             }
             
             template<typename... Args>
-            void call_destructors(detail::bitmask_t* mask)
+            void call_destructors()
             {
                 if constexpr (sizeof...(Args) > 0)
                 {
                     blt::size_t offset = (stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)) + ...) -
                                          stack_allocator::aligned_size(sizeof(NO_REF_T<typename blt::meta::arg_helper<Args...>::First>));
-                    blt::size_t index = 0;
-                    if (mask != nullptr)
-                        index = mask->size() - sizeof...(Args);
-                    ((call_drop<Args>(offset, index, mask), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)), ++index), ...);
-                    if (mask != nullptr)
-                    {
-                        auto& mask_r = *mask;
-                        for (blt::size_t i = 0; i < sizeof...(Args); i++)
-                            mask_r.pop_back();
-                    }
+                    ((call_drop<Args>(offset), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>))), ...);
                 }
             }
             
@@ -266,16 +262,20 @@ namespace blt::gp
                 
                 return data;
             }
+            
+            void reserve(blt::size_t bytes)
+            {
+                if (bytes > size_)
+                    expand(bytes);
+            }
         
         private:
             void expand(blt::size_t bytes)
             {
                 bytes = to_nearest_page_size(bytes);
-//                auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
                 auto new_data = static_cast<blt::u8*>(get_allocator().allocate(bytes));
                 if (bytes_stored > 0)
                     std::memcpy(new_data, data_, bytes_stored);
-//                std::free(data_);
                 get_allocator().deallocate(data_, size_);
                 data_ = new_data;
                 size_ = bytes;
@@ -298,30 +298,24 @@ namespace blt::gp
             
             void* allocate_bytes_for_size(blt::size_t bytes)
             {
-                auto aligned_ptr = get_aligned_pointer(bytes);
+                auto used_bytes = aligned_size(bytes);
+                auto aligned_ptr = get_aligned_pointer(used_bytes);
                 if (aligned_ptr == nullptr)
                 {
-                    expand(size_ + bytes);
-                    aligned_ptr = get_aligned_pointer(bytes);
+                    expand(size_ + used_bytes);
+                    aligned_ptr = get_aligned_pointer(used_bytes);
                 }
                 if (aligned_ptr == nullptr)
                     throw std::bad_alloc();
-                auto used_bytes = aligned_size(bytes);
                 bytes_stored += used_bytes;
                 return aligned_ptr;
             }
             
             template<typename T>
-            inline void call_drop(blt::size_t offset, blt::size_t index, detail::bitmask_t* mask)
+            inline void call_drop(blt::size_t offset)
             {
                 if constexpr (detail::has_func_drop_v<T>)
                 {
-                    if (mask != nullptr)
-                    {
-                        auto& mask_r = *mask;
-                        if (!mask_r[index])
-                            return;
-                    }
                     from<NO_REF_T<T >>(offset).drop();
                 }
             }

@@ -319,9 +319,9 @@ namespace blt::gp::detail
             explicit operator_storage_test(blt::gp::operator_builder<context>& ops): ops(ops)
             {}
             
-            inline blt::gp::detail::callable_t& operator[](blt::size_t index)
+            inline blt::gp::detail::operator_func_t& operator[](blt::size_t index)
             {
-                return ops.storage.operators[index].function;
+                return ops.storage.operators[index].func;
             }
         
         private:
@@ -424,7 +424,7 @@ int main()
         return f + g;
     });
     
-    std::cout << silly_op(alloc, nullptr) << std::endl;
+    std::cout << silly_op(alloc) << std::endl;
     
     std::cout << "Is empty? " << alloc.empty() << std::endl;
     
@@ -447,24 +447,21 @@ int main()
     //BLT_TRACE(blt::type_string<blt::gp::detail::remove_cv_ref<decltype(silly_op_3)::first::type>>());
     //BLT_TRACE("Same types? %s", (std::is_same_v<context, blt::gp::detail::remove_cv_ref<decltype(silly_op_3)::first::type>>) ? "true" : "false");
     
-    ops.add_operator(silly_op_3);
-    ops.add_operator(silly_op_4);
-    ops.add_operator(silly_op_2);
-    
+    ops.build(silly_op_3, silly_op_4, silly_op_2);
     blt::gp::detail::operator_storage_test de(ops);
     
     context hello{5, 10};
     
     alloc.push(1.153f);
-    de[0](static_cast<void*>(&hello), alloc, alloc, nullptr);
+    de[0](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("first value: %f", alloc.pop<float>());
     
-    de[1](static_cast<void*>(&hello), alloc, alloc, nullptr);
+    de[1](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("second value: %f", alloc.pop<float>());
     
     alloc.push(1.0f);
     alloc.push(52.213f);
-    de[2](static_cast<void*>(&hello), alloc, alloc, nullptr);
+    de[2](static_cast<void*>(&hello), alloc, alloc);
     BLT_TRACE("third value: %f", alloc.pop<float>());
     
     //auto* pointer = static_cast<void*>(head->metadata.offset);
@@ -482,7 +479,7 @@ int main()
     
     //blt::span<void*, 3> spv{arr};
     
-    std::cout << silly_op.operator()(alloc, nullptr) << std::endl;
+    std::cout << silly_op.operator()(alloc) << std::endl;
     
     std::cout << "Hello World!" << std::endl;
     

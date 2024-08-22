@@ -75,10 +75,8 @@ namespace blt::gp
         type_id return_type;
         // number of arguments for this operator
         argc_t argc;
-        // function to call this operator
-        detail::callable_t function;
-        // function used to transfer values between stacks
-        //detail::transfer_t transfer;
+        // per operator function callable (slow)
+        detail::operator_func_t func;
     };
     
     struct operator_storage
@@ -93,6 +91,8 @@ namespace blt::gp
         std::vector<detail::print_func_t> print_funcs;
         std::vector<detail::destroy_func_t> destroy_funcs;
         std::vector<std::optional<std::string_view>> names;
+        
+        detail::eval_func_t eval_func;
     };
     
     template<typename Context = detail::empty_t>
@@ -106,65 +106,38 @@ namespace blt::gp
             explicit operator_builder(type_provider& system): system(system)
             {}
             
-            template<typename ArgType, typename Return, typename... Args>
-            operator_builder& add_operator(operation_t<ArgType, Return(Args...)>& op, bool is_static = false)
+            template<typename... Operators>
+            operator_storage& build(Operators& ... operators)
             {
-                auto return_type_id = system.get_type<Return>().id();
-                auto operator_id = blt::gp::operator_id(storage.operators.size());
-                op.id = operator_id;
+                std::vector<blt::size_t> sizes;
+                (sizes.push_back(add_operator(operators)), ...);
+                blt::size_t largest = 0;
+                for (auto v : sizes)
+                    largest = std::max(v, largest);
                 
-                operator_info info;
-                
-                if constexpr (sizeof...(Args) > 0)
-                {
-                    (add_non_context_argument<detail::remove_cv_ref<Args>>(info.argument_types), ...);
-                }
-                
-                info.argc.argc_context = info.argc.argc = sizeof...(Args);
-                info.return_type = system.get_type<Return>().id();
-                
-                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
-                
-                auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
-                operator_list[return_type_id].push_back(operator_id);
-                
-                BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
-                
-                info.function = op.template make_callable<Context>();
-                
-                storage.operators.push_back(info);
-                storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
-                    if constexpr (blt::meta::is_streamable_v<Return>)
+                storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) {
+                    const auto& ops = tree.get_operations();
+                    const auto& vals = tree.get_values();
+                    
+                    evaluation_context results{};
+                    results.values.reserve(largest);
+                    
+                    blt::size_t total_so_far = 0;
+                    
+                    for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
                     {
-                        out << stack.from<Return>(0);
-                        (void) (op); // remove warning
-                    } else
-                    {
-                        out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                        if (operation.is_value)
+                        {
+                            total_so_far += stack_allocator::aligned_size(operation.type_size);
+                            results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
+                            continue;
+                        }
+                        call_jmp_table(operation.id, context, results.values, results.values, operators...);
                     }
-                });
-                storage.destroy_funcs.push_back([](detail::destroy_t type, detail::bitmask_t* mask, stack_allocator& alloc) {
-                    switch (type)
-                    {
-                        case detail::destroy_t::ARGS:
-                            alloc.call_destructors<Args...>(mask);
-                            break;
-                        case detail::destroy_t::RETURN:
-                            if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
-                            {
-                                alloc.from<detail::remove_cv_ref<Return>>(0).drop();
-                            }
-                            break;
-                    }
-                });
-                storage.names.push_back(op.get_name());
-                if (is_static)
-                    storage.static_types.insert(operator_id);
-                return *this;
-            }
-            
-            operator_storage& build()
-            {
+                    
+                    return results;
+                };
+                
                 blt::hashset_t<type_id> has_terminals;
                 
                 for (const auto& v : blt::enumerate(storage.terminals))
@@ -232,6 +205,65 @@ namespace blt::gp
             }
         
         private:
+            template<typename RawFunction, typename Return, typename... Args>
+            auto add_operator(operation_t<RawFunction, Return(Args...)>& op)
+            {
+                auto total_size_required = stack_allocator::aligned_size(sizeof(Return));
+                ((total_size_required += stack_allocator::aligned_size(sizeof(Args))), ...);
+                
+                auto return_type_id = system.get_type<Return>().id();
+                auto operator_id = blt::gp::operator_id(storage.operators.size());
+                op.id = operator_id;
+                
+                operator_info info;
+                
+                if constexpr (sizeof...(Args) > 0)
+                {
+                    (add_non_context_argument<detail::remove_cv_ref<Args>>(info.argument_types), ...);
+                }
+                
+                info.argc.argc_context = info.argc.argc = sizeof...(Args);
+                info.return_type = return_type_id;
+                info.func = op.template make_callable<Context>();
+                
+                ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t) nullptr), ...);
+                
+                auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
+                operator_list[return_type_id].push_back(operator_id);
+                
+                BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
+                
+                storage.operators.push_back(info);
+                storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
+                    if constexpr (blt::meta::is_streamable_v<Return>)
+                    {
+                        out << stack.from<Return>(0);
+                        (void) (op); // remove warning
+                    } else
+                    {
+                        out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
+                    }
+                });
+                storage.destroy_funcs.push_back([](detail::destroy_t type, stack_allocator& alloc) {
+                    switch (type)
+                    {
+                        case detail::destroy_t::ARGS:
+                            alloc.call_destructors<Args...>();
+                            break;
+                        case detail::destroy_t::RETURN:
+                            if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
+                            {
+                                alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                            }
+                            break;
+                    }
+                });
+                storage.names.push_back(op.get_name());
+                if (op.is_ephemeral())
+                    storage.static_types.insert(operator_id);
+                return total_size_required;
+            }
+            
             template<typename T>
             void add_non_context_argument(decltype(operator_info::argument_types)& types)
             {
@@ -239,6 +271,47 @@ namespace blt::gp
                 {
                     types.push_back(system.get_type<T>().id());
                 }
+            }
+            
+            template<typename Operator>
+            static inline void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
+            {
+                if constexpr (std::is_same_v<detail::remove_cv_ref<typename Operator::First_Arg>, Context>)
+                {
+                    write_stack.push(operation(context, read_stack));
+                } else
+                {
+                    write_stack.push(operation(read_stack));
+                }
+            }
+            
+            template<blt::size_t id, typename Operator>
+            static inline bool call(blt::size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
+            {
+                if (id == op)
+                {
+                    execute(context, write_stack, read_stack, operation);
+                    return false;
+                }
+                return true;
+            }
+            
+            template<typename... Operators, size_t... operator_ids>
+            static inline void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
+                                                       std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
+            {
+                if (op >= sizeof...(operator_ids))
+                {
+                    BLT_UNREACHABLE;
+                }
+                (call<operator_ids>(op, context, write_stack, read_stack, operators) && ...);
+            }
+            
+            template<typename... Operators>
+            static inline void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
+                                              Operators& ... operators)
+            {
+                call_jmp_table_internal(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
             }
             
             type_provider& system;
@@ -460,8 +533,6 @@ namespace blt::gp
             void reset_program(type_id root_type, bool eval_fitness_now = true)
             {
                 current_generation = 0;
-                for (auto& pop : current_pop)
-                    pop.tree.drop(*this);
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 if (eval_fitness_now)
@@ -470,7 +541,6 @@ namespace blt::gp
             
             void next_generation()
             {
-                current_pop.drop(*this);
                 current_pop = std::move(next_pop);
                 current_generation++;
             }
@@ -603,6 +673,11 @@ namespace blt::gp
                 storage = std::move(op);
             }
             
+            inline detail::eval_func_t& get_eval_func()
+            {
+                return storage.eval_func;
+            }
+            
             [[nodiscard]] inline auto get_current_generation() const
             {
                 return current_generation.load();
@@ -615,7 +690,6 @@ namespace blt::gp
             
             ~gp_program()
             {
-                current_pop.drop(*this);
                 thread_helper.lifetime_over = true;
                 thread_helper.barrier.notify_all();
                 thread_helper.thread_function_condition.notify_all();

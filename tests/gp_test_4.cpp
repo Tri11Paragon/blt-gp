@@ -40,11 +40,11 @@ blt::gp::operation_t op_or([](bool a, bool b) { return a || b; });
 blt::gp::operation_t op_xor([](bool a, bool b) { return static_cast<bool>(a ^ b); });
 blt::gp::operation_t op_not([](bool b) { return !b; });
 
-blt::gp::operation_t lit([]() {
+auto lit = blt::gp::operation_t([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
 //    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
     return program.get_random().get_float(0.0f, 10.0f);
-});
+}).set_ephemeral();
 
 /**
  * This is a test using multiple types with blt::gp
@@ -55,24 +55,7 @@ int main()
     type_system.register_type<bool>();
     
     blt::gp::operator_builder builder{type_system};
-    builder.add_operator(add);
-    builder.add_operator(sub);
-    builder.add_operator(mul);
-    builder.add_operator(pro_div);
-    
-    builder.add_operator(op_if);
-    builder.add_operator(eq_f);
-    builder.add_operator(eq_b);
-    builder.add_operator(lt);
-    builder.add_operator(gt);
-    builder.add_operator(op_and);
-    builder.add_operator(op_or);
-    builder.add_operator(op_xor);
-    builder.add_operator(op_not);
-    
-    builder.add_operator(lit, true);
-    
-    program.set_operations(builder.build());
+    program.set_operations(builder.build(add, sub, mul, pro_div, op_if, eq_f, eq_b, lt, gt, op_and, op_or, op_xor, op_not, lit));
     
     blt::gp::ramped_half_initializer_t pop_init;
     

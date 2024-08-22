@@ -52,12 +52,10 @@ namespace blt::gp
     
     namespace detail
     {
-        // requires operator[](bit_index), push_back, clear
-        using bitmask_t = std::vector<bool>;
-        
         class operator_storage_test;
         // context*, read stack, write stack
-        using callable_t = std::function<void(void*, stack_allocator&, stack_allocator&, bitmask_t*)>;
+        using operator_func_t = std::function<void(void*, stack_allocator&, stack_allocator&)>;
+        using eval_func_t = std::function<evaluation_context(const tree_t& tree, void* context)>;
         // debug function,
         using print_func_t = std::function<void(std::ostream&, stack_allocator&)>;
         
@@ -67,7 +65,7 @@ namespace blt::gp
             RETURN
         };
         
-        using destroy_func_t = std::function<void(destroy_t, bitmask_t* mask, stack_allocator&)>;
+        using destroy_func_t = std::function<void(destroy_t, stack_allocator&)>;
     }
     
 }

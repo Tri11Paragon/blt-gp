@@ -32,18 +32,21 @@ blt::gp::operation_t add([](float a, float b) {
 });
 blt::gp::operation_t sub([](float a, float b) {
     BLT_TRACE("a: %f - b: %f = %f", a, b, a - b);
-    return a - b; });
+    return a - b;
+});
 blt::gp::operation_t mul([](float a, float b) {
     BLT_TRACE("a: %f * b: %f = %f", a, b, a * b);
-    return a * b; });
+    return a * b;
+});
 blt::gp::operation_t pro_div([](float a, float b) {
     BLT_TRACE("a: %f / b: %f = %f", a, b, (b == 0 ? 0.0f : a / b));
-    return b == 0 ? 0.0f : a / b; });
-blt::gp::operation_t lit([]() {
+    return b == 0 ? 0.0f : a / b;
+});
+auto lit = blt::gp::operation_t([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
 //    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
     return program.get_random().get_float(0.0f, 10.0f);
-});
+}).set_ephemeral();
 
 /**
  * This is a test using a type with blt::gp
@@ -53,13 +56,8 @@ int main()
     type_system.register_type<float>();
     
     blt::gp::operator_builder silly{type_system};
-    silly.add_operator(add);
-    silly.add_operator(sub);
-    silly.add_operator(mul);
-    silly.add_operator(pro_div);
-    silly.add_operator(lit, true);
     
-    program.set_operations(silly.build());
+    program.set_operations(silly.build(add, sub, mul, pro_div, lit));
     
     blt::gp::grow_generator_t grow;
     auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});
