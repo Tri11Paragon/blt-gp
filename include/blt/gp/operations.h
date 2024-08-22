@@ -102,16 +102,16 @@ namespace blt::gp
         }
         
         template<typename context = void, typename... NoCtxArgs>
-        void call_destructors_without_first(stack_allocator& read_allocator, detail::bitmask_t* mask)
+        void call_destructors_without_first(stack_allocator& read_allocator)
         {
             if constexpr (sizeof...(NoCtxArgs) > 0)
             {
-                read_allocator.call_destructors<detail::remove_cv_ref<NoCtxArgs>...>(mask);
+                read_allocator.call_destructors<detail::remove_cv_ref<NoCtxArgs>...>();
             }
         }
         
         template<typename Func, typename... ExtraArgs>
-        Return operator()(bool has_context, detail::bitmask_t* mask, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
+        Return operator()(bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
         {
             constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
 #if BLT_DEBUG_LEVEL > 0
@@ -120,9 +120,9 @@ namespace blt::gp
 #endif
             Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
             if (has_context)
-                call_destructors_without_first<Args...>(read_allocator, mask);
+                call_destructors_without_first<Args...>(read_allocator);
             else
-                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>(mask);
+                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
             read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
             return ret;
 #if BLT_DEBUG_LEVEL > 0
@@ -159,18 +159,18 @@ namespace blt::gp
             constexpr explicit operation_t(const Functor& functor, std::optional<std::string_view> name = {}): func(functor), name(name)
             {}
             
-            [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator, detail::bitmask_t* mask) const
+            [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
             {
                 if constexpr (sizeof...(Args) == 0)
                 {
                     return func();
                 } else
                 {
-                    return call_with<Return, Args...>()(false, mask, func, read_allocator);
+                    return call_with<Return, Args...>()(false, func, read_allocator);
                 }
             }
             
-            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator, detail::bitmask_t* mask) const
+            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator) const
             {
                 // should be an impossible state
                 if constexpr (sizeof...(Args) == 0)
@@ -183,7 +183,7 @@ namespace blt::gp
                     return func(ctx_ref);
                 } else
                 {
-                    return call_without_first<Return, Args...>()(true, mask, func, read_allocator, ctx_ref);
+                    return call_without_first<Return, Args...>()(true, func, read_allocator, ctx_ref);
                 }
             }
             
@@ -194,11 +194,11 @@ namespace blt::gp
                     if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
                     {
                         // first arg is context
-                        write_allocator.push(this->operator()(context, read_allocator, nullptr));
+                        write_allocator.push(this->operator()(context, read_allocator));
                     } else
                     {
                         // first arg isn't context
-                        write_allocator.push(this->operator()(read_allocator, nullptr));
+                        write_allocator.push(this->operator()(read_allocator));
                     }
                 };
             }

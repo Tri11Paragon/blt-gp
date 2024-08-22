@@ -37,45 +37,6 @@ namespace blt::gp
         return buffer;
     }
     
-    evaluation_context tree_t::evaluate(void* context, detail::eval_func_t& func) const
-    {
-#if BLT_DEBUG_LEVEL >= 2
-        blt::size_t expected_bytes = 0;
-        blt::size_t found_bytes = values.size().total_used_bytes;
-        for (const auto& op : operations)
-        {
-            if (op.is_value)
-                expected_bytes += stack_allocator::aligned_size(op.type_size);
-        }
-        if (expected_bytes != found_bytes)
-        {
-            BLT_WARN("Bytes found %ld vs bytes expected %ld", found_bytes, expected_bytes);
-            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
-        }
-#endif
-//        // copy the initial values
-//        evaluation_context results{};
-//
-//        auto value_stack = values;
-//        auto& values_process = results.values;
-//        static thread_local detail::bitmask_t bitfield;
-//        bitfield.clear();
-//
-//        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
-//        {
-//            if (operation.is_value)
-//            {
-//                value_stack.transfer_bytes(values_process, operation.type_size);
-//                bitfield.push_back(false);
-//                continue;
-//            }
-//            operation.func(context, values_process, values_process, &bitfield);
-//            bitfield.push_back(true);
-//        }
-        
-        return func(*this, context);
-    }
-    
     std::ostream& create_indent(std::ostream& out, blt::size_t amount, bool pretty_print)
     {
         if (!pretty_print)
@@ -259,8 +220,6 @@ namespace blt::gp
     
     bool tree_t::check(gp_program& program, void* context) const
     {
-        static thread_local detail::bitmask_t bitfield;
-        bitfield.clear();
         blt::size_t bytes_expected = 0;
         auto bytes_size = values.size().total_used_bytes;
         
@@ -287,7 +246,7 @@ namespace blt::gp
         
         blt::size_t total_produced = 0;
         blt::size_t total_consumed = 0;
-        
+
 //        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
 //        {
 //            if (operation.is_value)
@@ -318,40 +277,6 @@ namespace blt::gp
         return true;
     }
     
-    void tree_t::drop(gp_program& program)
-    {
-        return;
-        if (values.empty())
-            return;
-        //std::cout << "---- NEW TREE ---- References " << *reference_counter << " ----" << std::endl;
-        if (reference_counter->load() > 1)
-            return;
-        static blt::hashset_t<blt::size_t> sets;
-        while (!operations.empty())
-        {
-            auto operation = operations.back();
-            if (operation.is_value)
-            {
-                struct hello
-                {
-                    float* f;
-                    blt::size_t i;
-                };
-                //auto h = values.from<hello>(0);
-                /*if (sets.find(h.i) != sets.end())
-                    std::cout << "HEY ASSHOLE Duplicate Value " << h.i << std::endl;
-                else
-                {
-                    std::cout << "Destroying Value " << h.i << std::endl;
-                    sets.insert(h.i);
-                }*/
-                program.get_destroy_func(operation.id)(detail::destroy_t::RETURN, nullptr, values);
-                values.pop_bytes(static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operation.type_size)));
-            }
-            operations.pop_back();
-        }
-    }
-    
     void tree_t::find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const
     {
         while (vec.size() < argc)
@@ -372,9 +297,8 @@ namespace blt::gp
         }
     }
     
-    void population_t::drop(gp_program& program)
+    tree_t::tree_t(gp_program& program): func(&program.get_eval_func())
     {
-        for (auto& pop : get_individuals())
-            pop.tree.drop(program);
+    
     }
 }

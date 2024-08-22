@@ -40,11 +40,11 @@ blt::gp::operation_t op_or([](bool a, bool b) {return a || b; });
 blt::gp::operation_t op_xor([](bool a, bool b) {return static_cast<bool>(a ^ b); });
 blt::gp::operation_t op_not([](bool b) {return !b; });
 
-blt::gp::operation_t lit([]() {
+auto lit = blt::gp::operation_t([]() {
     //static std::uniform_real_distribution<float> dist(-32000, 32000);
 //    static std::uniform_real_distribution<float> dist(0.0f, 10.0f);
-    return program.get_random().get_float(0.0f, 10.f);
-});
+    return program.get_random().get_float(0.0f, 10.0f);
+}).set_ephemeral();
 
 /**
  * This is a test using multiple types with blt::gp
@@ -55,24 +55,7 @@ int main()
     type_system.register_type<bool>();
     
     blt::gp::operator_builder silly{type_system};
-    silly.add_operator(add);
-    silly.add_operator(sub);
-    silly.add_operator(mul);
-    silly.add_operator(pro_div);
-    
-    silly.add_operator(op_if);
-    silly.add_operator(eq_f);
-    silly.add_operator(eq_b);
-    silly.add_operator(lt);
-    silly.add_operator(gt);
-    silly.add_operator(op_and);
-    silly.add_operator(op_or);
-    silly.add_operator(op_xor);
-    silly.add_operator(op_not);
-    
-    silly.add_operator(lit, true);
-    
-    program.set_operations(silly.build());
+    program.set_operations(silly.build(add, sub, mul, pro_div, op_if, eq_f, eq_b, lt, gt, op_and, op_or, op_xor, op_not, lit));
     
     blt::gp::grow_generator_t grow;
     auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});

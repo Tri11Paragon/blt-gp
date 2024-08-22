@@ -62,7 +62,7 @@ int main()
     blt::gp::grow_generator_t grow;
     auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});
     
-    auto value = tree.get_evaluation_value<float>(nullptr, program.get_eval_func());
+    auto value = tree.get_evaluation_value<float>(nullptr);
     
     BLT_TRACE(value);
     

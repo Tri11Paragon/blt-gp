@@ -122,8 +122,6 @@ namespace blt::gp
                     evaluation_context results{};
                     results.values.reserve(largest);
                     
-                    static thread_local detail::bitmask_t bitfield;
-                    bitfield.clear();
                     blt::size_t total_so_far = 0;
                     
                     for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
@@ -132,11 +130,9 @@ namespace blt::gp
                         {
                             total_so_far += stack_allocator::aligned_size(operation.type_size);
                             results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
-                            bitfield.push_back(false);
                             continue;
                         }
-                        call_jmp_table(operation.id, context, results.values, results.values, &bitfield, operators...);
-                        bitfield.push_back(true);
+                        call_jmp_table(operation.id, context, results.values, results.values, operators...);
                     }
                     
                     return results;
@@ -248,11 +244,11 @@ namespace blt::gp
                         out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
                     }
                 });
-                storage.destroy_funcs.push_back([](detail::destroy_t type, detail::bitmask_t* mask, stack_allocator& alloc) {
+                storage.destroy_funcs.push_back([](detail::destroy_t type, stack_allocator& alloc) {
                     switch (type)
                     {
                         case detail::destroy_t::ARGS:
-                            alloc.call_destructors<Args...>(mask);
+                            alloc.call_destructors<Args...>();
                             break;
                         case detail::destroy_t::RETURN:
                             if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
@@ -277,50 +273,45 @@ namespace blt::gp
                 }
             }
             
-            template<typename Lambda>
-            static inline void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
-                                       Lambda& lambda)
+            template<typename Operator>
+            static inline void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
             {
-                if constexpr (std::is_same_v<detail::remove_cv_ref<typename Lambda::First_Arg>, Context>)
+                if constexpr (std::is_same_v<detail::remove_cv_ref<typename Operator::First_Arg>, Context>)
                 {
-                    write_stack.push(lambda(context, read_stack, mask));
+                    write_stack.push(operation(context, read_stack));
                 } else
                 {
-                    write_stack.push(lambda(read_stack, mask));
+                    write_stack.push(operation(read_stack));
                 }
             }
             
-            template<blt::size_t id, typename Lambda>
-            static inline bool call(blt::size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, detail::bitmask_t* mask,
-                                    Lambda& lambda)
+            template<blt::size_t id, typename Operator>
+            static inline bool call(blt::size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
             {
                 if (id == op)
                 {
-                    execute(context, write_stack, read_stack, mask, lambda);
+                    execute(context, write_stack, read_stack, operation);
                     return false;
                 }
                 return true;
             }
             
-            template<typename... Lambdas, size_t... operator_ids>
+            template<typename... Operators, size_t... operator_ids>
             static inline void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                                       detail::bitmask_t* mask, std::integer_sequence<size_t, operator_ids...>, Lambdas& ... lambdas)
+                                                       std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
             {
                 if (op >= sizeof...(operator_ids))
                 {
                     BLT_UNREACHABLE;
                 }
-                (call<operator_ids>(op, context, write_stack, read_stack, mask, lambdas) && ...);
-//                std::initializer_list<int>{((op == operator_ids) ? (execute(context, write_stack, read_stack, mask, lambdas), 0) : 0)...};
-                
+                (call<operator_ids>(op, context, write_stack, read_stack, operators) && ...);
             }
             
-            template<typename... Lambdas>
+            template<typename... Operators>
             static inline void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                              detail::bitmask_t* mask, Lambdas& ... lambdas)
+                                              Operators& ... operators)
             {
-                call_jmp_table_internal(op, context, write_stack, read_stack, mask, std::index_sequence_for<Lambdas...>(),
-                                        lambdas...);
+                call_jmp_table_internal(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
             }
             
             type_provider& system;
@@ -542,8 +533,6 @@ namespace blt::gp
             void reset_program(type_id root_type, bool eval_fitness_now = true)
             {
                 current_generation = 0;
-                for (auto& pop : current_pop)
-                    pop.tree.drop(*this);
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 if (eval_fitness_now)
@@ -552,7 +541,6 @@ namespace blt::gp
             
             void next_generation()
             {
-                current_pop.drop(*this);
                 current_pop = std::move(next_pop);
                 current_generation++;
             }
@@ -702,7 +690,6 @@ namespace blt::gp
             
             ~gp_program()
             {
-                current_pop.drop(*this);
                 thread_helper.lifetime_over = true;
                 thread_helper.barrier.notify_all();
                 thread_helper.thread_function_condition.notify_all();

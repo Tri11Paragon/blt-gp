@@ -58,13 +58,12 @@ blt::gp::gp_program program{type_system, SEED};
 blt::gp::op_container_t make_container(blt::gp::operator_id id)
 {
     auto& info = program.get_operator_info(id);
-    return {info.function, type_system.get_type(info.return_type).size(), id, false};
+    return {type_system.get_type(info.return_type).size(), id, false};
 }
 
 blt::gp::op_container_t make_value(const blt::gp::type& id)
 {
-    static blt::gp::detail::callable_t empty([](void*, blt::gp::stack_allocator&, blt::gp::stack_allocator&, blt::gp::detail::bitmask_t*) {});
-    return {empty, id.size(), 0, true};
+    return {id.size(), 0, true};
 }
 
 blt::gp::operation_t add([](float a, float b) {
@@ -105,7 +104,7 @@ blt::gp::operation_t large_literal([]() {
 void basic_tree()
 {
     BLT_INFO("Testing if we can get a basic tree going.");
-    blt::gp::tree_t tree;
+    blt::gp::tree_t tree{program};
     
     tree.get_operations().push_back(make_container(sub.id));
     tree.get_operations().push_back(make_value(type_system.get_type<float>()));
@@ -120,7 +119,7 @@ void basic_tree()
 
 void large_cross_type_tree()
 {
-    blt::gp::tree_t tree;
+    blt::gp::tree_t tree{program};
     auto& ops = tree.get_operations();
     auto& vals = tree.get_values();
     
@@ -149,16 +148,7 @@ int main()
     type_system.register_type<large_18290>();
     
     blt::gp::operator_builder builder{type_system};
-    
-    builder.add_operator(f_literal);        // 0
-    builder.add_operator(b_literal);        // 1
-    builder.add_operator(add);              // 2
-    builder.add_operator(basic_2t);         // 3
-    builder.add_operator(sub);              // 4
-    builder.add_operator(large_literal);    // 5
-    builder.add_operator(cross_large_type); // 6
-    
-    program.set_operations(builder.build());
+    program.set_operations(builder.build(f_literal, b_literal, add, basic_2t, sub, large_literal, cross_large_type));
     
     basic_tree();
     large_cross_type_tree();

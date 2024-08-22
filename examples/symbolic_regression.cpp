@@ -39,7 +39,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(50000)
+        .set_pop_size(5000)
         .set_thread_count(0);
 
 blt::gp::type_provider type_system;
@@ -66,7 +66,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : fitness_cases)
     {
-        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case, program.get_eval_func()));
+        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;

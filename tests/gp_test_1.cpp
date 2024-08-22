@@ -424,7 +424,7 @@ int main()
         return f + g;
     });
     
-    std::cout << silly_op(alloc, nullptr) << std::endl;
+    std::cout << silly_op(alloc) << std::endl;
     
     std::cout << "Is empty? " << alloc.empty() << std::endl;
     
@@ -479,7 +479,7 @@ int main()
     
     //blt::span<void*, 3> spv{arr};
     
-    std::cout << silly_op.operator()(alloc, nullptr) << std::endl;
+    std::cout << silly_op.operator()(alloc) << std::endl;
     
     std::cout << "Hello World!" << std::endl;
     

@@ -227,22 +227,13 @@ namespace blt::gp
             }
             
             template<typename... Args>
-            void call_destructors(detail::bitmask_t* mask)
+            void call_destructors()
             {
                 if constexpr (sizeof...(Args) > 0)
                 {
                     blt::size_t offset = (stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)) + ...) -
                                          stack_allocator::aligned_size(sizeof(NO_REF_T<typename blt::meta::arg_helper<Args...>::First>));
-                    blt::size_t index = 0;
-                    if (mask != nullptr)
-                        index = mask->size() - sizeof...(Args);
-                    ((call_drop<Args>(offset, index, mask), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)), ++index), ...);
-                    if (mask != nullptr)
-                    {
-                        auto& mask_r = *mask;
-                        for (blt::size_t i = 0; i < sizeof...(Args); i++)
-                            mask_r.pop_back();
-                    }
+                    ((call_drop<Args>(offset), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>))), ...);
                 }
             }
             
@@ -282,11 +273,9 @@ namespace blt::gp
             void expand(blt::size_t bytes)
             {
                 bytes = to_nearest_page_size(bytes);
-//                auto new_data = static_cast<blt::u8*>(std::malloc(bytes));
                 auto new_data = static_cast<blt::u8*>(get_allocator().allocate(bytes));
                 if (bytes_stored > 0)
                     std::memcpy(new_data, data_, bytes_stored);
-//                std::free(data_);
                 get_allocator().deallocate(data_, size_);
                 data_ = new_data;
                 size_ = bytes;
@@ -323,16 +312,10 @@ namespace blt::gp
             }
             
             template<typename T>
-            inline void call_drop(blt::size_t offset, blt::size_t index, detail::bitmask_t* mask)
+            inline void call_drop(blt::size_t offset)
             {
                 if constexpr (detail::has_func_drop_v<T>)
                 {
-                    if (mask != nullptr)
-                    {
-                        auto& mask_r = *mask;
-                        if (!mask_r[index])
-                            return;
-                    }
                     from<NO_REF_T<T >>(offset).drop();
                 }
             }

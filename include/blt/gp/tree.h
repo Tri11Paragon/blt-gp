@@ -55,6 +55,8 @@ namespace blt::gp
     {
             using iter_type = std::vector<op_container_t>::const_iterator;
         public:
+            explicit tree_t(gp_program& program);
+            
             struct child_t
             {
                 blt::ptrdiff_t start;
@@ -82,7 +84,10 @@ namespace blt::gp
                 return values;
             }
             
-            evaluation_context evaluate(void* context, detail::eval_func_t& func) const;
+            evaluation_context evaluate(void* context) const
+            {
+                return (*func)(*this, context);
+            }
             
             blt::size_t get_depth(gp_program& program);
             
@@ -108,9 +113,9 @@ namespace blt::gp
              * Helper template for returning the result of evaluation (this calls it)
              */
             template<typename T>
-            T get_evaluation_value(void* context, detail::eval_func_t& func)
+            T get_evaluation_value(void* context)
             {
-                auto results = evaluate(context, func);
+                auto results = evaluate(context);
                 return results.values.pop<T>();
             }
             
@@ -120,7 +125,9 @@ namespace blt::gp
             bool check(gp_program& program, void* context) const;
             
             void find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
+            
             blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
+            
             blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             
             // valid for [begin, end)
@@ -150,12 +157,11 @@ namespace blt::gp
             {
                 return total_value_bytes(operations.begin(), operations.end());
             }
-            
-            void drop(gp_program& program);
+        
         private:
             std::vector<op_container_t> operations;
             blt::gp::stack_allocator values;
-            std::atomic_int64_t* reference_counter;
+            detail::eval_func_t* func;
     };
     
     struct fitness_t
@@ -306,7 +312,6 @@ namespace blt::gp
             
             population_t& operator=(population_t&&) = default;
         
-            void drop(gp_program& program);
         private:
             std::vector<individual> individuals;
     };

@@ -53,7 +53,7 @@ namespace blt::gp
     {
         std::stack<stack> tree_generator = get_initial_stack(args.program, args.root_type);
         blt::size_t max_depth = 0;
-        tree_t tree;
+        tree_t tree{args.program};
         
         while (!tree_generator.empty())
         {

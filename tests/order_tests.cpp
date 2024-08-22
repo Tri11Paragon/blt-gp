@@ -93,7 +93,7 @@ void basic_test()
     auto tree = gen.generate(args);
     
     context ctx{&program};
-    auto result = tree.get_evaluation_value<float>(&ctx, program.get_eval_func());
+    auto result = tree.get_evaluation_value<float>(&ctx);
     BLT_TRACE(result);
     BLT_ASSERT(result == -5.0f || result == 5.0f || result == 0.0f);
     tree.print(program, std::cout, true, true);
