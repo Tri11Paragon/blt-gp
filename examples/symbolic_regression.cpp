@@ -155,6 +155,7 @@ int main()
 //    BLT_TRACE("Allocated: %ld", h);
 //    BLT_TRACE("Deallocated: %ld", u);
 //    BLT_TRACE("Ratio: %lf Difference: %ld", static_cast<double>(h) / static_cast<double>(u), std::abs(h - u));
+//    BLT_TRACE("Total Allocated Bytes: %ld", blt::gp::hello_bytes.load());
     
     return 0;
 }

@@ -247,22 +247,20 @@ namespace blt::gp
         blt::size_t total_produced = 0;
         blt::size_t total_consumed = 0;
 
-//        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
-//        {
-//            if (operation.is_value)
-//            {
-//                value_stack.transfer_bytes(values_process, operation.type_size);
-//                total_produced += stack_allocator::aligned_size(operation.type_size);
-//                bitfield.push_back(false);
-//                continue;
-//            }
-//            auto& info = program.get_operator_info(operation.id);
-//            for (auto& arg : info.argument_types)
-//                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
-//            operation.func(context, values_process, values_process, &bitfield);
-//            bitfield.push_back(true);
-//            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
-//        }
+        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
+        {
+            if (operation.is_value)
+            {
+                value_stack.transfer_bytes(values_process, operation.type_size);
+                total_produced += stack_allocator::aligned_size(operation.type_size);
+                continue;
+            }
+            auto& info = program.get_operator_info(operation.id);
+            for (auto& arg : info.argument_types)
+                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
+            program.get_operator_info(operation.id).func(context, values_process, values_process);
+            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
+        }
         
         auto v1 = results.values.bytes_in_head();
         auto v2 = static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operations.front().type_size));

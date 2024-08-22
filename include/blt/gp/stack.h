@@ -44,6 +44,7 @@ namespace blt::gp
     }
     
 //    inline std::atomic_uint64_t hello = 0;
+//    inline std::atomic_uint64_t hello_bytes = 0;
 //    inline std::atomic_uint64_t unhello = 0;
     
     class aligned_allocator
@@ -52,12 +53,16 @@ namespace blt::gp
             void* allocate(blt::size_t bytes) // NOLINT
             {
 //                hello.fetch_add(1, std::memory_order_relaxed);
+//                hello_bytes += bytes;
 //                BLT_TRACE("Allocating %ld bytes", bytes);
                 return std::aligned_alloc(8, bytes);
             }
             
             void deallocate(void* ptr, blt::size_t) // NOLINT
             {
+//                if (ptr == nullptr && bytes != 0) {
+//                    BLT_ABORT(("Nullptr called with non zero bytes! " + std::to_string(bytes)).c_str());
+//                }
 //                if (ptr == nullptr)
 //                    return;
 //                unhello.fetch_add(1, std::memory_order_relaxed);
@@ -116,7 +121,7 @@ namespace blt::gp
             }
             
             stack_allocator(stack_allocator&& move) noexcept:
-                    data_(std::exchange(move.data_, nullptr)), bytes_stored(move.bytes_stored), size_(move.size_)
+                    data_(std::exchange(move.data_, nullptr)), bytes_stored(std::exchange(move.bytes_stored, 0)), size_(std::exchange(move.size_, 0))
             {}
             
             stack_allocator& operator=(const stack_allocator& copy) = delete;
