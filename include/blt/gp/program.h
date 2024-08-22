@@ -115,12 +115,14 @@ namespace blt::gp
                 for (auto v : sizes)
                     largest = std::max(v, largest);
                 
-                storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) {
+                storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
                     const auto& ops = tree.get_operations();
                     const auto& vals = tree.get_values();
                     
-                    evaluation_context results{};
+                    static thread_local evaluation_context results{};
+                    results.values.reset();
                     results.values.reserve(largest);
+//                    BLT_DEBUG("%ld stored %ld", largest, results.values.internal_storage_size());
                     
                     blt::size_t total_so_far = 0;
                     
@@ -261,7 +263,7 @@ namespace blt::gp
                 storage.names.push_back(op.get_name());
                 if (op.is_ephemeral())
                     storage.static_types.insert(operator_id);
-                return total_size_required;
+                return total_size_required * 2;
             }
             
             template<typename T>

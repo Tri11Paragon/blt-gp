@@ -84,7 +84,7 @@ namespace blt::gp
                 return values;
             }
             
-            evaluation_context evaluate(void* context) const
+            evaluation_context& evaluate(void* context) const
             {
                 return (*func)(*this, context);
             }
@@ -115,7 +115,7 @@ namespace blt::gp
             template<typename T>
             T get_evaluation_value(void* context)
             {
-                auto results = evaluate(context);
+                auto& results = evaluate(context);
                 return results.values.pop<T>();
             }
             

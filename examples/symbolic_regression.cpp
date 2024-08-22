@@ -113,6 +113,7 @@ int main()
     while (!program.should_terminate())
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
+        BLT_TRACE("Creating next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation();
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
@@ -147,6 +148,13 @@ int main()
     // TODO: make stats helper
     
     BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
+    
+//    BLT_TRACE("Allocations:");
+//    auto h = static_cast<blt::ptrdiff_t>(blt::gp::hello.load());
+//    auto u = static_cast<blt::ptrdiff_t>(blt::gp::unhello.load());
+//    BLT_TRACE("Allocated: %ld", h);
+//    BLT_TRACE("Deallocated: %ld", u);
+//    BLT_TRACE("Ratio: %lf Difference: %ld", static_cast<double>(h) / static_cast<double>(u), std::abs(h - u));
     
     return 0;
 }
