@@ -174,7 +174,7 @@ namespace blt::gp
     
     class stack_allocator
     {
-            constexpr static blt::size_t PAGE_SIZE = 0x1000;
+            constexpr static blt::size_t PAGE_SIZE = 0x100;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
             template<typename T>
             using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -401,7 +401,7 @@ namespace blt::gp
         private:
             void expand(blt::size_t bytes)
             {
-                bytes = to_nearest_page_size(bytes);
+                //bytes = to_nearest_page_size(bytes);
                 expand_raw(bytes);
             }
             

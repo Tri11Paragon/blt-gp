@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.1.22)
+project(blt-gp VERSION 0.1.23)
 
 include(CTest)
 
@@ -9,7 +9,7 @@ option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
 option(BUILD_EXAMPLES "Build example programs. This will build with CTest" OFF)
 option(BUILD_GP_TESTS "Build test programs." OFF)
 option(DEBUG_LEVEL "Enable debug features which prints extra information to the console, might slow processing down. [0, 3)" 0)
-option(TRACK_ALLOCATIONS "Track total allocations. Can be accessed with blt::gp::tracker" ON)
+option(TRACK_ALLOCATIONS "Track total allocations. Can be accessed with blt::gp::tracker" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 

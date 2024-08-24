@@ -52,6 +52,7 @@
 #include <blt/gp/stack.h>
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
+#include "blt/std/format.h"
 
 namespace blt::gp
 {
@@ -511,8 +512,12 @@ namespace blt::gp
                                                                                                     std::memory_order::memory_order_relaxed,
                                                                                                     std::memory_order::memory_order_relaxed));
                                         
+                                        //auto measure = tracker.start_measurement();
                                         for (blt::size_t i = begin; i < end; i++)
                                             func(args, crossover_selection, mutation_selection, reproduction_selection);
+                                        //tracker.stop_measurement(measure);
+                                        //BLT_TRACE("Allocated %ld times with a total of %s", measure.getAllocationDifference(),
+                                        //          blt::byte_convert_t(measure.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
                                         
                                         {
                                             std::scoped_lock lock(thread_helper.thread_generation_lock);
