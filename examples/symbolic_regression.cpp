@@ -19,6 +19,7 @@
 #include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
+#include <blt/std/format.h>
 #include <iostream>
 
 //static constexpr long SEED = 41912;
@@ -114,15 +115,35 @@ int main()
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
+
+#ifdef BLT_TRACK_ALLOCATIONS
+        auto gen_alloc = blt::gp::tracker.start_measurement();
+#endif
+        
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation();
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
+
+#ifdef BLT_TRACK_ALLOCATIONS
+        blt::gp::tracker.stop_measurement(gen_alloc);
+        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
+                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+        auto fitness_alloc = blt::gp::tracker.start_measurement();
+#endif
+        
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");
         program.next_generation();
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         BLT_END_INTERVAL("Symbolic Regression", "Fitness");
+
+#ifdef BLT_TRACK_ALLOCATIONS
+        blt::gp::tracker.stop_measurement(fitness_alloc);
+        BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
+                  blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#endif
+        
         BLT_TRACE("----------------------------------------------");
         std::cout << std::endl;
     }
@@ -148,7 +169,7 @@ int main()
     // TODO: make stats helper
     
     BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
-    
+
 //    BLT_TRACE("Allocations:");
 //    auto h = static_cast<blt::ptrdiff_t>(blt::gp::hello.load());
 //    auto u = static_cast<blt::ptrdiff_t>(blt::gp::unhello.load());
