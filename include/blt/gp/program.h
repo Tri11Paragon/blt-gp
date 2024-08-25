@@ -123,7 +123,6 @@ namespace blt::gp
                     static thread_local evaluation_context results{};
                     results.values.reset();
                     results.values.reserve(largest);
-//                    BLT_DEBUG("%ld stored %ld", largest, results.values.internal_storage_size());
                     
                     blt::size_t total_so_far = 0;
                     
@@ -136,11 +135,6 @@ namespace blt::gp
                             continue;
                         }
                         call_jmp_table(operation.id, context, results.values, results.values, operators...);
-//                        if (results.values.internal_storage_size() != l)
-//                        {
-//                            BLT_DEBUG("Size %ld is now %ld", l, results.values.internal_storage_size());
-//                            l = results.values.internal_storage_size();
-//                        }
                     }
                     
                     return results;
@@ -507,22 +501,16 @@ namespace blt::gp
                                     while (thread_helper.next_gen_left > 0)
                                     {
                                         blt::size_t size = 0;
-                                        blt::size_t begin = 0;
                                         blt::size_t end = thread_helper.next_gen_left.load(std::memory_order_relaxed);
                                         do
                                         {
                                             size = std::min(end, config.evaluation_size);
-                                            begin = end - size;
                                         } while (!thread_helper.next_gen_left.compare_exchange_weak(end, end - size,
                                                                                                     std::memory_order::memory_order_relaxed,
                                                                                                     std::memory_order::memory_order_relaxed));
                                         
-                                        //auto measure = tracker.start_measurement();
-                                        for (blt::size_t i = begin; i < end; i++)
+                                        while (new_children.size() < size)
                                             func(args, crossover_selection, mutation_selection, reproduction_selection);
-                                        //tracker.stop_measurement(measure);
-                                        //BLT_TRACE("Allocated %ld times with a total of %s", measure.getAllocationDifference(),
-                                        //          blt::byte_convert_t(measure.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
                                         
                                         {
                                             std::scoped_lock lock(thread_helper.thread_generation_lock);
@@ -553,6 +541,7 @@ namespace blt::gp
             
             void next_generation()
             {
+                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size, ("pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 current_pop = std::move(next_pop);
                 current_generation++;
             }

@@ -121,7 +121,7 @@ namespace blt::gp
                 return getAllocatedBytes() - getDeallocatedBytes();
             }
             
-            allocation_data_t start_measurement()
+            [[nodiscard]] allocation_data_t start_measurement() const
             {
                 allocation_data_t data{};
                 data.start_allocations = allocations;
@@ -131,7 +131,7 @@ namespace blt::gp
                 return data;
             }
             
-            void stop_measurement(allocation_data_t& data)
+            void stop_measurement(allocation_data_t& data) const
             {
                 data.end_allocations = allocations;
                 data.end_deallocations = deallocations;

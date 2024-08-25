@@ -24,6 +24,7 @@
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
 #include <blt/std/assert.h>
+#include "blt/std/format.h"
 
 namespace blt::gp
 {
@@ -84,6 +85,7 @@ namespace blt::gp
                 // everyone gets a chance once per loop.
                 if (random.choice(config.crossover_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // crossover
                     auto& p1 = crossover_selection.select(program, current_pop, current_stats);
                     auto& p2 = crossover_selection.select(program, current_pop, current_stats);
@@ -94,24 +96,36 @@ namespace blt::gp
                     if (results)
                     {
                         next_pop.push_back(std::move(results->child1));
-                        next_pop.push_back(std::move(results->child2));
+                        if (next_pop.size() != config.population_size)
+                            next_pop.push_back(std::move(results->child2));
                     }
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Crossover Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
                 }
                 break;
             case 1:
                 if (random.choice(config.mutation_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // mutation
                     auto& p = mutation_selection.select(program, current_pop, current_stats);
                     next_pop.push_back(std::move(config.mutator.get().apply(program, p)));
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Mutation Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
                 }
                 break;
             case 2:
                 if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // reproduction
                     auto& p = reproduction_selection.select(program, current_pop, current_stats);
                     next_pop.push_back(p);
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Reproduction Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
                 }
                 break;
             default:
