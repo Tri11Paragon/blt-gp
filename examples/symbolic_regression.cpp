@@ -170,6 +170,11 @@ int main()
     
     BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
 
+#ifdef BLT_TRACK_ALLOCATIONS
+    BLT_TRACE("Total Allocations: %ld times with a total of %s", blt::gp::tracker.getAllocations(),
+              blt::byte_convert_t(blt::gp::tracker.getAllocatedBytes()).convert_to_nearest_type().to_pretty_string().c_str());
+#endif
+
 //    BLT_TRACE("Allocations:");
 //    auto h = static_cast<blt::ptrdiff_t>(blt::gp::hello.load());
 //    auto u = static_cast<blt::ptrdiff_t>(blt::gp::unhello.load());

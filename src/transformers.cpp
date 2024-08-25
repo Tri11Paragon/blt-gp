@@ -27,6 +27,15 @@
 namespace blt::gp
 {
     
+    grow_generator_t grow_generator;
+    
+    inline tree_t& get_static_tree_tl(gp_program& program)
+    {
+        static thread_local tree_t new_tree{program};
+        new_tree.clear(program);
+        return new_tree;
+    }
+    
     inline blt::size_t accumulate_type_sizes(detail::op_iter begin, detail::op_iter end)
     {
         blt::size_t total = 0;
@@ -46,8 +55,6 @@ namespace blt::gp
             buffer.resize(bytes);
         return buffer.data();
     }
-    
-    grow_generator_t grow_generator;
     
     mutation_t::config_t::config_t(): generator(grow_generator)
     {}
@@ -228,7 +235,8 @@ namespace blt::gp
         auto begin_itr = ops_r.begin() + begin_point;
         auto end_itr = ops_r.begin() + end_point;
         
-        auto new_tree = config.generator.get().generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+        auto& new_tree = get_static_tree_tl(program);
+        config.generator.get().generate(new_tree, {program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
         
         auto& new_ops_r = new_tree.get_operations();
         auto& new_vals_r = new_tree.get_values();
@@ -364,7 +372,8 @@ namespace blt::gp
                             if (index < current_func_info.argument_types.size() && val.id != current_func_info.argument_types[index].id)
                             {
                                 // TODO: new config?
-                                auto tree = config.generator.get().generate(
+                                auto& tree = get_static_tree_tl(program);
+                                config.generator.get().generate(tree,
                                         {program, val.id, config.replacement_min_depth, config.replacement_max_depth});
                                 
                                 auto& child = children_data[children_data.size() - 1 - index];
@@ -445,7 +454,8 @@ namespace blt::gp
                             for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(replacement_func_info.argc.argc) - 1;
                                  i >= current_func_info.argc.argc; i--)
                             {
-                                auto tree = config.generator.get().generate(
+                                auto& tree = get_static_tree_tl(program);
+                                config.generator.get().generate(tree,
                                         {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                          config.replacement_max_depth});
                                 blt::size_t total_bytes_for = tree.total_value_bytes();
@@ -518,7 +528,8 @@ namespace blt::gp
                     blt::size_t start_index = c_node;
                     for (blt::ptrdiff_t i = new_argc - 1; i > static_cast<blt::ptrdiff_t>(arg_position); i--)
                     {
-                        auto tree = config.generator.get().generate(
+                        auto& tree = get_static_tree_tl(program);
+                        config.generator.get().generate(tree,
                                 {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                  config.replacement_max_depth});
                         blt::size_t total_bytes_for = tree.total_value_bytes();
@@ -531,7 +542,8 @@ namespace blt::gp
                     vals.copy_from(combined_ptr, for_bytes);
                     for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(arg_position) - 1; i >= 0; i--)
                     {
-                        auto tree = config.generator.get().generate(
+                        auto& tree = get_static_tree_tl(program);
+                        config.generator.get().generate(tree,
                                 {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                  config.replacement_max_depth});
                         blt::size_t total_bytes_for = tree.total_value_bytes();

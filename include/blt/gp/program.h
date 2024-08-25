@@ -136,6 +136,11 @@ namespace blt::gp
                             continue;
                         }
                         call_jmp_table(operation.id, context, results.values, results.values, operators...);
+//                        if (results.values.internal_storage_size() != l)
+//                        {
+//                            BLT_DEBUG("Size %ld is now %ld", l, results.values.internal_storage_size());
+//                            l = results.values.internal_storage_size();
+//                        }
                     }
                     
                     return results;
@@ -301,7 +306,7 @@ namespace blt::gp
             
             template<typename... Operators, size_t... operator_ids>
             static inline void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                                       std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
+                                                       std::integer_sequence<size_t, operator_ids...>, Operators& ... operators)
             {
                 if (op >= sizeof...(operator_ids))
                 {

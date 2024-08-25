@@ -299,4 +299,13 @@ namespace blt::gp
     {
     
     }
+    
+    void tree_t::clear(gp_program& program)
+    {
+        auto* f = &program.get_eval_func();
+        if (f != func)
+            func = f;
+        operations.clear();
+        values.reset();
+    }
 }

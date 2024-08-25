@@ -57,6 +57,8 @@ namespace blt::gp
         public:
             explicit tree_t(gp_program& program);
             
+            void clear(gp_program& program);
+            
             struct child_t
             {
                 blt::ptrdiff_t start;
