@@ -187,7 +187,7 @@ int main(int argc, const char** argv)
                                          op_minor_axis_length, op_eccentricity, op_convex_area, op_extent));
     
     BLT_DEBUG("Generate Initial Population");
-    auto sel = blt::gp::select_tournament_t{};
+    auto sel = blt::gp::select_fitness_proportionate_t{};
     program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
