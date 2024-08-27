@@ -20,18 +20,35 @@
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 #include <blt/std/format.h>
+#include <blt/parse/argparse.h>
 #include <iostream>
 #include "operations_common.h"
+#include "blt/fs/loader.h"
+
 
 //static constexpr long SEED = 41912;
 static const unsigned long SEED = std::random_device()();
 
-struct context
+enum class rice_type_t
 {
-    float x, y;
+    Cammeo,
+    Osmancik
 };
 
-std::array<context, 200> fitness_cases;
+struct rice_record
+{
+    float area;
+    float perimeter;
+    float major_axis_length;
+    float minor_axis_length;
+    float eccentricity;
+    float convex_area;
+    float extent;
+    rice_type_t type;
+};
+
+std::vector<rice_record> fitness_cases;
+std::vector<rice_record> testing_cases;
 
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
@@ -48,12 +65,36 @@ blt::gp::type_provider type_system;
 blt::gp::gp_program program{type_system, SEED, config};
 
 auto lit = blt::gp::operation_t([]() {
-    return program.get_random().get_float(-320.0f, 320.0f);
+    return program.get_random().get_float(-32000.0f, 32000.0f);
 }, "lit").set_ephemeral();
 
-blt::gp::operation_t op_x([](const context& context) {
-    return context.x;
-}, "x");
+blt::gp::operation_t op_area([](const rice_record& rice_data) {
+    return rice_data.area;
+}, "area");
+
+blt::gp::operation_t op_perimeter([](const rice_record& rice_data) {
+    return rice_data.perimeter;
+}, "perimeter");
+
+blt::gp::operation_t op_major_axis_length([](const rice_record& rice_data) {
+    return rice_data.major_axis_length;
+}, "major_axis_length");
+
+blt::gp::operation_t op_minor_axis_length([](const rice_record& rice_data) {
+    return rice_data.minor_axis_length;
+}, "minor_axis_length");
+
+blt::gp::operation_t op_eccentricity([](const rice_record& rice_data) {
+    return rice_data.eccentricity;
+}, "eccentricity");
+
+blt::gp::operation_t op_convex_area([](const rice_record& rice_data) {
+    return rice_data.convex_area;
+}, "convex_area");
+
+blt::gp::operation_t op_extent([](const rice_record& rice_data) {
+    return rice_data.extent;
+}, "extent");
 
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
@@ -73,29 +114,62 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     return static_cast<blt::size_t>(fitness.hits) == fitness_cases.size();
 };
 
-float example_function(float x)
+void load_rice_data(std::string_view rice_file_path)
 {
-    return x * x * x * x + x * x * x + x * x + x;
+    auto rice_file_data = blt::fs::getLinesFromFile(rice_file_path);
+    size_t index = 0;
+    while (!blt::string::contains(rice_file_data[index++], "@DATA"))
+    {}
+    std::vector<rice_record> c;
+    std::vector<rice_record> o;
+    for (std::string_view v : blt::itr_offset(rice_file_data, index))
+    {
+        auto data = blt::string::split(v, ',');
+        rice_record r{std::stof(data[0]), std::stof(data[1]), std::stof(data[2]), std::stof(data[3]), std::stof(data[4]), std::stof(data[5]),
+                      std::stof(data[6])};
+        if (blt::string::contains(data[7], "Cammeo"))
+        {
+            r.type = rice_type_t::Cammeo;
+            c.push_back(r);
+        } else
+        {
+            r.type = rice_type_t::Osmancik;
+            o.push_back(r);
+        }
+    }
+    blt::size_t total_records = c.size() + o.size();
+    blt::size_t training_size = total_records / 3;
+    for (blt::size_t i = 0; i < training_size; i++)
+    {
+        auto& random = program.get_random();
+        auto& vec = random.choice() ? c : o;
+        auto pos = random.get_i64(0, static_cast<blt::i64>(vec.size()));
+        fitness_cases.push_back(vec[pos]);
+        vec.erase(vec.begin() + pos);
+    }
+    testing_cases.insert(testing_cases.end(), c.begin(), c.end());
+    testing_cases.insert(testing_cases.end(), o.begin(), o.end());
+    std::shuffle(testing_cases.begin(), testing_cases.end(), program.get_random());
 }
 
-int main()
+int main(int argc, const char** argv)
 {
-    BLT_INFO("Starting BLT-GP Symbolic Regression Example");
-    BLT_START_INTERVAL("Symbolic Regression", "Main");
+    blt::arg_parse parser;
+    parser.addArgument(blt::arg_builder{"-f", "--file"}.setHelp("File for rice data. Should be in .arff format.").setRequired().build());
+    
+    auto args = parser.parse_args(argc, argv);
+    
+    auto rice_file_path = args.get<std::string>("-f");
+    
+    BLT_INFO("Starting BLT-GP Rice Classification Example");
+    BLT_START_INTERVAL("Rice Classification", "Main");
     BLT_DEBUG("Setup Fitness cases");
-    for (auto& fitness_case : fitness_cases)
-    {
-        constexpr float range = 10;
-        constexpr float half_range = range / 2.0;
-        auto x = program.get_random().get_float(-half_range, half_range);
-        auto y = example_function(x);
-        fitness_case = {x, y};
-    }
+    load_rice_data(rice_file_path);
     
     BLT_DEBUG("Setup Types and Operators");
     type_system.register_type<float>();
     
-    blt::gp::operator_builder<context> builder{type_system};
+    blt::gp::operator_builder<rice_record> builder{type_system};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x));
     
     BLT_DEBUG("Generate Initial Population");
@@ -112,9 +186,9 @@ int main()
         auto gen_alloc = blt::gp::tracker.start_measurement();
 #endif
         
-        BLT_START_INTERVAL("Symbolic Regression", "Gen");
+        BLT_START_INTERVAL("Rice Classification", "Gen");
         program.create_next_generation();
-        BLT_END_INTERVAL("Symbolic Regression", "Gen");
+        BLT_END_INTERVAL("Rice Classification", "Gen");
 
 #ifdef BLT_TRACK_ALLOCATIONS
         blt::gp::tracker.stop_measurement(gen_alloc);
@@ -124,11 +198,11 @@ int main()
 #endif
         
         BLT_TRACE("Move to next generation");
-        BLT_START_INTERVAL("Symbolic Regression", "Fitness");
+        BLT_START_INTERVAL("Rice Classification", "Fitness");
         program.next_generation();
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
-        BLT_END_INTERVAL("Symbolic Regression", "Fitness");
+        BLT_END_INTERVAL("Rice Classification", "Fitness");
 
 #ifdef BLT_TRACK_ALLOCATIONS
         blt::gp::tracker.stop_measurement(fitness_alloc);
@@ -140,7 +214,7 @@ int main()
         std::cout << std::endl;
     }
     
-    BLT_END_INTERVAL("Symbolic Regression", "Main");
+    BLT_END_INTERVAL("Rice Classification", "Main");
     
     auto best = program.get_best_individuals<3>();
     
@@ -160,7 +234,7 @@ int main()
     BLT_INFO("Overall fitness: %lf", stats.overall_fitness.load());
     // TODO: make stats helper
     
-    BLT_PRINT_PROFILE("Symbolic Regression", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
+    BLT_PRINT_PROFILE("Rice Classification", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
 
 #ifdef BLT_TRACK_ALLOCATIONS
     BLT_TRACE("Total Allocations: %ld times with a total of %s", blt::gp::tracker.getAllocations(),
