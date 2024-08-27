@@ -31,7 +31,7 @@ struct context
     float x, y;
 };
 
-std::array<context, 200> fitness_cases;
+std::array<context, 200> training_cases;
 
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
@@ -57,7 +57,7 @@ blt::gp::operation_t op_x([](const context& context) {
 
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     constexpr double value_cutoff = 1.e15;
-    for (auto& fitness_case : fitness_cases)
+    for (auto& fitness_case : training_cases)
     {
         auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case));
         if (diff < value_cutoff)
@@ -70,7 +70,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     }
     fitness.standardized_fitness = fitness.raw_fitness;
     fitness.adjusted_fitness = (1.0 / (1.0 + fitness.standardized_fitness));
-    return static_cast<blt::size_t>(fitness.hits) == fitness_cases.size();
+    return static_cast<blt::size_t>(fitness.hits) == training_cases.size();
 };
 
 float example_function(float x)
@@ -83,7 +83,7 @@ int main()
     BLT_INFO("Starting BLT-GP Symbolic Regression Example");
     BLT_START_INTERVAL("Symbolic Regression", "Main");
     BLT_DEBUG("Setup Fitness cases");
-    for (auto& fitness_case : fitness_cases)
+    for (auto& fitness_case : training_cases)
     {
         constexpr float range = 10;
         constexpr float half_range = range / 2.0;
