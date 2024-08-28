@@ -67,6 +67,7 @@ namespace blt::gp
         for (blt::size_t i = 0; i < selection_size - 1; i++)
         {
             auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
+            BLT_TRACE("Selection %ld (of %ld) = %lf, ind %p, first: %p", i, selection_size, sel.fitness.adjusted_fitness, &sel, &first);
             if (sel.fitness.adjusted_fitness > best_guy)
             {
                 best_guy = sel.fitness.adjusted_fitness;

@@ -113,7 +113,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
                 break;
         }
     }
-    fitness.raw_fitness = static_cast<double>(fitness.hits) / static_cast<double>(training_cases.size());
+    fitness.raw_fitness = static_cast<double>(fitness.hits);
     fitness.standardized_fitness = fitness.raw_fitness;
     fitness.adjusted_fitness = 1.0 - (1.0 / (1.0 + fitness.standardized_fitness));
     return static_cast<blt::size_t>(fitness.hits) == training_cases.size();
@@ -187,7 +187,7 @@ int main(int argc, const char** argv)
                                          op_minor_axis_length, op_eccentricity, op_convex_area, op_extent));
     
     BLT_DEBUG("Generate Initial Population");
-    auto sel = blt::gp::select_fitness_proportionate_t{};
+    auto sel = blt::gp::select_tournament_t{};
     program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
@@ -217,6 +217,12 @@ int main(int argc, const char** argv)
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         BLT_END_INTERVAL("Rice Classification", "Fitness");
+        auto& stats = program.get_population_stats();
+        BLT_TRACE("Stats:");
+        BLT_TRACE("Average fitness: %lf", stats.average_fitness.load());
+        BLT_TRACE("Best fitness: %lf", stats.best_fitness.load());
+        BLT_TRACE("Worst fitness: %lf", stats.worst_fitness.load());
+        BLT_TRACE("Overall fitness: %lf", stats.overall_fitness.load());
 
 #ifdef BLT_TRACK_ALLOCATIONS
         blt::gp::tracker.stop_measurement(fitness_alloc);
