@@ -168,6 +168,35 @@ struct test_results_t
     blt::size_t hits = 0;
     blt::size_t size = 0;
     double percent_hit = 0;
+    
+    test_results_t& operator+=(const test_results_t& a)
+    {
+        cc += a.cc;
+        co += a.co;
+        oo += a.oo;
+        oc += a.oc;
+        hits += a.hits;
+        size += a.size;
+        percent_hit += a.percent_hit;
+        return *this;
+    }
+    
+    test_results_t& operator/=(blt::size_t s)
+    {
+        cc /= s;
+        co /= s;
+        oo /= s;
+        oc /= s;
+        hits /= s;
+        size /= s;
+        percent_hit /= static_cast<double>(s);
+        return *this;
+    }
+    
+    friend bool operator<(const test_results_t& a, const test_results_t& b)
+    {
+        return a.hits < b.hits;
+    }
 };
 
 test_results_t test_individual(blt::gp::individual& i)
@@ -182,13 +211,13 @@ test_results_t test_individual(blt::gp::individual& i)
             case rice_type_t::Cammeo:
                 if (result >= 0)
                     results.cc++; // cammeo cammeo
-                else if (result < 0)
+                else
                     results.co++; // cammeo osmancik
                 break;
             case rice_type_t::Osmancik:
                 if (result < 0)
                     results.oo++; // osmancik osmancik
-                else if (result >= 0)
+                else
                     results.oc++; // osmancik cammeo
                 break;
         }
@@ -278,55 +307,60 @@ int main(int argc, const char** argv)
     
     BLT_END_INTERVAL("Rice Classification", "Main");
     
-    auto best = program.get_best_individuals<3>();
+    std::vector<std::pair<test_results_t, blt::gp::individual*>> results;
+    for (auto& i : program.get_current_pop().get_individuals())
+        results.emplace_back(test_individual(i), &i);
+    std::sort(results.begin(), results.end(), [](const auto& a, const auto& b) {
+        return !(a.first < b.first);
+    });
     
-    BLT_INFO("Best approximations:");
-    for (auto& i_ref : best)
+    BLT_INFO("Best results:");
+    for (blt::size_t index = 0; index < 3; index++)
     {
-        auto& i = i_ref.get();
-        struct match_t
-        {
-            blt::size_t cc = 0;
-            blt::size_t co = 0;
-            blt::size_t oo = 0;
-            blt::size_t oc = 0;
-        };
+        const auto& record = results[index].first;
+        const auto& i = *results[index].second;
         
-        match_t match;
-        
-        for (auto& testing_case : testing_cases)
-        {
-            auto result = i.tree.get_evaluation_value<float>(&testing_case);
-            switch (testing_case.type)
-            {
-                case rice_type_t::Cammeo:
-                    if (result >= 0)
-                        match.cc++; // cammeo cammeo
-                    else if (result < 0)
-                        match.co++; // cammeo osmancik
-                    break;
-                case rice_type_t::Osmancik:
-                    if (result < 0)
-                        match.oo++; // osmancik osmancik
-                    else if (result >= 0)
-                        match.oc++; // osmancik cammeo
-                    break;
-            }
-        }
-        
-        auto hits = match.cc + match.oo;
-        auto size = testing_cases.size();
-        
-        BLT_INFO("Hits %ld, Total Cases %ld, Percent Hit: %lf", hits, size, static_cast<double>(hits) / static_cast<double>(size) * 100);
-        BLT_DEBUG("Cammeo Cammeo: %ld", match.cc);
-        BLT_DEBUG("Cammeo Osmancik: %ld", match.co);
-        BLT_DEBUG("Osmancik Osmancik: %ld", match.oo);
-        BLT_DEBUG("Osmancik Cammeo: %ld", match.oc);
+        BLT_INFO("Hits %ld, Total Cases %ld, Percent Hit: %lf", record.hits, record.size, record.percent_hit);
+        BLT_DEBUG("Cammeo Cammeo: %ld", record.cc);
+        BLT_DEBUG("Cammeo Osmancik: %ld", record.co);
+        BLT_DEBUG("Osmancik Osmancik: %ld", record.oo);
+        BLT_DEBUG("Osmancik Cammeo: %ld", record.oc);
         BLT_DEBUG("Fitness: %lf, stand: %lf, raw: %lf", i.fitness.adjusted_fitness, i.fitness.standardized_fitness, i.fitness.raw_fitness);
         i.tree.print(program, std::cout);
         
         std::cout << "\n";
     }
+    
+    BLT_INFO("Worst Results:");
+    for (blt::size_t index = 0; index < 3; index++)
+    {
+        const auto& record = results[results.size() - 1 - index].first;
+        const auto& i = *results[results.size() - 1 - index].second;
+        
+        BLT_INFO("Hits %ld, Total Cases %ld, Percent Hit: %lf", record.hits, record.size, record.percent_hit);
+        BLT_DEBUG("Cammeo Cammeo: %ld", record.cc);
+        BLT_DEBUG("Cammeo Osmancik: %ld", record.co);
+        BLT_DEBUG("Osmancik Osmancik: %ld", record.oo);
+        BLT_DEBUG("Osmancik Cammeo: %ld", record.oc);
+        BLT_DEBUG("Fitness: %lf, stand: %lf, raw: %lf", i.fitness.adjusted_fitness, i.fitness.standardized_fitness, i.fitness.raw_fitness);
+        i.tree.print(program, std::cout);
+        
+        std::cout << "\n";
+    }
+    
+    BLT_INFO("Average Results");
+    test_results_t avg{};
+    for (const auto& v : results)
+        avg += v.first;
+    avg /= results.size();
+    BLT_INFO("Hits %ld, Total Cases %ld, Percent Hit: %lf", avg.hits, avg.size, avg.percent_hit);
+    BLT_DEBUG("Cammeo Cammeo: %ld", avg.cc);
+    BLT_DEBUG("Cammeo Osmancik: %ld", avg.co);
+    BLT_DEBUG("Osmancik Osmancik: %ld", avg.oo);
+    BLT_DEBUG("Osmancik Cammeo: %ld", avg.oc);
+    std::cout << "\n";
+    
+    
     auto& stats = program.get_population_stats();
     BLT_INFO("Stats:");
     BLT_INFO("Average fitness: %lf", stats.average_fitness.load());
