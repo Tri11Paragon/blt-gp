@@ -60,22 +60,15 @@ namespace blt::gp
     
     tree_t& select_tournament_t::select(gp_program& program, population_t& pop, population_stats&)
     {
-        
-        auto& first = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-        individual* ind = &first;
-        double best_guy = first.fitness.adjusted_fitness;
-        for (blt::size_t i = 0; i < selection_size - 1; i++)
+        blt::u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
+        auto& i_ref = pop.get_individuals();
+        for (blt::size_t i = 0; i < selection_size; i++)
         {
-            auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-            BLT_TRACE("Selection %ld (of %ld) = %lf, ind %p, first: %p", i, selection_size, sel.fitness.adjusted_fitness, &sel, &first);
-            if (sel.fitness.adjusted_fitness > best_guy)
-            {
-                best_guy = sel.fitness.adjusted_fitness;
-                ind = &sel;
-            }
+            auto sel_point = program.get_random().get_u64(0ul, pop.get_individuals().size());
+            if (i_ref[sel_point].fitness.adjusted_fitness > i_ref[best].fitness.adjusted_fitness)
+                best = sel_point;
         }
-        
-        return ind->tree;
+        return i_ref[best].tree;
     }
     
     tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)

@@ -177,7 +177,7 @@ namespace blt::gp
         public:
             explicit select_tournament_t(blt::size_t selection_size = 3): selection_size(selection_size)
             {
-                if (selection_size < 1)
+                if (selection_size == 0)
                     BLT_ABORT("Unable to select with this size. Must select at least 1 individual!");
             }
             

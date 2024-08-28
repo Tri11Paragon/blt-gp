@@ -46,7 +46,7 @@ namespace blt::gp
     
     random_t& gp_program::get_random() const
     {
-        thread_local static blt::gp::random_t random_engine{seed};
+        thread_local static blt::gp::random_t random_engine{seed_func()};
         return random_engine;
     }
     

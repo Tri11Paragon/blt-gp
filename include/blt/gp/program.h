@@ -332,11 +332,19 @@ namespace blt::gp
              * @param context_size number of arguments which are always present as "context" to the GP system / operators
              */
             explicit gp_program(type_provider& system, blt::u64 seed):
-                    system(system), seed(seed)
+                    system(system), seed_func([seed]{return seed;})
             { create_threads(); }
             
             explicit gp_program(type_provider& system, blt::u64 seed, prog_config_t config):
-                    system(system), seed(seed), config(config)
+                    system(system), seed_func([seed]{return seed;}), config(config)
+            { create_threads(); }
+            
+            explicit gp_program(type_provider& system, std::function<blt::u64()> seed_func):
+                    system(system), seed_func(std::move(seed_func))
+            { create_threads(); }
+            
+            explicit gp_program(type_provider& system, std::function<blt::u64()> seed_func, prog_config_t config):
+                    system(system), seed_func(std::move(seed_func)), config(config)
             { create_threads(); }
             
             void create_next_generation()
@@ -719,7 +727,7 @@ namespace blt::gp
             std::atomic_uint64_t current_generation = 0;
             std::atomic_bool fitness_should_exit = false;
             
-            blt::u64 seed;
+            std::function<blt::u64()> seed_func;
             prog_config_t config{};
             
             struct concurrency_storage

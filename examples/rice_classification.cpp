@@ -28,7 +28,7 @@
 #include "operations_common.h"
 #include "blt/fs/loader.h"
 
-static const unsigned long SEED = std::random_device()();
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
 enum class rice_type_t
 {
@@ -59,11 +59,11 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(5000)
+        .set_pop_size(500)
         .set_thread_count(0);
 
 blt::gp::type_provider type_system;
-blt::gp::gp_program program{type_system, SEED, config};
+blt::gp::gp_program program{type_system, SEED_FUNC, config};
 
 auto lit = blt::gp::operation_t([]() {
     return program.get_random().get_float(-32000.0f, 32000.0f);
@@ -157,6 +157,48 @@ void load_rice_data(std::string_view rice_file_path)
     testing_cases.insert(testing_cases.end(), o.begin(), o.end());
     std::shuffle(testing_cases.begin(), testing_cases.end(), program.get_random());
     BLT_INFO("Created training set of size %ld, testing set is of size %ld", training_size, testing_cases.size());
+}
+
+struct test_results_t
+{
+    blt::size_t cc = 0;
+    blt::size_t co = 0;
+    blt::size_t oo = 0;
+    blt::size_t oc = 0;
+    blt::size_t hits = 0;
+    blt::size_t size = 0;
+    double percent_hit = 0;
+};
+
+test_results_t test_individual(blt::gp::individual& i)
+{
+    test_results_t results;
+    
+    for (auto& testing_case : testing_cases)
+    {
+        auto result = i.tree.get_evaluation_value<float>(&testing_case);
+        switch (testing_case.type)
+        {
+            case rice_type_t::Cammeo:
+                if (result >= 0)
+                    results.cc++; // cammeo cammeo
+                else if (result < 0)
+                    results.co++; // cammeo osmancik
+                break;
+            case rice_type_t::Osmancik:
+                if (result < 0)
+                    results.oo++; // osmancik osmancik
+                else if (result >= 0)
+                    results.oc++; // osmancik cammeo
+                break;
+        }
+    }
+    
+    results.hits = results.cc + results.oo;
+    results.size = testing_cases.size();
+    results.percent_hit = static_cast<double>(results.hits) / static_cast<double>(results.size) * 100;
+    
+    return results;
 }
 
 int main(int argc, const char** argv)
