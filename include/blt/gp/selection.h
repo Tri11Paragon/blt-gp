@@ -32,7 +32,7 @@ namespace blt::gp
     struct selector_args
     {
         gp_program& program;
-        std::vector<tree_t>& next_pop;
+        tracked_vector<tree_t>& next_pop;
         population_t& current_pop;
         population_stats& current_stats;
         prog_config_t& config;
@@ -44,7 +44,8 @@ namespace blt::gp
         
         if (config.elites > 0)
         {
-            std::vector<std::pair<std::size_t, double>> values;
+            static thread_local tracked_vector<std::pair<std::size_t, double>> values;
+            values.clear();
             
             for (blt::size_t i = 0; i < config.elites; i++)
                 values.emplace_back(i, current_pop.get_individuals()[i].fitness.adjusted_fitness);
@@ -178,7 +179,7 @@ namespace blt::gp
             explicit select_tournament_t(blt::size_t selection_size = 3): selection_size(selection_size)
             {
                 if (selection_size == 0)
-                    BLT_ABORT("Unable to select with this size. Must select at least 1 individual!");
+                    BLT_ABORT("Unable to select with this size. Must select at least 1 individual_t!");
             }
             
             tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;

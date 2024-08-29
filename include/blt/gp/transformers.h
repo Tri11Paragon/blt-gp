@@ -29,8 +29,6 @@ namespace blt::gp
 {
     namespace detail
     {
-        using op_iter = std::vector<blt::gp::op_container_t>::iterator;
-        
         template<typename T>
         inline static constexpr double sum(const T& array)
         {

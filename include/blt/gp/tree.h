@@ -53,7 +53,6 @@ namespace blt::gp
     
     class tree_t
     {
-            using iter_type = std::vector<op_container_t>::const_iterator;
         public:
             explicit tree_t(gp_program& program);
             
@@ -66,12 +65,12 @@ namespace blt::gp
                 blt::ptrdiff_t end;
             };
             
-            [[nodiscard]] inline std::vector<op_container_t>& get_operations()
+            [[nodiscard]] inline tracked_vector<op_container_t>& get_operations()
             {
                 return operations;
             }
             
-            [[nodiscard]] inline const std::vector<op_container_t>& get_operations() const
+            [[nodiscard]] inline const tracked_vector<op_container_t>& get_operations() const
             {
                 return operations;
             }
@@ -133,7 +132,7 @@ namespace blt::gp
             blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             
             // valid for [begin, end)
-            static blt::size_t total_value_bytes(iter_type begin, iter_type end)
+            static blt::size_t total_value_bytes(detail::const_op_iter_t begin, detail::const_op_iter_t end)
             {
                 blt::size_t total = 0;
                 for (auto it = begin; it != end; it++)
@@ -161,7 +160,7 @@ namespace blt::gp
             }
         
         private:
-            std::vector<op_container_t> operations;
+            tracked_vector<op_container_t> operations;
             blt::gp::stack_allocator values;
             detail::eval_func_t* func;
     };
@@ -174,26 +173,26 @@ namespace blt::gp
         blt::i64 hits = 0;
     };
     
-    struct individual
+    struct individual_t
     {
         tree_t tree;
         fitness_t fitness;
         
-        individual() = default;
+        individual_t() = delete;
         
-        explicit individual(tree_t&& tree): tree(std::move(tree))
+        explicit individual_t(tree_t&& tree): tree(std::move(tree))
         {}
         
-        explicit individual(const tree_t& tree): tree(tree)
+        explicit individual_t(const tree_t& tree): tree(tree)
         {}
         
-        individual(const individual&) = default;
+        individual_t(const individual_t&) = default;
         
-        individual(individual&&) = default;
+        individual_t(individual_t&&) = default;
         
-        individual& operator=(const individual&) = delete;
+        individual_t& operator=(const individual_t&) = delete;
         
-        individual& operator=(individual&&) = default;
+        individual_t& operator=(individual_t&&) = default;
     };
     
     struct population_stats
@@ -220,7 +219,7 @@ namespace blt::gp
             class population_tree_iterator
             {
                 public:
-                    population_tree_iterator(std::vector<individual>& ind, blt::size_t pos): ind(ind), pos(pos)
+                    population_tree_iterator(tracked_vector<individual_t>& ind, blt::size_t pos): ind(ind), pos(pos)
                     {}
                     
                     auto begin()
@@ -265,11 +264,11 @@ namespace blt::gp
                     }
                 
                 private:
-                    std::vector<individual>& ind;
+                    tracked_vector<individual_t>& ind;
                     blt::size_t pos;
             };
             
-            std::vector<individual>& get_individuals()
+            tracked_vector<individual_t>& get_individuals()
             {
                 return individuals;
             }
@@ -315,7 +314,7 @@ namespace blt::gp
             population_t& operator=(population_t&&) = default;
         
         private:
-            std::vector<individual> individuals;
+            tracked_vector<individual_t> individuals;
     };
 }
 

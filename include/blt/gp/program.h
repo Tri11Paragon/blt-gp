@@ -409,7 +409,7 @@ namespace blt::gp
                                 }
                                 if (thread_helper.next_gen_left > 0)
                                 {
-                                    static thread_local std::vector<tree_t> new_children;
+                                    static thread_local tracked_vector<tree_t> new_children;
                                     new_children.clear();
                                     auto args = get_selector_args(new_children);
                                     
@@ -486,7 +486,7 @@ namespace blt::gp
                                 }
                                 if (thread_helper.next_gen_left > 0)
                                 {
-                                    static thread_local std::vector<tree_t> new_children;
+                                    static thread_local tracked_vector<tree_t> new_children;
                                     new_children.clear();
                                     auto args = get_selector_args(new_children);
                                     if (id == 0)
@@ -593,11 +593,11 @@ namespace blt::gp
             template<blt::size_t size>
             auto get_best_individuals()
             {
-                return convert_array<std::array<std::reference_wrapper<individual>, size>>(get_best_indexes<size>(),
-                                                                                           [this](auto&& arr, blt::size_t index) -> individual& {
+                return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
+                                                                                             [this](auto&& arr, blt::size_t index) -> individual_t& {
                                                                                                return current_pop.get_individuals()[arr[index]];
                                                                                            },
-                                                                                           std::make_integer_sequence<blt::size_t, size>());
+                                                                                             std::make_integer_sequence<blt::size_t, size>());
             }
             
             [[nodiscard]] bool should_terminate() const
@@ -751,7 +751,7 @@ namespace blt::gp
             // for convenience, shouldn't decrease performance too much
             std::atomic<std::function<void(blt::size_t)>*> thread_execution_service = nullptr;
             
-            inline selector_args get_selector_args(std::vector<tree_t>& next_pop_trees)
+            inline selector_args get_selector_args(tracked_vector<tree_t>& next_pop_trees)
             {
                 return {*this, next_pop_trees, current_pop, current_stats, config, get_random()};
             }

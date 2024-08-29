@@ -199,7 +199,7 @@ struct test_results_t
     }
 };
 
-test_results_t test_individual(blt::gp::individual& i)
+test_results_t test_individual(blt::gp::individual_t& i)
 {
     test_results_t results;
     
@@ -307,7 +307,7 @@ int main(int argc, const char** argv)
     
     BLT_END_INTERVAL("Rice Classification", "Main");
     
-    std::vector<std::pair<test_results_t, blt::gp::individual*>> results;
+    std::vector<std::pair<test_results_t, blt::gp::individual_t*>> results;
     for (auto& i : program.get_current_pop().get_individuals())
         results.emplace_back(test_individual(i), &i);
     std::sort(results.begin(), results.end(), [](const auto& a, const auto& b) {

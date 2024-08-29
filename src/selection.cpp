@@ -86,7 +86,7 @@ namespace blt::gp
                     return ref.tree;
             }
         }
-        BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path! (%lf)", choice);
+        BLT_WARN("Unable to find individual_t with fitness proportionate. This should not be a possible code path! (%lf)", choice);
         return pop.get_individuals()[0].tree;
         //BLT_ABORT("Unable to find individual");
     }

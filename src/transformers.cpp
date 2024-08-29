@@ -36,7 +36,7 @@ namespace blt::gp
         return new_tree;
     }
     
-    inline blt::size_t accumulate_type_sizes(detail::op_iter begin, detail::op_iter end)
+    inline blt::size_t accumulate_type_sizes(detail::op_iter_t begin, detail::op_iter_t end)
     {
         blt::size_t total = 0;
         for (auto it = begin; it != end; ++it)
