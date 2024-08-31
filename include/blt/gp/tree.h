@@ -197,6 +197,17 @@ namespace blt::gp
     
     struct population_stats
     {
+        population_stats() = default;
+        
+        population_stats(const population_stats& copy):
+                overall_fitness(copy.overall_fitness.load()), average_fitness(copy.average_fitness.load()), best_fitness(copy.best_fitness.load()),
+                worst_fitness(copy.worst_fitness.load())
+        {
+            normalized_fitness.reserve(copy.normalized_fitness.size());
+            for (auto v : copy.normalized_fitness)
+                normalized_fitness.push_back(v);
+        }
+        
         std::atomic<double> overall_fitness = 0;
         std::atomic<double> average_fitness = 0;
         std::atomic<double> best_fitness = 0;

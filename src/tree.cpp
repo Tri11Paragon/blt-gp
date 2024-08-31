@@ -92,7 +92,7 @@ namespace blt::gp
                 if (print_literals)
                 {
                     create_indent(out, indent, pretty_print);
-                    if (program.is_static(v.id))
+                    if (program.is_operator_ephemeral(v.id))
                     {
                         program.get_print_func(v.id)(out, reversed);
                         reversed.pop_bytes(stack_allocator::aligned_size(v.type_size));

@@ -56,7 +56,6 @@
 
 namespace blt::gp
 {
-    
     struct argc_t
     {
         blt::u32 argc = 0;
@@ -80,20 +79,22 @@ namespace blt::gp
         detail::operator_func_t func;
     };
     
-    struct operator_storage
+    struct program_operator_storage_t
     {
         // indexed from return TYPE ID, returns index of operator
         blt::expanding_buffer<std::vector<operator_id>> terminals;
         blt::expanding_buffer<std::vector<operator_id>> non_terminals;
         blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
-        blt::hashset_t<operator_id> static_types;
+        blt::hashset_t<operator_id> ephemeral_leaf_operators;
         std::vector<operator_info> operators;
         std::vector<detail::print_func_t> print_funcs;
         std::vector<detail::destroy_func_t> destroy_funcs;
         std::vector<std::optional<std::string_view>> names;
         
         detail::eval_func_t eval_func;
+        
+        type_provider system;
     };
     
     template<typename Context = detail::empty_t>
@@ -104,11 +105,10 @@ namespace blt::gp
             friend class blt::gp::detail::operator_storage_test;
         
         public:
-            explicit operator_builder(type_provider& system): system(system)
-            {}
+            explicit operator_builder() = default;
             
             template<typename... Operators>
-            operator_storage& build(Operators& ... operators)
+            program_operator_storage_t& build(Operators& ... operators)
             {
                 std::vector<blt::size_t> sizes;
                 (sizes.push_back(add_operator(operators)), ...);
@@ -201,7 +201,7 @@ namespace blt::gp
                 return storage;
             }
             
-            operator_storage&& grab()
+            program_operator_storage_t&& grab()
             {
                 return std::move(storage);
             }
@@ -210,10 +210,14 @@ namespace blt::gp
             template<typename RawFunction, typename Return, typename... Args>
             auto add_operator(operation_t<RawFunction, Return(Args...)>& op)
             {
+                // check for types we can register
+                (storage.system.register_type<Args>(), ...);
+                storage.system.register_type<Return>();
+                
                 auto total_size_required = stack_allocator::aligned_size(sizeof(Return));
                 ((total_size_required += stack_allocator::aligned_size(sizeof(Args))), ...);
                 
-                auto return_type_id = system.get_type<Return>().id();
+                auto return_type_id = storage.system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
                 op.id = operator_id;
                 
@@ -262,7 +266,7 @@ namespace blt::gp
                 });
                 storage.names.push_back(op.get_name());
                 if (op.is_ephemeral())
-                    storage.static_types.insert(operator_id);
+                    storage.ephemeral_leaf_operators.insert(operator_id);
                 return total_size_required * 2;
             }
             
@@ -271,7 +275,7 @@ namespace blt::gp
             {
                 if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
                 {
-                    types.push_back(system.get_type<T>().id());
+                    types.push_back(storage.system.get_type<T>().id());
                 }
             }
             
@@ -316,8 +320,7 @@ namespace blt::gp
                 call_jmp_table_internal(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
             }
             
-            type_provider& system;
-            operator_storage storage;
+            program_operator_storage_t storage;
     };
     
     class gp_program
@@ -327,37 +330,83 @@ namespace blt::gp
              * Note about context size: This is required as context is passed to every operator in the GP tree, this context will be provided by your
              * call to one of the evaluator functions. This was the nicest way to provide this as C++ lacks reflection
              *
-             * @param system type system to use in tree generation
              * @param engine random engine to use throughout the program.
              * @param context_size number of arguments which are always present as "context" to the GP system / operators
              */
-            explicit gp_program(type_provider& system, blt::u64 seed):
-                    system(system), seed_func([seed]{return seed;})
+            explicit gp_program(blt::u64 seed): seed_func([seed] { return seed; })
             { create_threads(); }
             
-            explicit gp_program(type_provider& system, blt::u64 seed, prog_config_t config):
-                    system(system), seed_func([seed]{return seed;}), config(config)
+            explicit gp_program(blt::u64 seed, prog_config_t config): seed_func([seed] { return seed; }), config(config)
             { create_threads(); }
             
-            explicit gp_program(type_provider& system, std::function<blt::u64()> seed_func):
-                    system(system), seed_func(std::move(seed_func))
+            explicit gp_program(std::function<blt::u64()> seed_func): seed_func(std::move(seed_func))
             { create_threads(); }
             
-            explicit gp_program(type_provider& system, std::function<blt::u64()> seed_func, prog_config_t config):
-                    system(system), seed_func(std::move(seed_func)), config(config)
+            explicit gp_program(std::function<blt::u64()> seed_func, prog_config_t config): seed_func(std::move(seed_func)), config(config)
             { create_threads(); }
+            
+            ~gp_program()
+            {
+                thread_helper.lifetime_over = true;
+                thread_helper.barrier.notify_all();
+                thread_helper.thread_function_condition.notify_all();
+                for (auto& thread : thread_helper.threads)
+                {
+                    if (thread->joinable())
+                        thread->join();
+                }
+            }
             
             void create_next_generation()
             {
+#ifdef BLT_TRACK_ALLOCATIONS
+                auto gen_alloc = blt::gp::tracker.start_measurement();
+#endif
                 // should already be empty
                 next_pop.clear();
                 thread_helper.next_gen_left.store(config.population_size, std::memory_order_release);
                 (*thread_execution_service)(0);
+#ifdef BLT_TRACK_ALLOCATIONS
+                blt::gp::tracker.stop_measurement(gen_alloc);
+        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
+                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#endif
+            }
+            
+            void next_generation()
+            {
+                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
+                               ("pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
+                std::swap(current_pop, next_pop);
+                current_generation++;
             }
             
             void evaluate_fitness()
             {
+#ifdef BLT_TRACK_ALLOCATIONS
+                auto fitness_alloc = blt::gp::tracker.start_measurement();
+#endif
                 evaluate_fitness_internal();
+#ifdef BLT_TRACK_ALLOCATIONS
+                blt::gp::tracker.stop_measurement(fitness_alloc);
+                BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
+                          blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#endif
+                
+            }
+            
+            void reset_program(type_id root_type, bool eval_fitness_now = true)
+            {
+                current_generation = 0;
+                current_pop = config.pop_initializer.get().generate(
+                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+                if (eval_fitness_now)
+                    evaluate_fitness_internal();
+            }
+            
+            void kill()
+            {
+                thread_helper.lifetime_over = true;
             }
             
             /**
@@ -378,32 +427,39 @@ namespace blt::gp
                 using LambdaReturn = typename decltype(blt::meta::lambda_helper(fitness_function))::Return;
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+                next_pop = population_t(current_pop);
                 if (config.threads == 1)
                 {
                     BLT_INFO("Starting with single thread variant!");
-                    thread_execution_service = new std::function(
+                    thread_execution_service = std::unique_ptr<std::function<void(blt::size_t)>>(new std::function(
                             [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t) {
                                 if (thread_helper.evaluation_left > 0)
                                 {
-                                    for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                                    current_stats.normalized_fitness.clear();
+                                    double sum_of_prob = 0;
+                                    for (const auto& [index, ind] : blt::enumerate(current_pop.get_individuals()))
                                     {
                                         if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
                                         {
-                                            auto result = fitness_function(ind.second.tree, ind.second.fitness, ind.first);
+                                            auto result = fitness_function(ind.tree, ind.fitness, index);
                                             if (result)
                                                 fitness_should_exit = true;
                                         } else
-                                        {
-                                            fitness_function(ind.second.tree, ind.second.fitness, ind.first);
-                                        }
+                                            fitness_function(ind.tree, ind.fitness, index);
                                         
-                                        if (ind.second.fitness.adjusted_fitness > current_stats.best_fitness)
-                                            current_stats.best_fitness = ind.second.fitness.adjusted_fitness;
+                                        if (ind.fitness.adjusted_fitness > current_stats.best_fitness)
+                                            current_stats.best_fitness = ind.fitness.adjusted_fitness;
                                         
-                                        if (ind.second.fitness.adjusted_fitness < current_stats.worst_fitness)
-                                            current_stats.worst_fitness = ind.second.fitness.adjusted_fitness;
+                                        if (ind.fitness.adjusted_fitness < current_stats.worst_fitness)
+                                            current_stats.worst_fitness = ind.fitness.adjusted_fitness;
                                         
-                                        current_stats.overall_fitness = current_stats.overall_fitness + ind.second.fitness.adjusted_fitness;
+                                        current_stats.overall_fitness = current_stats.overall_fitness + ind.fitness.adjusted_fitness;
+                                    }
+                                    for (auto& ind : current_pop)
+                                    {
+                                        auto prob = (ind.fitness.adjusted_fitness / current_stats.overall_fitness);
+                                        current_stats.normalized_fitness.push_back(sum_of_prob + prob);
+                                        sum_of_prob += prob;
                                     }
                                     thread_helper.evaluation_left = 0;
                                 }
@@ -413,9 +469,9 @@ namespace blt::gp
                                     new_children.clear();
                                     auto args = get_selector_args(new_children);
                                     
-                                    crossover_selection.pre_process(*this, current_pop, current_stats);
-                                    mutation_selection.pre_process(*this, current_pop, current_stats);
-                                    reproduction_selection.pre_process(*this, current_pop, current_stats);
+                                    crossover_selection.pre_process(*this, current_pop);
+                                    mutation_selection.pre_process(*this, current_pop);
+                                    reproduction_selection.pre_process(*this, current_pop);
                                     
                                     perform_elitism(args);
                                     
@@ -427,12 +483,12 @@ namespace blt::gp
                                     
                                     thread_helper.next_gen_left = 0;
                                 }
-                            });
+                            }));
                 } else
                 {
                     BLT_INFO("Starting thread execution service!");
                     std::scoped_lock lock(thread_helper.thread_function_control);
-                    thread_execution_service = new std::function(
+                    thread_execution_service = std::unique_ptr<std::function<void(blt::size_t)>>(new std::function(
                             [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t id) {
                                 thread_helper.barrier.wait();
                                 if (thread_helper.evaluation_left > 0)
@@ -491,11 +547,20 @@ namespace blt::gp
                                     auto args = get_selector_args(new_children);
                                     if (id == 0)
                                     {
-                                        crossover_selection.pre_process(*this, current_pop, current_stats);
+                                        current_stats.normalized_fitness.clear();
+                                        double sum_of_prob = 0;
+                                        for (auto& ind : current_pop)
+                                        {
+                                            auto prob = (ind.fitness.adjusted_fitness / current_stats.overall_fitness);
+                                            current_stats.normalized_fitness.push_back(sum_of_prob + prob);
+                                            sum_of_prob += prob;
+                                        }
+                                        
+                                        crossover_selection.pre_process(*this, current_pop);
                                         if (&crossover_selection != &mutation_selection)
-                                            mutation_selection.pre_process(*this, current_pop, current_stats);
+                                            mutation_selection.pre_process(*this, current_pop);
                                         if (&crossover_selection != &reproduction_selection)
-                                            reproduction_selection.pre_process(*this, current_pop, current_stats);
+                                            reproduction_selection.pre_process(*this, current_pop);
                                         
                                         perform_elitism(args);
                                         
@@ -531,73 +596,11 @@ namespace blt::gp
                                     }
                                 }
                                 thread_helper.barrier.wait();
-                            });
+                            }));
                     thread_helper.thread_function_condition.notify_all();
                 }
                 if (eval_fitness_now)
                     evaluate_fitness_internal();
-            }
-            
-            void reset_program(type_id root_type, bool eval_fitness_now = true)
-            {
-                current_generation = 0;
-                current_pop = config.pop_initializer.get().generate(
-                        {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
-                if (eval_fitness_now)
-                    evaluate_fitness_internal();
-            }
-            
-            void next_generation()
-            {
-                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size, ("pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
-                current_pop = std::move(next_pop);
-                current_generation++;
-            }
-            
-            inline auto& get_current_pop()
-            {
-                return current_pop;
-            }
-            
-            template<blt::size_t size>
-            std::array<blt::size_t, size> get_best_indexes()
-            {
-                std::array<blt::size_t, size> arr;
-                
-                std::vector<std::pair<blt::size_t, double>> values;
-                values.reserve(current_pop.get_individuals().size());
-                
-                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                    values.emplace_back(ind.first, ind.second.fitness.adjusted_fitness);
-                
-                std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
-                    return a.second > b.second;
-                });
-                
-                for (blt::size_t i = 0; i < size; i++)
-                    arr[i] = values[i].first;
-                
-                return arr;
-            }
-            
-            template<blt::size_t size>
-            auto get_best_trees()
-            {
-                return convert_array<std::array<std::reference_wrapper<tree_t>, size>>(get_best_indexes<size>(),
-                                                                                       [this](auto&& arr, blt::size_t index) -> tree_t& {
-                                                                                           return current_pop.get_individuals()[arr[index]].tree;
-                                                                                       },
-                                                                                       std::make_integer_sequence<blt::size_t, size>());
-            }
-            
-            template<blt::size_t size>
-            auto get_best_individuals()
-            {
-                return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
-                                                                                             [this](auto&& arr, blt::size_t index) -> individual_t& {
-                                                                                               return current_pop.get_individuals()[arr[index]];
-                                                                                           },
-                                                                                             std::make_integer_sequence<blt::size_t, size>());
             }
             
             [[nodiscard]] bool should_terminate() const
@@ -608,13 +611,6 @@ namespace blt::gp
             [[nodiscard]] bool should_thread_terminate() const
             {
                 return thread_helper.lifetime_over;
-            }
-            
-            [[nodiscard]] random_t& get_random() const;
-            
-            [[nodiscard]] inline type_provider& get_typesystem()
-            {
-                return system;
             }
             
             inline operator_id select_terminal(type_id id)
@@ -642,47 +638,49 @@ namespace blt::gp
                 return get_random().select(storage.operators_ordered_terminals[id]).first;
             }
             
-            inline operator_info& get_operator_info(operator_id id)
+            inline auto& get_current_pop()
+            {
+                return current_pop;
+            }
+            
+            [[nodiscard]] random_t& get_random() const;
+            
+            [[nodiscard]] inline type_provider& get_typesystem()
+            {
+                return storage.system;
+            }
+            
+            [[nodiscard]] inline operator_info& get_operator_info(operator_id id)
             {
                 return storage.operators[id];
             }
             
-            inline detail::print_func_t& get_print_func(operator_id id)
+            [[nodiscard]] inline detail::print_func_t& get_print_func(operator_id id)
             {
                 return storage.print_funcs[id];
             }
             
-            inline detail::destroy_func_t& get_destroy_func(operator_id id)
+            [[nodiscard]] inline detail::destroy_func_t& get_destroy_func(operator_id id)
             {
                 return storage.destroy_funcs[id];
             }
             
-            inline std::optional<std::string_view> get_name(operator_id id)
+            [[nodiscard]] inline std::optional<std::string_view> get_name(operator_id id)
             {
                 return storage.names[id];
             }
             
-            inline std::vector<operator_id>& get_type_terminals(type_id id)
+            [[nodiscard]] inline std::vector<operator_id>& get_type_terminals(type_id id)
             {
                 return storage.terminals[id];
             }
             
-            inline std::vector<operator_id>& get_type_non_terminals(type_id id)
+            [[nodiscard]] inline std::vector<operator_id>& get_type_non_terminals(type_id id)
             {
                 return storage.non_terminals[id];
             }
             
-            inline bool is_static(operator_id id)
-            {
-                return storage.static_types.contains(static_cast<blt::size_t>(id));
-            }
-            
-            inline void set_operations(operator_storage op)
-            {
-                storage = std::move(op);
-            }
-            
-            inline detail::eval_func_t& get_eval_func()
+            [[nodiscard]] inline detail::eval_func_t& get_eval_func()
             {
                 return storage.eval_func;
             }
@@ -692,65 +690,63 @@ namespace blt::gp
                 return current_generation.load();
             }
             
-            [[nodiscard]] inline auto& get_population_stats()
+            [[nodiscard]] inline const auto& get_population_stats() const
             {
                 return current_stats;
             }
             
-            ~gp_program()
+            [[nodiscard]] inline bool is_operator_ephemeral(operator_id id)
             {
-                thread_helper.lifetime_over = true;
-                thread_helper.barrier.notify_all();
-                thread_helper.thread_function_condition.notify_all();
-                for (auto& thread : thread_helper.threads)
-                {
-                    if (thread->joinable())
-                        thread->join();
-                }
-                auto* cpy = thread_execution_service.load(std::memory_order_acquire);
-                thread_execution_service = nullptr;
-                delete cpy;
+                return storage.ephemeral_leaf_operators.contains(static_cast<blt::size_t>(id));
             }
             
-            void kill()
+            inline void set_operations(program_operator_storage_t op)
             {
-                thread_helper.lifetime_over = true;
+                storage = std::move(op);
+            }
+            
+            template<blt::size_t size>
+            std::array<blt::size_t, size> get_best_indexes()
+            {
+                std::array<blt::size_t, size> arr;
+                
+                std::vector<std::pair<blt::size_t, double>> values;
+                values.reserve(current_pop.get_individuals().size());
+                
+                for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
+                    values.emplace_back(ind.first, ind.second.fitness.adjusted_fitness);
+                
+                std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
+                    return a.second > b.second;
+                });
+                
+                for (blt::size_t i = 0; i < size; i++)
+                    arr[i] = values[i].first;
+                
+                return arr;
+            }
+            
+            template<blt::size_t size>
+            auto get_best_trees()
+            {
+                return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
+                                                                                             [this](auto&& arr, blt::size_t index) -> tree_t& {
+                                                                                                 return current_pop.get_individuals()[arr[index]].tree;
+                                                                                             },
+                                                                                             std::make_integer_sequence<blt::size_t, size>());
+            }
+            
+            template<blt::size_t size>
+            auto get_best_individuals()
+            {
+                return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
+                                                                                             [this](auto&& arr, blt::size_t index) -> individual_t& {
+                                                                                                 return current_pop.get_individuals()[arr[index]];
+                                                                                             },
+                                                                                             std::make_integer_sequence<blt::size_t, size>());
             }
         
         private:
-            type_provider& system;
-            
-            operator_storage storage;
-            population_t current_pop;
-            population_stats current_stats{};
-            population_t next_pop;
-            std::atomic_uint64_t current_generation = 0;
-            std::atomic_bool fitness_should_exit = false;
-            
-            std::function<blt::u64()> seed_func;
-            prog_config_t config{};
-            
-            struct concurrency_storage
-            {
-                std::vector<std::unique_ptr<std::thread>> threads;
-                
-                std::mutex thread_function_control;
-                std::mutex thread_generation_lock;
-                std::condition_variable thread_function_condition{};
-                
-                std::atomic_uint64_t evaluation_left = 0;
-                std::atomic_uint64_t next_gen_left = 0;
-                
-                std::atomic_bool lifetime_over = false;
-                blt::barrier barrier;
-                
-                explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
-                {}
-            } thread_helper{config.threads == 0 ? std::thread::hardware_concurrency() : config.threads};
-            
-            // for convenience, shouldn't decrease performance too much
-            std::atomic<std::function<void(blt::size_t)>*> thread_execution_service = nullptr;
-            
             inline selector_args get_selector_args(tracked_vector<tree_t>& next_pop_trees)
             {
                 return {*this, next_pop_trees, current_pop, current_stats, config, get_random()};
@@ -767,12 +763,48 @@ namespace blt::gp
             
             void evaluate_fitness_internal()
             {
+                statistic_history.push_back(current_stats);
                 current_stats.clear();
                 thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
                 (*thread_execution_service)(0);
                 
                 current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);
             }
+        
+        private:
+            program_operator_storage_t storage;
+            std::function<blt::u64()> seed_func;
+            prog_config_t config{};
+            
+            population_t current_pop;
+            population_t next_pop;
+            
+            std::atomic_uint64_t current_generation = 0;
+            
+            std::atomic_bool fitness_should_exit = false;
+            
+            population_stats current_stats{};
+            std::vector<population_stats> statistic_history;
+            
+            struct concurrency_storage
+            {
+                std::vector<std::unique_ptr<std::thread>> threads;
+                
+                std::mutex thread_function_control{};
+                std::mutex thread_generation_lock{};
+                std::condition_variable thread_function_condition{};
+                
+                std::atomic_uint64_t evaluation_left = 0;
+                std::atomic_uint64_t next_gen_left = 0;
+                
+                std::atomic_bool lifetime_over = false;
+                blt::barrier barrier;
+                
+                explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
+                {}
+            } thread_helper{config.threads == 0 ? std::thread::hardware_concurrency() : config.threads};
+            
+            std::unique_ptr<std::function<void(blt::size_t)>> thread_execution_service = nullptr;
     };
     
 }

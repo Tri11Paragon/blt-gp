@@ -468,7 +468,7 @@ namespace blt::gp
                         }
                         // now finally update the type.
                         ops[c_node] = {program.get_typesystem().get_type(replacement_func_info.return_type).size(), random_replacement,
-                                       program.is_static(random_replacement)};
+                                       program.is_operator_ephemeral(random_replacement)};
                     }
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(program, nullptr))
@@ -556,7 +556,7 @@ namespace blt::gp
                     
                     ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(c_node),
                                {program.get_typesystem().get_type(replacement_func_info.return_type).size(),
-                                random_replacement, program.is_static(random_replacement)});
+                                random_replacement, program.is_operator_ephemeral(random_replacement)});
 
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(program, nullptr))

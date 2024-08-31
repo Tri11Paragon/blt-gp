@@ -62,8 +62,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_pop_size(5000)
         .set_thread_count(0);
 
-blt::gp::type_provider type_system;
-blt::gp::gp_program program{type_system, SEED_FUNC, config};
+blt::gp::gp_program program{SEED_FUNC, config};
 
 auto lit = blt::gp::operation_t([]() {
     return program.get_random().get_float(-32000.0f, 32000.0f);
@@ -197,6 +196,11 @@ struct test_results_t
     {
         return a.hits < b.hits;
     }
+    
+    friend bool operator>(const test_results_t& a, const test_results_t& b)
+    {
+        return a.hits > b.hits;
+    }
 };
 
 test_results_t test_individual(blt::gp::individual_t& i)
@@ -251,37 +255,23 @@ int main(int argc, const char** argv)
     load_rice_data(rice_file_path);
     
     BLT_DEBUG("Setup Types and Operators");
-    type_system.register_type<float>();
     
-    blt::gp::operator_builder<rice_record> builder{type_system};
+    blt::gp::operator_builder<rice_record> builder{};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_exp, op_log, lit, op_area, op_perimeter, op_major_axis_length,
                                          op_minor_axis_length, op_eccentricity, op_convex_area, op_extent));
     
     BLT_DEBUG("Generate Initial Population");
     auto sel = blt::gp::select_tournament_t{};
-    program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
+    program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
     while (!program.should_terminate())
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        auto gen_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_START_INTERVAL("Rice Classification", "Gen");
         program.create_next_generation();
         BLT_END_INTERVAL("Rice Classification", "Gen");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(gen_alloc);
-        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-        auto fitness_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Rice Classification", "Fitness");
         program.next_generation();
@@ -294,13 +284,6 @@ int main(int argc, const char** argv)
         BLT_TRACE("Best fitness: %lf", stats.best_fitness.load());
         BLT_TRACE("Worst fitness: %lf", stats.worst_fitness.load());
         BLT_TRACE("Overall fitness: %lf", stats.overall_fitness.load());
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(fitness_alloc);
-        BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-#endif
-        
         BLT_TRACE("----------------------------------------------");
         std::cout << std::endl;
     }
@@ -311,7 +294,7 @@ int main(int argc, const char** argv)
     for (auto& i : program.get_current_pop().get_individuals())
         results.emplace_back(test_individual(i), &i);
     std::sort(results.begin(), results.end(), [](const auto& a, const auto& b) {
-        return !(a.first < b.first);
+        return a.first > b.first;
     });
     
     BLT_INFO("Best results:");
@@ -343,7 +326,6 @@ int main(int argc, const char** argv)
         BLT_DEBUG("Osmancik Osmancik: %ld", record.oo);
         BLT_DEBUG("Osmancik Cammeo: %ld", record.oc);
         BLT_DEBUG("Fitness: %lf, stand: %lf, raw: %lf", i.fitness.adjusted_fitness, i.fitness.standardized_fitness, i.fitness.raw_fitness);
-        i.tree.print(program, std::cout);
         
         std::cout << "\n";
     }
@@ -359,15 +341,6 @@ int main(int argc, const char** argv)
     BLT_DEBUG("Osmancik Osmancik: %ld", avg.oo);
     BLT_DEBUG("Osmancik Cammeo: %ld", avg.oc);
     std::cout << "\n";
-    
-    
-    auto& stats = program.get_population_stats();
-    BLT_INFO("Stats:");
-    BLT_INFO("Average fitness: %lf", stats.average_fitness.load());
-    BLT_INFO("Best fitness: %lf", stats.best_fitness.load());
-    BLT_INFO("Worst fitness: %lf", stats.worst_fitness.load());
-    BLT_INFO("Overall fitness: %lf", stats.overall_fitness.load());
-    // TODO: make stats helper
     
     BLT_PRINT_PROFILE("Rice Classification", blt::PRINT_CYCLES | blt::PRINT_THREAD | blt::PRINT_WALL);
 

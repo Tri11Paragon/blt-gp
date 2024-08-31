@@ -44,8 +44,7 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_pop_size(500)
         .set_thread_count(0);
 
-blt::gp::type_provider type_system;
-blt::gp::gp_program program{type_system, SEED, config};
+blt::gp::gp_program program{SEED, config};
 
 auto lit = blt::gp::operation_t([]() {
     return program.get_random().get_float(-320.0f, 320.0f);
@@ -93,14 +92,12 @@ int main()
     }
     
     BLT_DEBUG("Setup Types and Operators");
-    type_system.register_type<float>();
-    
-    blt::gp::operator_builder<context> builder{type_system};
+    blt::gp::operator_builder<context> builder{};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x));
     
     BLT_DEBUG("Generate Initial Population");
     auto sel = blt::gp::select_tournament_t{};
-    program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
+    program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
     while (!program.should_terminate())

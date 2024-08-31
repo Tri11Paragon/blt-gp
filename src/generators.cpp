@@ -64,10 +64,10 @@ namespace blt::gp
             tree.get_operations().emplace_back(
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,
-                    args.program.is_static(top.id));
+                    args.program.is_operator_ephemeral(top.id));
             max_depth = std::max(max_depth, top.depth);
             
-            if (args.program.is_static(top.id))
+            if (args.program.is_operator_ephemeral(top.id))
             {
                 info.func(nullptr, tree.get_values(), tree.get_values());
                 continue;

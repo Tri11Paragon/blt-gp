@@ -88,8 +88,8 @@ namespace blt::gp
                 {
 //                    auto state = tracker.start_measurement();
                     // crossover
-                    auto& p1 = crossover_selection.select(program, current_pop, current_stats);
-                    auto& p2 = crossover_selection.select(program, current_pop, current_stats);
+                    auto& p1 = crossover_selection.select(program, current_pop);
+                    auto& p2 = crossover_selection.select(program, current_pop);
                     
                     auto results = config.crossover.get().apply(program, p1, p2);
                     
@@ -110,7 +110,7 @@ namespace blt::gp
                 {
 //                    auto state = tracker.start_measurement();
                     // mutation
-                    auto& p = mutation_selection.select(program, current_pop, current_stats);
+                    auto& p = mutation_selection.select(program, current_pop);
                     next_pop.push_back(std::move(config.mutator.get().apply(program, p)));
 //                    tracker.stop_measurement(state);
 //                    BLT_TRACE("Mutation Allocated %ld times with a total of %s", state.getAllocationDifference(),
@@ -122,7 +122,7 @@ namespace blt::gp
                 {
 //                    auto state = tracker.start_measurement();
                     // reproduction
-                    auto& p = reproduction_selection.select(program, current_pop, current_stats);
+                    auto& p = reproduction_selection.select(program, current_pop);
                     next_pop.push_back(p);
 //                    tracker.stop_measurement(state);
 //                    BLT_TRACE("Reproduction Allocated %ld times with a total of %s", state.getAllocationDifference(),
@@ -147,9 +147,9 @@ namespace blt::gp
              * @param stats the populations statistics
              * @return
              */
-            virtual tree_t& select(gp_program& program, population_t& pop, population_stats& stats) = 0;
+            virtual tree_t& select(gp_program& program, population_t& pop) = 0;
             
-            virtual void pre_process(gp_program&, population_t&, population_stats&)
+            virtual void pre_process(gp_program&, population_t&)
             {}
             
             virtual ~selection_t() = default;
@@ -158,19 +158,19 @@ namespace blt::gp
     class select_best_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            tree_t& select(gp_program& program, population_t& pop) final;
     };
     
     class select_worst_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            tree_t& select(gp_program& program, population_t& pop) final;
     };
     
     class select_random_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            tree_t& select(gp_program& program, population_t& pop) final;
     };
     
     class select_tournament_t : public selection_t
@@ -182,7 +182,7 @@ namespace blt::gp
                     BLT_ABORT("Unable to select with this size. Must select at least 1 individual_t!");
             }
             
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            tree_t& select(gp_program& program, population_t& pop) final;
         
         private:
             const blt::size_t selection_size;
@@ -191,9 +191,7 @@ namespace blt::gp
     class select_fitness_proportionate_t : public selection_t
     {
         public:
-            void pre_process(gp_program& program, population_t& pop, population_stats& stats) final;
-            
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            tree_t& select(gp_program& program, population_t& pop) final;
     };
     
 }
