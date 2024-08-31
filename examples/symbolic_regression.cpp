@@ -36,18 +36,18 @@ std::array<context, 200> training_cases;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(2)
+        .set_elite_count(200)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(5000)
+        .set_pop_size(20000)
         .set_thread_count(0);
 
 blt::gp::gp_program program{SEED, config};
 
 auto lit = blt::gp::operation_t([]() {
-    return program.get_random().get_float(-320.0f, 320.0f);
+    return program.get_random().get_float(-1.0f, 1.0f);
 }, "lit").set_ephemeral();
 
 blt::gp::operation_t op_x([](const context& context) {
