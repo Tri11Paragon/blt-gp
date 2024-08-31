@@ -170,11 +170,11 @@ namespace blt::gp
             double per_node_mutation_chance = 5.0;
             
             static constexpr std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array<operators_size>(
-                    0.1,       // EXPRESSION
-                    0.25,        // ADJUST
+                    0.25,       // EXPRESSION
+                    0.15,       // ADJUST
                     0.01,       // SUB_FUNC
-                    0.25,       // JUMP_FUNC
-                    0.12        // COPY
+                    0.01,       // JUMP_FUNC
+                    0.05        // COPY
                                                                                                                                    );
 };
     
