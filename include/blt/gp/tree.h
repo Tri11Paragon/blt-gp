@@ -156,7 +156,7 @@ namespace blt::gp
             
             bool check(gp_program& program, void* context) const;
             
-            void find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
+            void find_child_extends(gp_program& program, tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
             
             blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             
@@ -251,7 +251,7 @@ namespace blt::gp
         std::atomic<double> average_fitness = 0;
         std::atomic<double> best_fitness = 0;
         std::atomic<double> worst_fitness = 1;
-        std::vector<double> normalized_fitness{};
+        tracked_vector<double> normalized_fitness{};
         
         void clear()
         {

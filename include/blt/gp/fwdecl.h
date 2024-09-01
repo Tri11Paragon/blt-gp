@@ -137,7 +137,7 @@ namespace blt::gp
             template<class U, class... Args>
             void construct(U* p, Args&& ... args)
             {
-                new(p) T(args...);
+                new(p) T(std::forward<Args>(args)...);
             }
             
             template<class U>

@@ -85,8 +85,8 @@ namespace blt::gp
         stack_allocator& c2_stack = c2.get_values();
         
         // we have to make a copy because we will modify the underlying storage.
-        static thread_local std::vector<op_container_t> c1_operators;
-        static thread_local std::vector<op_container_t> c2_operators;
+        static thread_local tracked_vector<op_container_t> c1_operators;
+        static thread_local tracked_vector<op_container_t> c2_operators;
         
         c1_operators.clear();
         c2_operators.clear();
@@ -359,7 +359,7 @@ namespace blt::gp
                         auto& replacement_func_info = program.get_operator_info(random_replacement);
                         
                         // cache memory used for offset data.
-                        thread_local static std::vector<tree_t::child_t> children_data;
+                        thread_local static tracked_vector<tree_t::child_t> children_data;
                         children_data.clear();
                         
                         c.find_child_extends(program, children_data, c_node, current_func_info.argument_types.size());
@@ -586,7 +586,7 @@ namespace blt::gp
                     if (argument_index == -1ul)
                         continue;
                     
-                    static thread_local std::vector<tree_t::child_t> child_data;
+                    static thread_local tracked_vector<tree_t::child_t> child_data;
                     child_data.clear();
                     
                     c.find_child_extends(program, child_data, c_node, info.argument_types.size());
@@ -670,7 +670,7 @@ namespace blt::gp
                         to = pt;
                     }
                     
-                    static thread_local std::vector<tree_t::child_t> child_data;
+                    static thread_local tracked_vector<tree_t::child_t> child_data;
                     child_data.clear();
                     
                     c.find_child_extends(program, child_data, c_node, info.argument_types.size());
@@ -700,7 +700,7 @@ namespace blt::gp
                     vals.copy_from(from_ptr, from_bytes);
                     vals.copy_from(after_ptr, after_to_bytes);
                     
-                    static thread_local std::vector<op_container_t> op_copy;
+                    static thread_local tracked_vector<op_container_t> op_copy;
                     op_copy.clear();
                     op_copy.insert(op_copy.begin(), ops.begin() + from_child.start, ops.begin() + from_child.end);
                     

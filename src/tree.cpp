@@ -145,8 +145,8 @@ namespace blt::gp
         blt::size_t depth = 0;
         
         auto operations_stack = operations;
-        std::vector<blt::size_t> values_process;
-        std::vector<blt::size_t> value_stack;
+        tracked_vector<blt::size_t> values_process;
+        tracked_vector<blt::size_t> value_stack;
         
         for (const auto& op : operations_stack)
         {
@@ -275,7 +275,7 @@ namespace blt::gp
         return true;
     }
     
-    void tree_t::find_child_extends(gp_program& program, std::vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const
+    void tree_t::find_child_extends(gp_program& program, tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const
     {
         while (vec.size() < argc)
         {
