@@ -59,23 +59,21 @@ namespace blt::gp
     mutation_t::config_t::config_t(): generator(grow_generator)
     {}
     
-    blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
+    bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
-        result_t result{p1, p2};
-        
-        auto& c1 = result.child1;
-        auto& c2 = result.child2;
+        c1.copy_fast(p1);
+        c2.copy_fast(p2);
         
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
         
         if (c1_ops.size() < 5 || c2_ops.size() < 5)
-            return blt::unexpected(error_t::TREE_TOO_SMALL);
+            return false;
         
-        auto point = get_crossover_point(program, c1, c2);
+        auto point = get_crossover_point(program, p1, p2);
         
         if (!point)
-            return blt::unexpected(point.error());
+            return false;
         
         auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
         auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
@@ -104,8 +102,8 @@ namespace blt::gp
         blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
         auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
         auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
-        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1>(c1_total);
-        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2>(c2_total);
+        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
+        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
         
         c1_stack.copy_to(copy_ptr_c1, c1_total);
         c1_stack.pop_bytes(c1_total);
@@ -131,8 +129,8 @@ namespace blt::gp
         c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
 
 #if BLT_DEBUG_LEVEL >= 2
-        blt::size_t c1_found_bytes = result.child1.get_values().size().total_used_bytes;
-        blt::size_t c2_found_bytes = result.child2.get_values().size().total_used_bytes;
+        blt::size_t c1_found_bytes = c1.get_values().size().total_used_bytes;
+        blt::size_t c2_found_bytes = c2.get_values().size().total_used_bytes;
         blt::size_t c1_expected_bytes = std::accumulate(result.child1.get_operations().begin(), result.child1.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
                                                             if (v2.is_value)
@@ -153,10 +151,10 @@ namespace blt::gp
         }
 #endif
         
-        return result;
+        return true;
     }
     
-    blt::expected<crossover_t::crossover_point_t, crossover_t::error_t> crossover_t::get_crossover_point(gp_program& program, const tree_t& c1,
+    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(gp_program& program, const tree_t& c1,
                                                                                                          const tree_t& c2) const
     {
         auto& c1_ops = c1.get_operations();
@@ -194,10 +192,10 @@ namespace blt::gp
                         }
                     }
                     if (!found)
-                        return blt::unexpected(error_t::NO_VALID_TYPE);
+                        return {};
                 }
                 // should we try again over the whole tree? probably not.
-                return blt::unexpected(error_t::NO_VALID_TYPE);
+                return {};
             } else
             {
                 attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
@@ -213,13 +211,13 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    tree_t mutation_t::apply(gp_program& program, const tree_t& p)
+    bool mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
     {
-        auto c = p;
+        c.copy_fast(p);
         
         mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));
         
-        return c;
+        return true;
     }
     
     blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
@@ -304,10 +302,10 @@ namespace blt::gp
         return begin_point + new_ops_r.size();
     }
     
-    tree_t advanced_mutation_t::apply(gp_program& program, const tree_t& p)
+    bool advanced_mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
     {
         // child tree
-        tree_t c = p;
+        c.copy_fast(p);
         
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
@@ -732,6 +730,6 @@ namespace blt::gp
         }
 #endif
         
-        return c;
+        return true;
     }
 }

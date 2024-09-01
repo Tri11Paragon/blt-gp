@@ -21,11 +21,11 @@
 namespace blt::gp
 {
     
-    tree_t& select_best_t::select(gp_program&, population_t& pop)
+    const tree_t& select_best_t::select(gp_program&, const population_t& pop)
     {
         auto& first = pop.get_individuals()[0];
         double best_fitness = first.fitness.adjusted_fitness;
-        tree_t* tree = &first.tree;
+        const tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
             if (ind.fitness.adjusted_fitness > best_fitness)
@@ -37,11 +37,11 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_worst_t::select(gp_program&, population_t& pop)
+    const tree_t& select_worst_t::select(gp_program&, const population_t& pop)
     {
         auto& first = pop.get_individuals()[0];
         double worst_fitness = first.fitness.adjusted_fitness;
-        tree_t* tree = &first.tree;
+        const tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
             if (ind.fitness.adjusted_fitness < worst_fitness)
@@ -53,12 +53,12 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_random_t::select(gp_program& program, population_t& pop)
+    const tree_t& select_random_t::select(gp_program& program, const population_t& pop)
     {
         return pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())].tree;
     }
     
-    tree_t& select_tournament_t::select(gp_program& program, population_t& pop)
+    const tree_t& select_tournament_t::select(gp_program& program, const population_t& pop)
     {
         blt::u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
         auto& i_ref = pop.get_individuals();
@@ -71,7 +71,7 @@ namespace blt::gp
         return i_ref[best].tree;
     }
     
-    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop)
+    const tree_t& select_fitness_proportionate_t::select(gp_program& program, const population_t& pop)
     {
         auto& stats = program.get_population_stats();
         auto choice = program.get_random().get_double();

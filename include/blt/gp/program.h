@@ -362,8 +362,11 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                 auto gen_alloc = blt::gp::tracker.start_measurement();
 #endif
+                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
+                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
+                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
+                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 // should already be empty
-                next_pop.clear();
                 thread_helper.next_gen_left.store(config.population_size, std::memory_order_release);
                 (*thread_execution_service)(0);
 #ifdef BLT_TRACK_ALLOCATIONS
@@ -375,8 +378,10 @@ namespace blt::gp
             
             void next_generation()
             {
+                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
+                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
                 BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
-                               ("pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
+                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 std::swap(current_pop, next_pop);
                 current_generation++;
             }
@@ -400,6 +405,7 @@ namespace blt::gp
                 current_generation = 0;
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
+                next_pop = population_t(current_pop);
                 if (eval_fitness_now)
                     evaluate_fitness_internal();
             }
@@ -465,21 +471,24 @@ namespace blt::gp
                                 }
                                 if (thread_helper.next_gen_left > 0)
                                 {
-                                    static thread_local tracked_vector<tree_t> new_children;
-                                    new_children.clear();
-                                    auto args = get_selector_args(new_children);
+                                    auto args = get_selector_args();
                                     
                                     crossover_selection.pre_process(*this, current_pop);
                                     mutation_selection.pre_process(*this, current_pop);
                                     reproduction_selection.pre_process(*this, current_pop);
                                     
-                                    perform_elitism(args);
+                                    perform_elitism(args, next_pop);
                                     
-                                    while (new_children.size() < config.population_size)
-                                        func(args, crossover_selection, mutation_selection, reproduction_selection);
+                                    blt::size_t start = config.elites;
                                     
-                                    for (auto& i : new_children)
-                                        next_pop.get_individuals().emplace_back(std::move(i));
+                                    while (start < config.population_size)
+                                    {
+                                        tree_t& c1 = next_pop.get_individuals()[start].tree;
+                                        tree_t* c2 = nullptr;
+                                        if (start + 1 < config.population_size)
+                                            c2 = &next_pop.get_individuals()[start + 1].tree;
+                                        start += func(args, crossover_selection, mutation_selection, reproduction_selection, c1, c2);
+                                    }
                                     
                                     thread_helper.next_gen_left = 0;
                                 }
@@ -542,9 +551,7 @@ namespace blt::gp
                                 }
                                 if (thread_helper.next_gen_left > 0)
                                 {
-                                    static thread_local tracked_vector<tree_t> new_children;
-                                    new_children.clear();
-                                    auto args = get_selector_args(new_children);
+                                    auto args = get_selector_args();
                                     if (id == 0)
                                     {
                                         current_stats.normalized_fitness.clear();
@@ -562,37 +569,35 @@ namespace blt::gp
                                         if (&crossover_selection != &reproduction_selection)
                                             reproduction_selection.pre_process(*this, current_pop);
                                         
-                                        perform_elitism(args);
+                                        perform_elitism(args, next_pop);
                                         
-                                        for (auto& i : new_children)
-                                            next_pop.get_individuals().emplace_back(std::move(i));
-                                        thread_helper.next_gen_left -= new_children.size();
-                                        new_children.clear();
+                                        thread_helper.next_gen_left -= config.elites;
                                     }
                                     thread_helper.barrier.wait();
                                     
                                     while (thread_helper.next_gen_left > 0)
                                     {
                                         blt::size_t size = 0;
+                                        blt::size_t begin = 0;
                                         blt::size_t end = thread_helper.next_gen_left.load(std::memory_order_relaxed);
                                         do
                                         {
                                             size = std::min(end, config.evaluation_size);
+                                            begin = end - size;
                                         } while (!thread_helper.next_gen_left.compare_exchange_weak(end, end - size,
                                                                                                     std::memory_order::memory_order_relaxed,
                                                                                                     std::memory_order::memory_order_relaxed));
                                         
-                                        while (new_children.size() < size)
-                                            func(args, crossover_selection, mutation_selection, reproduction_selection);
-                                        
+                                        while (begin != end)
                                         {
-                                            std::scoped_lock lock(thread_helper.thread_generation_lock);
-                                            for (auto& i : new_children)
-                                            {
-                                                if (next_pop.get_individuals().size() < config.population_size)
-                                                    next_pop.get_individuals().emplace_back(i);
-                                            }
+                                            auto index = config.elites + begin;
+                                            tree_t& c1 = next_pop.get_individuals()[index].tree;
+                                            tree_t* c2 = nullptr;
+                                            if (index + 1 < end)
+                                                c2 = &next_pop.get_individuals()[index + 1].tree;
+                                            begin += func(args, crossover_selection, mutation_selection, reproduction_selection, c1, c2);
                                         }
+                                        
                                     }
                                 }
                                 thread_helper.barrier.wait();
@@ -747,9 +752,9 @@ namespace blt::gp
             }
         
         private:
-            inline selector_args get_selector_args(tracked_vector<tree_t>& next_pop_trees)
+            inline selector_args get_selector_args()
             {
-                return {*this, next_pop_trees, current_pop, current_stats, config, get_random()};
+                return {*this, current_pop, current_stats, config, get_random()};
             }
             
             template<typename Return, blt::size_t size, typename Accessor, blt::size_t... indexes>
@@ -765,7 +770,7 @@ namespace blt::gp
             {
                 statistic_history.push_back(current_stats);
                 current_stats.clear();
-                thread_helper.evaluation_left.store(current_pop.get_individuals().size(), std::memory_order_release);
+                thread_helper.evaluation_left.store(config.population_size, std::memory_order_release);
                 (*thread_execution_service)(0);
                 
                 current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);
@@ -791,7 +796,6 @@ namespace blt::gp
                 std::vector<std::unique_ptr<std::thread>> threads;
                 
                 std::mutex thread_function_control{};
-                std::mutex thread_generation_lock{};
                 std::condition_variable thread_function_condition{};
                 
                 std::atomic_uint64_t evaluation_left = 0;

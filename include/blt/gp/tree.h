@@ -56,6 +56,37 @@ namespace blt::gp
         public:
             explicit tree_t(gp_program& program);
             
+            tree_t(const tree_t& copy) = default;
+            
+            tree_t& operator=(const tree_t& copy)
+            {
+                if (this == &copy)
+                    return *this;
+                copy_fast(copy);
+                return *this;
+            }
+            
+            /**
+             * This function copies the data from the provided tree, will attempt to reserve and copy in one step.
+             * will avoid reallocation if enough space is already present.
+             */
+            void copy_fast(const tree_t& copy)
+            {
+                if (this == &copy)
+                    return;
+                values.reserve(copy.values.internal_storage_size());
+                values.reset();
+                values.insert(copy.values);
+                
+                operations.clear();
+                operations.reserve(copy.operations.size());
+                operations.insert(operations.begin(), copy.operations.begin(), copy.operations.end());
+            }
+            
+            tree_t(tree_t&& move) = default;
+            
+            tree_t& operator=(tree_t&& move) = default;
+            
             void clear(gp_program& program);
             
             struct child_t
@@ -178,6 +209,14 @@ namespace blt::gp
         tree_t tree;
         fitness_t fitness;
         
+        void copy_fast(const tree_t& copy)
+        {
+            // fast copy of the tree
+            tree.copy_fast(copy);
+            // reset fitness
+            fitness = {};
+        }
+        
         individual_t() = delete;
         
         explicit individual_t(tree_t&& tree): tree(std::move(tree))
@@ -280,6 +319,11 @@ namespace blt::gp
             };
             
             tracked_vector<individual_t>& get_individuals()
+            {
+                return individuals;
+            }
+            
+            [[nodiscard]] const tracked_vector<individual_t>& get_individuals() const
             {
                 return individuals;
             }
