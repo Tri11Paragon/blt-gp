@@ -70,7 +70,7 @@ namespace blt::gp
     struct operator_info
     {
         // types of the arguments
-        std::vector<type_id> argument_types;
+        tracked_vector<type_id> argument_types;
         // return type of this operator
         type_id return_type;
         // number of arguments for this operator
@@ -82,15 +82,15 @@ namespace blt::gp
     struct program_operator_storage_t
     {
         // indexed from return TYPE ID, returns index of operator
-        blt::expanding_buffer<std::vector<operator_id>> terminals;
-        blt::expanding_buffer<std::vector<operator_id>> non_terminals;
-        blt::expanding_buffer<std::vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
+        blt::expanding_buffer<tracked_vector<operator_id>> terminals;
+        blt::expanding_buffer<tracked_vector<operator_id>> non_terminals;
+        blt::expanding_buffer<tracked_vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
         blt::hashset_t<operator_id> ephemeral_leaf_operators;
-        std::vector<operator_info> operators;
-        std::vector<detail::print_func_t> print_funcs;
-        std::vector<detail::destroy_func_t> destroy_funcs;
-        std::vector<std::optional<std::string_view>> names;
+        tracked_vector<operator_info> operators;
+        tracked_vector<detail::print_func_t> print_funcs;
+        tracked_vector<detail::destroy_func_t> destroy_funcs;
+        tracked_vector<std::optional<std::string_view>> names;
         
         detail::eval_func_t eval_func;
         
@@ -110,7 +110,7 @@ namespace blt::gp
             template<typename... Operators>
             program_operator_storage_t& build(Operators& ... operators)
             {
-                std::vector<blt::size_t> sizes;
+                tracked_vector<blt::size_t> sizes;
                 (sizes.push_back(add_operator(operators)), ...);
                 blt::size_t largest = 0;
                 for (auto v : sizes)
@@ -153,7 +153,7 @@ namespace blt::gp
                     if (op_r.second.empty())
                         continue;
                     auto return_type = op_r.first;
-                    std::vector<std::pair<operator_id, blt::size_t>> ordered_terminals;
+                    tracked_vector<std::pair<operator_id, blt::size_t>> ordered_terminals;
                     for (const auto& op : op_r.second)
                     {
                         // count number of terminals
@@ -675,12 +675,12 @@ namespace blt::gp
                 return storage.names[id];
             }
             
-            [[nodiscard]] inline std::vector<operator_id>& get_type_terminals(type_id id)
+            [[nodiscard]] inline tracked_vector<operator_id>& get_type_terminals(type_id id)
             {
                 return storage.terminals[id];
             }
             
-            [[nodiscard]] inline std::vector<operator_id>& get_type_non_terminals(type_id id)
+            [[nodiscard]] inline tracked_vector<operator_id>& get_type_non_terminals(type_id id)
             {
                 return storage.non_terminals[id];
             }
@@ -715,7 +715,7 @@ namespace blt::gp
             {
                 std::array<blt::size_t, size> arr;
                 
-                std::vector<std::pair<blt::size_t, double>> values;
+                tracked_vector<std::pair<blt::size_t, double>> values;
                 values.reserve(current_pop.get_individuals().size());
                 
                 for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
@@ -789,11 +789,11 @@ namespace blt::gp
             std::atomic_bool fitness_should_exit = false;
             
             population_stats current_stats{};
-            std::vector<population_stats> statistic_history;
+            tracked_vector<population_stats> statistic_history;
             
             struct concurrency_storage
             {
-                std::vector<std::unique_ptr<std::thread>> threads;
+                tracked_vector<std::unique_ptr<std::thread>> threads;
                 
                 std::mutex thread_function_control{};
                 std::condition_variable thread_function_condition{};
