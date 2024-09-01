@@ -7,7 +7,5 @@ out/
 massif.*
 callgrind.*
 *.out.*
-<<<<<<< HEAD
 heaptrack.*
-=======
->>>>>>> refs/remotes/origin/main
+Rice_Cammeo_Osmancik.arff

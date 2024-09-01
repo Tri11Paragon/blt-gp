@@ -20,12 +20,14 @@
 #define BLT_GP_STACK_H
 
 #include <blt/std/types.h>
+#include <blt/std/bump_allocator.h>
 #include <blt/std/assert.h>
 #include <blt/std/logging.h>
 #include <blt/std/allocator.h>
 #include <blt/std/ranges.h>
 #include <blt/std/meta.h>
 #include <blt/gp/fwdecl.h>
+#include <blt/gp/stats.h>
 #include <utility>
 #include <stdexcept>
 #include <cstdlib>
@@ -36,29 +38,14 @@
 
 namespace blt::gp
 {
-    
     namespace detail
     {
         BLT_META_MAKE_FUNCTION_CHECK(drop);
     }
     
-    class aligned_allocator
-    {
-        public:
-            void* allocate(blt::size_t bytes) // NOLINT
-            {
-                return std::aligned_alloc(8, bytes);
-            }
-            
-            void deallocate(void* ptr, blt::size_t) // NOLINT
-            {
-                std::free(ptr);
-            }
-    };
-    
     class stack_allocator
     {
-            constexpr static blt::size_t PAGE_SIZE = 0x1000;
+            constexpr static blt::size_t PAGE_SIZE = 0x100;
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
             template<typename T>
             using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -106,7 +93,7 @@ namespace blt::gp
             }
             
             stack_allocator(stack_allocator&& move) noexcept:
-                    data_(std::exchange(move.data_, nullptr)), bytes_stored(move.bytes_stored), size_(move.size_)
+                    data_(std::exchange(move.data_, nullptr)), bytes_stored(std::exchange(move.bytes_stored, 0)), size_(std::exchange(move.size_, 0))
             {}
             
             stack_allocator& operator=(const stack_allocator& copy) = delete;
@@ -121,7 +108,6 @@ namespace blt::gp
             
             ~stack_allocator()
             {
-                //std::free(data_);
                 get_allocator().deallocate(data_, size_);
             }
             
@@ -265,13 +251,33 @@ namespace blt::gp
             void reserve(blt::size_t bytes)
             {
                 if (bytes > size_)
-                    expand(bytes);
+                    expand_raw(bytes);
+            }
+            
+            [[nodiscard]] blt::size_t stored() const
+            {
+                return bytes_stored;
+            }
+            
+            [[nodiscard]] blt::size_t internal_storage_size() const
+            {
+                return size_;
+            }
+            
+            void reset()
+            {
+                bytes_stored = 0;
             }
         
         private:
             void expand(blt::size_t bytes)
             {
-                bytes = to_nearest_page_size(bytes);
+                //bytes = to_nearest_page_size(bytes);
+                expand_raw(bytes);
+            }
+            
+            void expand_raw(blt::size_t bytes)
+            {
                 auto new_data = static_cast<blt::u8*>(get_allocator().allocate(bytes));
                 if (bytes_stored > 0)
                     std::memcpy(new_data, data_, bytes_stored);

@@ -29,8 +29,6 @@ namespace blt::gp
 {
     namespace detail
     {
-        using op_iter = std::vector<blt::gp::op_container_t>::iterator;
-        
         template<typename T>
         inline static constexpr double sum(const T& array)
         {
@@ -59,16 +57,6 @@ namespace blt::gp
     class crossover_t
     {
         public:
-            enum class error_t
-            {
-                NO_VALID_TYPE,
-                TREE_TOO_SMALL
-            };
-            struct result_t
-            {
-                tree_t child1;
-                tree_t child2;
-            };
             struct crossover_point_t
             {
                 blt::ptrdiff_t p1_crossover_point;
@@ -89,7 +77,7 @@ namespace blt::gp
             explicit crossover_t(const config_t& config): config(config)
             {}
             
-            blt::expected<crossover_t::crossover_point_t, error_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -99,7 +87,7 @@ namespace blt::gp
              * @param p2 reference to the second parent
              * @return expected pair of child otherwise returns error enum
              */
-            virtual blt::expected<result_t, error_t> apply(gp_program& program, const tree_t& p1, const tree_t& p2); // NOLINT
+            virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2); // NOLINT
             
             virtual ~crossover_t() = default;
         
@@ -128,7 +116,7 @@ namespace blt::gp
             explicit mutation_t(const config_t& config): config(config)
             {}
             
-            virtual tree_t apply(gp_program& program, const tree_t& p);
+            virtual bool apply(gp_program& program, const tree_t& p, tree_t& c);
             
             // returns the point after the mutation
             blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node);
@@ -157,7 +145,7 @@ namespace blt::gp
             explicit advanced_mutation_t(const config_t& config): mutation_t(config)
             {}
             
-            tree_t apply(gp_program& program, const tree_t& p) final;
+            bool apply(gp_program& program, const tree_t& p, tree_t& c) final;
             
             advanced_mutation_t& set_per_node_mutation_chance(double v)
             {
@@ -172,11 +160,11 @@ namespace blt::gp
             double per_node_mutation_chance = 5.0;
             
             static constexpr std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array<operators_size>(
-                    0.1,       // EXPRESSION
-                    0.25,        // ADJUST
+                    0.25,       // EXPRESSION
+                    0.15,       // ADJUST
                     0.01,       // SUB_FUNC
-                    0.25,       // JUMP_FUNC
-                    0.12        // COPY
+                    0.01,       // JUMP_FUNC
+                    0.05        // COPY
                                                                                                                                    );
 };
     

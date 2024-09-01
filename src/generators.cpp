@@ -49,11 +49,10 @@ namespace blt::gp
     }
     
     template<typename Func>
-    inline tree_t create_tree(Func&& perChild, const generator_arguments& args)
+    inline void create_tree(tree_t& tree, Func&& perChild, const generator_arguments& args)
     {
         std::stack<stack> tree_generator = get_initial_stack(args.program, args.root_type);
         blt::size_t max_depth = 0;
-        tree_t tree{args.program};
         
         while (!tree_generator.empty())
         {
@@ -65,10 +64,10 @@ namespace blt::gp
             tree.get_operations().emplace_back(
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,
-                    args.program.is_static(top.id));
+                    args.program.is_operator_ephemeral(top.id));
             max_depth = std::max(max_depth, top.depth);
             
-            if (args.program.is_static(top.id))
+            if (args.program.is_operator_ephemeral(top.id))
             {
                 info.func(nullptr, tree.get_values(), tree.get_values());
                 continue;
@@ -77,13 +76,11 @@ namespace blt::gp
             for (const auto& child : info.argument_types)
                 std::forward<Func>(perChild)(args.program, tree_generator, child, top.depth + 1);
         }
-        
-        return tree;
     }
     
-    tree_t grow_generator_t::generate(const generator_arguments& args)
+    void grow_generator_t::generate(tree_t& tree, const generator_arguments& args)
     {
-        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
+        return create_tree(tree, [args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
                 if (program.get_type_terminals(type).empty())
@@ -99,9 +96,9 @@ namespace blt::gp
         }, args);
     }
     
-    tree_t full_generator_t::generate(const generator_arguments& args)
+    void full_generator_t::generate(tree_t& tree, const generator_arguments& args)
     {
-        return create_tree([args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
+        return create_tree(tree, [args](gp_program& program, std::stack<stack>& tree_generator, type_id type, blt::size_t new_depth) {
             if (new_depth >= args.max_depth)
             {
                 if (program.get_type_terminals(type).empty())
@@ -119,7 +116,11 @@ namespace blt::gp
         population_t pop;
         
         for (auto i = 0ul; i < args.size; i++)
-            pop.get_individuals().emplace_back(grow.generate(args.to_gen_args()));
+        {
+            tree_t tree{args.program};
+            grow.generate(tree, args.to_gen_args());
+            pop.get_individuals().emplace_back(tree);
+        }
         
         return pop;
     }
@@ -129,7 +130,11 @@ namespace blt::gp
         population_t pop;
         
         for (auto i = 0ul; i < args.size; i++)
-            pop.get_individuals().emplace_back(full.generate(args.to_gen_args()));
+        {
+            tree_t tree{args.program};
+            full.generate(tree, args.to_gen_args());
+            pop.get_individuals().emplace_back(tree);
+        }
         
         return pop;
     }
@@ -140,10 +145,12 @@ namespace blt::gp
         
         for (auto i = 0ul; i < args.size; i++)
         {
+            tree_t tree{args.program};
             if (args.program.get_random().choice())
-                pop.get_individuals().emplace_back(full.generate(args.to_gen_args()));
+                full.generate(tree, args.to_gen_args());
             else
-                pop.get_individuals().emplace_back(grow.generate(args.to_gen_args()));
+                grow.generate(tree, args.to_gen_args());
+            pop.get_individuals().emplace_back(tree);
         }
         
         return pop;
@@ -160,22 +167,26 @@ namespace blt::gp
         {
             for (auto i = 0ul; i < per_step; i++)
             {
+                tree_t tree{args.program};
                 if (args.program.get_random().choice())
-                    pop.get_individuals().emplace_back(full.generate({args.program, args.root_type, args.min_depth, depth}));
+                    full.generate(tree, {args.program, args.root_type, args.min_depth, depth});
                 else
-                    pop.get_individuals().emplace_back(grow.generate({args.program, args.root_type, args.min_depth, depth}));
+                    grow.generate(tree, {args.program, args.root_type, args.min_depth, depth});
+                pop.get_individuals().emplace_back(tree);
             }
         }
         
         for (auto i = 0ul; i < remainder; i++)
         {
+            tree_t tree{args.program};
             if (args.program.get_random().choice())
-                pop.get_individuals().emplace_back(full.generate(args.to_gen_args()));
+                full.generate(tree, args.to_gen_args());
             else
-                pop.get_individuals().emplace_back(grow.generate(args.to_gen_args()));
+                grow.generate(tree, args.to_gen_args());
+            pop.get_individuals().emplace_back(tree);
         }
         
-        blt_assert(pop.get_individuals().size() == args.size);
+        BLT_ASSERT(pop.get_individuals().size() == args.size);
         
         return pop;
     }

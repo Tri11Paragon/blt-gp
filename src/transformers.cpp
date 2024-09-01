@@ -27,7 +27,16 @@
 namespace blt::gp
 {
     
-    inline blt::size_t accumulate_type_sizes(detail::op_iter begin, detail::op_iter end)
+    grow_generator_t grow_generator;
+    
+    inline tree_t& get_static_tree_tl(gp_program& program)
+    {
+        static thread_local tree_t new_tree{program};
+        new_tree.clear(program);
+        return new_tree;
+    }
+    
+    inline blt::size_t accumulate_type_sizes(detail::op_iter_t begin, detail::op_iter_t end)
     {
         blt::size_t total = 0;
         for (auto it = begin; it != end; ++it)
@@ -47,28 +56,24 @@ namespace blt::gp
         return buffer.data();
     }
     
-    grow_generator_t grow_generator;
-    
     mutation_t::config_t::config_t(): generator(grow_generator)
     {}
     
-    blt::expected<crossover_t::result_t, crossover_t::error_t> crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2) // NOLINT
+    bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
-        result_t result{p1, p2};
-        
-        auto& c1 = result.child1;
-        auto& c2 = result.child2;
+        c1.copy_fast(p1);
+        c2.copy_fast(p2);
         
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
         
         if (c1_ops.size() < 5 || c2_ops.size() < 5)
-            return blt::unexpected(error_t::TREE_TOO_SMALL);
+            return false;
         
-        auto point = get_crossover_point(program, c1, c2);
+        auto point = get_crossover_point(program, p1, p2);
         
         if (!point)
-            return blt::unexpected(point.error());
+            return false;
         
         auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
         auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
@@ -97,8 +102,8 @@ namespace blt::gp
         blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
         auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
         auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
-        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1>(c1_total);
-        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2>(c2_total);
+        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
+        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
         
         c1_stack.copy_to(copy_ptr_c1, c1_total);
         c1_stack.pop_bytes(c1_total);
@@ -124,8 +129,8 @@ namespace blt::gp
         c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
 
 #if BLT_DEBUG_LEVEL >= 2
-        blt::size_t c1_found_bytes = result.child1.get_values().size().total_used_bytes;
-        blt::size_t c2_found_bytes = result.child2.get_values().size().total_used_bytes;
+        blt::size_t c1_found_bytes = c1.get_values().size().total_used_bytes;
+        blt::size_t c2_found_bytes = c2.get_values().size().total_used_bytes;
         blt::size_t c1_expected_bytes = std::accumulate(result.child1.get_operations().begin(), result.child1.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
                                                             if (v2.is_value)
@@ -146,10 +151,10 @@ namespace blt::gp
         }
 #endif
         
-        return result;
+        return true;
     }
     
-    blt::expected<crossover_t::crossover_point_t, crossover_t::error_t> crossover_t::get_crossover_point(gp_program& program, const tree_t& c1,
+    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(gp_program& program, const tree_t& c1,
                                                                                                          const tree_t& c2) const
     {
         auto& c1_ops = c1.get_operations();
@@ -187,10 +192,10 @@ namespace blt::gp
                         }
                     }
                     if (!found)
-                        return blt::unexpected(error_t::NO_VALID_TYPE);
+                        return {};
                 }
                 // should we try again over the whole tree? probably not.
-                return blt::unexpected(error_t::NO_VALID_TYPE);
+                return {};
             } else
             {
                 attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
@@ -206,13 +211,13 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    tree_t mutation_t::apply(gp_program& program, const tree_t& p)
+    bool mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
     {
-        auto c = p;
+        c.copy_fast(p);
         
         mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));
         
-        return c;
+        return true;
     }
     
     blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
@@ -228,7 +233,8 @@ namespace blt::gp
         auto begin_itr = ops_r.begin() + begin_point;
         auto end_itr = ops_r.begin() + end_point;
         
-        auto new_tree = config.generator.get().generate({program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+        auto& new_tree = get_static_tree_tl(program);
+        config.generator.get().generate(new_tree, {program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
         
         auto& new_ops_r = new_tree.get_operations();
         auto& new_vals_r = new_tree.get_values();
@@ -296,10 +302,10 @@ namespace blt::gp
         return begin_point + new_ops_r.size();
     }
     
-    tree_t advanced_mutation_t::apply(gp_program& program, const tree_t& p)
+    bool advanced_mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
     {
         // child tree
-        tree_t c = p;
+        c.copy_fast(p);
         
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
@@ -364,7 +370,8 @@ namespace blt::gp
                             if (index < current_func_info.argument_types.size() && val.id != current_func_info.argument_types[index].id)
                             {
                                 // TODO: new config?
-                                auto tree = config.generator.get().generate(
+                                auto& tree = get_static_tree_tl(program);
+                                config.generator.get().generate(tree,
                                         {program, val.id, config.replacement_min_depth, config.replacement_max_depth});
                                 
                                 auto& child = children_data[children_data.size() - 1 - index];
@@ -445,7 +452,8 @@ namespace blt::gp
                             for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(replacement_func_info.argc.argc) - 1;
                                  i >= current_func_info.argc.argc; i--)
                             {
-                                auto tree = config.generator.get().generate(
+                                auto& tree = get_static_tree_tl(program);
+                                config.generator.get().generate(tree,
                                         {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                          config.replacement_max_depth});
                                 blt::size_t total_bytes_for = tree.total_value_bytes();
@@ -458,7 +466,7 @@ namespace blt::gp
                         }
                         // now finally update the type.
                         ops[c_node] = {program.get_typesystem().get_type(replacement_func_info.return_type).size(), random_replacement,
-                                       program.is_static(random_replacement)};
+                                       program.is_operator_ephemeral(random_replacement)};
                     }
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(program, nullptr))
@@ -518,7 +526,8 @@ namespace blt::gp
                     blt::size_t start_index = c_node;
                     for (blt::ptrdiff_t i = new_argc - 1; i > static_cast<blt::ptrdiff_t>(arg_position); i--)
                     {
-                        auto tree = config.generator.get().generate(
+                        auto& tree = get_static_tree_tl(program);
+                        config.generator.get().generate(tree,
                                 {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                  config.replacement_max_depth});
                         blt::size_t total_bytes_for = tree.total_value_bytes();
@@ -531,7 +540,8 @@ namespace blt::gp
                     vals.copy_from(combined_ptr, for_bytes);
                     for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(arg_position) - 1; i >= 0; i--)
                     {
-                        auto tree = config.generator.get().generate(
+                        auto& tree = get_static_tree_tl(program);
+                        config.generator.get().generate(tree,
                                 {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                  config.replacement_max_depth});
                         blt::size_t total_bytes_for = tree.total_value_bytes();
@@ -544,7 +554,7 @@ namespace blt::gp
                     
                     ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(c_node),
                                {program.get_typesystem().get_type(replacement_func_info.return_type).size(),
-                                random_replacement, program.is_static(random_replacement)});
+                                random_replacement, program.is_operator_ephemeral(random_replacement)});
 
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(program, nullptr))
@@ -720,6 +730,6 @@ namespace blt::gp
         }
 #endif
         
-        return c;
+        return true;
     }
 }

@@ -46,7 +46,7 @@ namespace blt::gp
     
     random_t& gp_program::get_random() const
     {
-        thread_local static blt::gp::random_t random_engine{seed};
+        thread_local static blt::gp::random_t random_engine{seed_func()};
         return random_engine;
     }
     
@@ -76,7 +76,7 @@ namespace blt::gp
                             if (should_thread_terminate())
                                 return;
                         }
-                        execution_function = thread_execution_service.load(std::memory_order_acquire);
+                        execution_function = thread_execution_service.get();
                     }
                     if (execution_function != nullptr)
                         (*execution_function)(i);

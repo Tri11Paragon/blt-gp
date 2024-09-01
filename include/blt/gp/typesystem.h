@@ -85,18 +85,24 @@ namespace blt::gp
             type_provider() = default;
             
             template<typename T>
-            inline type register_type()
+            inline void register_type()
             {
+                if (has_type<T>())
+                    return;
                 auto t = type::make_type<T>(types.size());
                 types.insert({blt::type_string_raw<T>(), t});
                 types_from_id[t.id()] = t;
-                return t;
             }
             
             template<typename T>
             inline type get_type()
             {
                 return types[blt::type_string_raw<T>()];
+            }
+            
+            template<typename T>
+            inline bool has_type(){
+                return types.find(blt::type_string_raw<T>()) != types.end();
             }
             
             inline type get_type(type_id id)

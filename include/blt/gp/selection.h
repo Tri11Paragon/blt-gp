@@ -24,6 +24,7 @@
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
 #include <blt/std/assert.h>
+#include "blt/std/format.h"
 
 namespace blt::gp
 {
@@ -31,19 +32,19 @@ namespace blt::gp
     struct selector_args
     {
         gp_program& program;
-        std::vector<tree_t>& next_pop;
-        population_t& current_pop;
+        const population_t& current_pop;
         population_stats& current_stats;
         prog_config_t& config;
         random_t& random;
     };
     
-    constexpr inline auto perform_elitism = [](const selector_args& args) {
-        auto& [program, next_pop, current_pop, current_stats, config, random] = args;
+    constexpr inline auto perform_elitism = [](const selector_args& args, population_t& next_pop) {
+        auto& [program, current_pop, current_stats, config, random] = args;
         
         if (config.elites > 0)
         {
-            std::vector<std::pair<std::size_t, double>> values;
+            static thread_local tracked_vector<std::pair<std::size_t, double>> values;
+            values.clear();
             
             for (blt::size_t i = 0; i < config.elites; i++)
                 values.emplace_back(i, current_pop.get_individuals()[i].fitness.adjusted_fitness);
@@ -68,50 +69,66 @@ namespace blt::gp
             }
             
             for (blt::size_t i = 0; i < config.elites; i++)
-                next_pop.push_back(current_pop.get_individuals()[values[i].first].tree);
+                next_pop.get_individuals()[i].copy_fast(current_pop.get_individuals()[values[i].first].tree);
         }
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>
     constexpr inline auto default_next_pop_creator = [](
-            blt::gp::selector_args& args, Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection) {
-        auto& [program, next_pop, current_pop, current_stats, config, random] = args;
+            blt::gp::selector_args& args, Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection,
+            tree_t& c1, tree_t* c2) {
+        auto& [program, current_pop, current_stats, config, random] = args;
         
         int sel = random.get_i32(0, 3);
         switch (sel)
         {
             case 0:
+                if (c2 == nullptr)
+                    return 0;
                 // everyone gets a chance once per loop.
                 if (random.choice(config.crossover_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // crossover
-                    auto& p1 = crossover_selection.select(program, current_pop, current_stats);
-                    auto& p2 = crossover_selection.select(program, current_pop, current_stats);
-                    
-                    auto results = config.crossover.get().apply(program, p1, p2);
-                    
-                    // if crossover fails, we can check for mutation on these guys. otherwise straight copy them into the next pop
-                    if (results)
+                    const tree_t* p1;
+                    const tree_t* p2;
+                    do
                     {
-                        next_pop.push_back(std::move(results->child1));
-                        next_pop.push_back(std::move(results->child2));
-                    }
+                        p1 = &crossover_selection.select(program, current_pop);
+                        p2 = &crossover_selection.select(program, current_pop);
+                    } while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Crossover Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+                    return 2;
                 }
                 break;
             case 1:
                 if (random.choice(config.mutation_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // mutation
-                    auto& p = mutation_selection.select(program, current_pop, current_stats);
-                    next_pop.push_back(std::move(config.mutator.get().apply(program, p)));
+                    const tree_t* p;
+                    do
+                    {
+                        p = &mutation_selection.select(program, current_pop);
+                    } while (!config.mutator.get().apply(program, *p, c1));
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Mutation Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+                    return 1;
                 }
                 break;
             case 2:
                 if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
                 {
+//                    auto state = tracker.start_measurement();
                     // reproduction
-                    auto& p = reproduction_selection.select(program, current_pop, current_stats);
-                    next_pop.push_back(p);
+                    c1 = reproduction_selection.select(program, current_pop);
+//                    tracker.stop_measurement(state);
+//                    BLT_TRACE("Reproduction Allocated %ld times with a total of %s", state.getAllocationDifference(),
+//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+                    return 1;
                 }
                 break;
             default:
@@ -121,6 +138,7 @@ namespace blt::gp
                 BLT_UNREACHABLE;
 #endif
         }
+        return 0;
     };
     
     class selection_t
@@ -132,9 +150,9 @@ namespace blt::gp
              * @param stats the populations statistics
              * @return
              */
-            virtual tree_t& select(gp_program& program, population_t& pop, population_stats& stats) = 0;
+            virtual const tree_t& select(gp_program& program, const population_t& pop) = 0;
             
-            virtual void pre_process(gp_program&, population_t&, population_stats&)
+            virtual void pre_process(gp_program&, population_t&)
             {}
             
             virtual ~selection_t() = default;
@@ -143,19 +161,19 @@ namespace blt::gp
     class select_best_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            const tree_t& select(gp_program& program, const population_t& pop) final;
     };
     
     class select_worst_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            const tree_t& select(gp_program& program, const population_t& pop) final;
     };
     
     class select_random_t : public selection_t
     {
         public:
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            const tree_t& select(gp_program& program, const population_t& pop) final;
     };
     
     class select_tournament_t : public selection_t
@@ -163,11 +181,11 @@ namespace blt::gp
         public:
             explicit select_tournament_t(blt::size_t selection_size = 3): selection_size(selection_size)
             {
-                if (selection_size < 1)
-                    BLT_ABORT("Unable to select with this size. Must select at least 1 individual!");
+                if (selection_size == 0)
+                    BLT_ABORT("Unable to select with this size. Must select at least 1 individual_t!");
             }
             
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            const tree_t& select(gp_program& program, const population_t& pop) final;
         
         private:
             const blt::size_t selection_size;
@@ -176,9 +194,7 @@ namespace blt::gp
     class select_fitness_proportionate_t : public selection_t
     {
         public:
-            void pre_process(gp_program& program, population_t& pop, population_stats& stats) final;
-            
-            tree_t& select(gp_program& program, population_t& pop, population_stats& stats) final;
+            const tree_t& select(gp_program& program, const population_t& pop) final;
     };
     
 }

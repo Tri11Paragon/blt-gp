@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.1.20)
+project(blt-gp VERSION 0.1.36)
 
 include(CTest)
 
@@ -9,11 +9,14 @@ option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
 option(BUILD_EXAMPLES "Build example programs. This will build with CTest" OFF)
 option(BUILD_GP_TESTS "Build test programs." OFF)
 option(DEBUG_LEVEL "Enable debug features which prints extra information to the console, might slow processing down. [0, 3)" 0)
+option(TRACK_ALLOCATIONS "Track total allocations. Can be accessed with blt::gp::tracker" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+
+#SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
 
 if (NOT TARGET BLT)
     add_subdirectory(lib/blt)
@@ -37,6 +40,10 @@ target_include_directories(blt-gp PUBLIC include/)
 
 target_link_libraries(blt-gp PRIVATE BLT Threads::Threads)
 target_compile_definitions(blt-gp PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
+
+if (${TRACK_ALLOCATIONS})
+    target_compile_definitions(blt-gp PRIVATE BLT_TRACK_ALLOCATIONS=1)
+endif ()
 
 if (${ENABLE_ADDRSAN} MATCHES ON)
     target_compile_options(blt-gp PRIVATE -fsanitize=address)
@@ -66,6 +73,10 @@ macro(blt_add_project name source type)
     target_compile_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
     target_link_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
     target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
+
+    if (${TRACK_ALLOCATIONS})
+        target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
+    endif ()
 
     if (${ENABLE_ADDRSAN} MATCHES ON)
         target_compile_options(${name}-${type} PRIVATE -fsanitize=address)
@@ -97,6 +108,7 @@ endmacro()
 if (${BUILD_EXAMPLES})
 
     blt_add_project(blt-symbolic-regression examples/symbolic_regression.cpp example)
+    blt_add_project(blt-rice-classification examples/rice_classification.cpp example)
 
 endif ()
 

@@ -1,5 +1,5 @@
-#pragma once
 /*
+ *  <Short Description>
  *  Copyright (C) 2024  Brett Terpstra
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -15,18 +15,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-#ifndef BLT_GP_RANDOM_H
-#define BLT_GP_RANDOM_H
-
-#include <blt/std/types.h>
-#include <blt/std/random.h>
+#include <blt/gp/stats.h>
+#include <blt/std/logging.h>
 
 namespace blt::gp
 {
 
-    using random_t = blt::random::random_t;
-    
 }
-
-#endif //BLT_GP_RANDOM_H

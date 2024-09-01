@@ -21,11 +21,11 @@
 namespace blt::gp
 {
     
-    tree_t& select_best_t::select(gp_program&, population_t& pop, population_stats&)
+    const tree_t& select_best_t::select(gp_program&, const population_t& pop)
     {
         auto& first = pop.get_individuals()[0];
         double best_fitness = first.fitness.adjusted_fitness;
-        tree_t* tree = &first.tree;
+        const tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
             if (ind.fitness.adjusted_fitness > best_fitness)
@@ -37,11 +37,11 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_worst_t::select(gp_program&, population_t& pop, population_stats&)
+    const tree_t& select_worst_t::select(gp_program&, const population_t& pop)
     {
         auto& first = pop.get_individuals()[0];
         double worst_fitness = first.fitness.adjusted_fitness;
-        tree_t* tree = &first.tree;
+        const tree_t* tree = &first.tree;
         for (auto& ind : pop.get_individuals())
         {
             if (ind.fitness.adjusted_fitness < worst_fitness)
@@ -53,32 +53,27 @@ namespace blt::gp
         return *tree;
     }
     
-    tree_t& select_random_t::select(gp_program& program, population_t& pop, population_stats&)
+    const tree_t& select_random_t::select(gp_program& program, const population_t& pop)
     {
         return pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())].tree;
     }
     
-    tree_t& select_tournament_t::select(gp_program& program, population_t& pop, population_stats&)
+    const tree_t& select_tournament_t::select(gp_program& program, const population_t& pop)
     {
-        
-        auto& first = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-        individual* ind = &first;
-        double best_guy = first.fitness.adjusted_fitness;
-        for (blt::size_t i = 0; i < selection_size - 1; i++)
+        blt::u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
+        auto& i_ref = pop.get_individuals();
+        for (blt::size_t i = 0; i < selection_size; i++)
         {
-            auto& sel = pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())];
-            if (sel.fitness.adjusted_fitness > best_guy)
-            {
-                best_guy = sel.fitness.adjusted_fitness;
-                ind = &sel;
-            }
+            auto sel_point = program.get_random().get_u64(0ul, pop.get_individuals().size());
+            if (i_ref[sel_point].fitness.adjusted_fitness > i_ref[best].fitness.adjusted_fitness)
+                best = sel_point;
         }
-        
-        return ind->tree;
+        return i_ref[best].tree;
     }
     
-    tree_t& select_fitness_proportionate_t::select(gp_program& program, population_t& pop, population_stats& stats)
+    const tree_t& select_fitness_proportionate_t::select(gp_program& program, const population_t& pop)
     {
+        auto& stats = program.get_population_stats();
         auto choice = program.get_random().get_double();
         for (const auto& [index, ref] : blt::enumerate(pop))
         {
@@ -92,20 +87,8 @@ namespace blt::gp
                     return ref.tree;
             }
         }
-        BLT_WARN("Unable to find individual with fitness proportionate. This should not be a possible code path! (%lf)", choice);
+        BLT_WARN("Unable to find individual_t with fitness proportionate. This should not be a possible code path! (%lf)", choice);
         return pop.get_individuals()[0].tree;
         //BLT_ABORT("Unable to find individual");
-    }
-    
-    void select_fitness_proportionate_t::pre_process(gp_program&, population_t& pop, population_stats& stats)
-    {
-        stats.normalized_fitness.clear();
-        double sum_of_prob = 0;
-        for (auto& ind : pop)
-        {
-            auto prob = (ind.fitness.adjusted_fitness / stats.overall_fitness);
-            stats.normalized_fitness.push_back(sum_of_prob + prob);
-            sum_of_prob += prob;
-        }
     }
 }
