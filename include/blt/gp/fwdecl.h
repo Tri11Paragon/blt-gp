@@ -29,6 +29,12 @@
 namespace blt::gp
 {
     inline allocation_tracker_t tracker;
+    inline call_tracker_t crossover_calls;
+    inline call_tracker_t mutation_calls;
+    inline call_tracker_t reproduction_calls;
+    inline call_tracker_t crossover_allocations;
+    inline call_tracker_t mutation_allocations;
+    inline call_tracker_t reproduction_allocations;
     
     class gp_program;
     

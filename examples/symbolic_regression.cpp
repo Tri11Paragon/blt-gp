@@ -104,35 +104,15 @@ int main()
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        auto gen_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation();
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(gen_alloc);
-        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-        auto fitness_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");
         program.next_generation();
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         BLT_END_INTERVAL("Symbolic Regression", "Fitness");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(fitness_alloc);
-        BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-#endif
-        
         BLT_TRACE("----------------------------------------------");
         std::cout << std::endl;
     }
@@ -162,6 +142,25 @@ int main()
 #ifdef BLT_TRACK_ALLOCATIONS
     BLT_TRACE("Total Allocations: %ld times with a total of %s", blt::gp::tracker.getAllocations(),
               blt::byte_convert_t(blt::gp::tracker.getAllocatedBytes()).convert_to_nearest_type().to_pretty_string().c_str());
+    auto crossover_calls = blt::gp::crossover_calls.get_calls();
+    auto crossover_allocations = blt::gp::crossover_allocations.get_calls();
+    auto mutation_calls = blt::gp::mutation_calls.get_calls();
+    auto mutation_allocation = blt::gp::mutation_allocations.get_calls();
+    auto reproduction_calls = blt::gp::reproduction_calls.get_calls();
+    auto reproduction_allocation = blt::gp::reproduction_allocations.get_calls();
+    BLT_TRACE("Total Crossover Calls: %ld", crossover_calls);
+    BLT_TRACE("Total Mutation Calls: %ld", mutation_calls);
+    BLT_TRACE("Total Reproduction Calls: %ld", reproduction_calls);
+    BLT_TRACE("Total Crossover Allocations: %ld", crossover_allocations);
+    BLT_TRACE("Total Mutation Allocations: %ld", mutation_allocation);
+    BLT_TRACE("Total Reproduction Allocations: %ld", reproduction_allocation);
+    
+    BLT_TRACE("Percent Crossover calls allocate? %lf%%",
+              static_cast<double>(crossover_allocations) / static_cast<double>(crossover_calls == 0 ? 1 : crossover_calls) * 100);
+    BLT_TRACE("Percent Mutation calls allocate? %lf%%",
+              static_cast<double>(mutation_allocation) / static_cast<double>(mutation_calls == 0 ? 1 : mutation_calls) * 100);
+    BLT_TRACE("Percent Reproduction calls allocate? %lf%%",
+              static_cast<double>(reproduction_allocation) / static_cast<double>(reproduction_calls == 0 ? 1 : reproduction_calls) * 100);
 #endif
     
     return 0;

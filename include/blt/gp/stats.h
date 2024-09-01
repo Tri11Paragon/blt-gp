@@ -129,6 +129,68 @@ namespace blt::gp
             std::atomic_uint64_t deallocated_bytes = 0;
     };
     
+    class call_tracker_t
+    {
+        public:
+            struct call_data_t
+            {
+                blt::u64 start_calls = 0;
+                blt::u64 start_value = 0;
+                blt::u64 end_calls = 0;
+                blt::u64 end_value = 0;
+                
+                [[nodiscard]] inline auto get_call_difference() const
+                {
+                    return end_calls - start_calls;
+                }
+                
+                [[nodiscard]] inline auto get_value_difference() const
+                {
+                    return end_value - start_value;
+                }
+            };
+            
+            void value(blt::u64 value)
+            {
+                secondary_value += value;
+            }
+            
+            void call()
+            {
+                primary_calls++;
+            }
+            
+            void call(blt::u64 v)
+            {
+                primary_calls++;
+                value(v);
+            }
+            
+            [[nodiscard]] auto get_calls() const
+            {
+                return primary_calls.load();
+            }
+            
+            [[nodiscard]] auto get_value() const
+            {
+                return secondary_value.load();
+            }
+            
+            call_data_t start_measurement()
+            {
+                return {primary_calls.load(), 0};
+            }
+            
+            void stop_measurement(call_data_t& data)
+            {
+                data.end_calls = primary_calls.load();
+            }
+        
+        private:
+            std::atomic_uint64_t primary_calls = 0;
+            std::atomic_uint64_t secondary_value = 0;
+    };
+    
 }
 
 #endif //BLT_GP_STATS_H

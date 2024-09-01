@@ -88,7 +88,9 @@ namespace blt::gp
                 // everyone gets a chance once per loop.
                 if (random.choice(config.crossover_chance))
                 {
-//                    auto state = tracker.start_measurement();
+#ifdef BLT_TRACK_ALLOCATIONS
+                    auto state = tracker.start_measurement();
+#endif
                     // crossover
                     const tree_t* p1;
                     const tree_t* p2;
@@ -97,37 +99,54 @@ namespace blt::gp
                         p1 = &crossover_selection.select(program, current_pop);
                         p2 = &crossover_selection.select(program, current_pop);
                     } while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
-//                    tracker.stop_measurement(state);
-//                    BLT_TRACE("Crossover Allocated %ld times with a total of %s", state.getAllocationDifference(),
-//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#ifdef BLT_TRACK_ALLOCATIONS
+                    tracker.stop_measurement(state);
+                    crossover_calls.call();
+                    if (state.getAllocationDifference() != 0)
+                        crossover_allocations.call(state.getAllocatedByteDifference());
+#endif
                     return 2;
                 }
                 break;
             case 1:
                 if (random.choice(config.mutation_chance))
                 {
-//                    auto state = tracker.start_measurement();
+#ifdef BLT_TRACK_ALLOCATIONS
+                    auto state = tracker.start_measurement();
+#endif
                     // mutation
                     const tree_t* p;
                     do
                     {
                         p = &mutation_selection.select(program, current_pop);
                     } while (!config.mutator.get().apply(program, *p, c1));
-//                    tracker.stop_measurement(state);
-//                    BLT_TRACE("Mutation Allocated %ld times with a total of %s", state.getAllocationDifference(),
-//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#ifdef BLT_TRACK_ALLOCATIONS
+                    tracker.stop_measurement(state);
+                    mutation_calls.call();
+                    if (state.getAllocationDifference() != 0)
+                    {
+                        mutation_allocations.call(state.getAllocatedByteDifference());
+                    }
+#endif
                     return 1;
                 }
                 break;
             case 2:
                 if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
                 {
-//                    auto state = tracker.start_measurement();
+#ifdef BLT_TRACK_ALLOCATIONS
+                    auto state = tracker.start_measurement();
+#endif
                     // reproduction
                     c1 = reproduction_selection.select(program, current_pop);
-//                    tracker.stop_measurement(state);
-//                    BLT_TRACE("Reproduction Allocated %ld times with a total of %s", state.getAllocationDifference(),
-//                              blt::byte_convert_t(state.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+#ifdef BLT_TRACK_ALLOCATIONS
+                    tracker.stop_measurement(state);
+                    reproduction_calls.call();
+                    if (state.getAllocationDifference() != 0)
+                    {
+                        reproduction_allocations.call(state.getAllocatedByteDifference());
+                    }
+#endif
                     return 1;
                 }
                 break;
