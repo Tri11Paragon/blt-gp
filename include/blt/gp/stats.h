@@ -130,7 +130,7 @@ namespace blt::gp
                 return tl.allocations.size();
             }
             
-            void await_completion(blt::u64 required_threads)
+            void await_thread_loading_complete(blt::u64 required_threads)
             {
                 std::unique_lock lock(tl.mutex);
                 tl.var.wait(lock, [this, required_threads]() {

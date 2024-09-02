@@ -67,7 +67,7 @@ namespace blt::gp
         }
     };
     
-    struct operator_info
+    struct operator_info_t
     {
         // types of the arguments
         tracked_vector<type_id> argument_types;
@@ -79,6 +79,12 @@ namespace blt::gp
         detail::operator_func_t func;
     };
     
+    struct operator_metadata_t
+    {
+        blt::size_t arg_size_bytes = 0;
+        blt::size_t return_size_bytes = 0;
+    };
+    
     struct program_operator_storage_t
     {
         // indexed from return TYPE ID, returns index of operator
@@ -87,7 +93,8 @@ namespace blt::gp
         blt::expanding_buffer<tracked_vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
         // indexed from OPERATOR ID (operator number)
         blt::hashset_t<operator_id> ephemeral_leaf_operators;
-        tracked_vector<operator_info> operators;
+        tracked_vector<operator_info_t> operators;
+        tracked_vector<operator_metadata_t> operator_metadata;
         tracked_vector<detail::print_func_t> print_funcs;
         tracked_vector<detail::destroy_func_t> destroy_funcs;
         tracked_vector<std::optional<std::string_view>> names;
@@ -110,11 +117,9 @@ namespace blt::gp
             template<typename... Operators>
             program_operator_storage_t& build(Operators& ... operators)
             {
-                tracked_vector<blt::size_t> sizes;
-                (sizes.push_back(add_operator(operators)), ...);
                 blt::size_t largest = 0;
-                for (auto v : sizes)
-                    largest = std::max(v, largest);
+                operator_metadata_t meta;
+                ((meta = add_operator(operators), largest = std::max(std::max(meta.arg_size_bytes, meta.return_size_bytes), largest)), ...);
                 
                 storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
                     const auto& ops = tree.get_operations();
@@ -214,14 +219,18 @@ namespace blt::gp
                 (storage.system.register_type<Args>(), ...);
                 storage.system.register_type<Return>();
                 
-                auto total_size_required = stack_allocator::aligned_size(sizeof(Return));
-                ((total_size_required += stack_allocator::aligned_size(sizeof(Args))), ...);
+                operator_metadata_t meta;
+                if constexpr (sizeof...(Args) != 0)
+                {
+                    meta.arg_size_bytes = (stack_allocator::aligned_size(sizeof(Args)) + ...);
+                }
+                meta.return_size_bytes = sizeof(Return);
                 
                 auto return_type_id = storage.system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
                 op.id = operator_id;
                 
-                operator_info info;
+                operator_info_t info;
                 
                 if constexpr (sizeof...(Args) > 0)
                 {
@@ -240,6 +249,7 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 storage.operators.push_back(info);
+                storage.operator_metadata.push_back(meta);
                 storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
                     if constexpr (blt::meta::is_streamable_v<Return>)
                     {
@@ -267,11 +277,11 @@ namespace blt::gp
                 storage.names.push_back(op.get_name());
                 if (op.is_ephemeral())
                     storage.ephemeral_leaf_operators.insert(operator_id);
-                return total_size_required * 2;
+                return meta;
             }
             
             template<typename T>
-            void add_non_context_argument(decltype(operator_info::argument_types)& types)
+            void add_non_context_argument(decltype(operator_info_t::argument_types)& types)
             {
                 if constexpr (!std::is_same_v<Context, detail::remove_cv_ref<T>>)
                 {
@@ -386,6 +396,12 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                 blt::gp::tracker.stop_measurement(fitness_alloc);
                 fitness_alloc.pretty_print("Fitness");
+                evaluation_calls.call();
+                evaluation_calls.set_value(std::max(evaluation_calls.get_value(), fitness_alloc.getAllocatedByteDifference()));
+                if (fitness_alloc.getAllocatedByteDifference() > 0)
+                {
+                    evaluation_allocations.call(fitness_alloc.getAllocatedByteDifference());
+                }
 #endif
                 
             }
@@ -475,9 +491,7 @@ namespace blt::gp
                                     mutation_selection.pre_process(*this, current_pop);
                                     reproduction_selection.pre_process(*this, current_pop);
                                     
-                                    perform_elitism(args, next_pop);
-                                    
-                                    blt::size_t start = config.elites;
+                                    blt::size_t start = perform_elitism(args, next_pop);
                                     
                                     while (start < config.population_size)
                                     {
@@ -566,10 +580,8 @@ namespace blt::gp
                                             mutation_selection.pre_process(*this, current_pop);
                                         if (&crossover_selection != &reproduction_selection)
                                             reproduction_selection.pre_process(*this, current_pop);
-                                        
-                                        perform_elitism(args, next_pop);
-                                        
-                                        thread_helper.next_gen_left -= config.elites;
+                                        auto elite_amount = perform_elitism(args, next_pop);
+                                        thread_helper.next_gen_left -= elite_amount;
                                     }
                                     thread_helper.barrier.wait();
                                     
@@ -653,7 +665,7 @@ namespace blt::gp
                 return storage.system;
             }
             
-            [[nodiscard]] inline operator_info& get_operator_info(operator_id id)
+            [[nodiscard]] inline operator_info_t& get_operator_info(operator_id id)
             {
                 return storage.operators[id];
             }
@@ -723,8 +735,10 @@ namespace blt::gp
                     return a.second > b.second;
                 });
                 
-                for (blt::size_t i = 0; i < size; i++)
+                for (blt::size_t i = 0; i < std::min(size, config.population_size); i++)
                     arr[i] = values[i].first;
+                for (blt::size_t i = std::min(size, config.population_size); i < size; i++)
+                    arr[i] = 0;
                 
                 return arr;
             }
@@ -791,7 +805,7 @@ namespace blt::gp
             
             struct concurrency_storage
             {
-                tracked_vector<std::unique_ptr<std::thread>> threads;
+                std::vector<std::unique_ptr<std::thread>> threads;
                 
                 std::mutex thread_function_control{};
                 std::condition_variable thread_function_condition{};

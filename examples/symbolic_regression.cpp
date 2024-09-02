@@ -22,6 +22,7 @@
 #include <blt/std/format.h>
 #include <iostream>
 #include "operations_common.h"
+#include "blt/math/averages.h"
 
 //static constexpr long SEED = 41912;
 static const unsigned long SEED = std::random_device()();
@@ -36,13 +37,13 @@ std::array<context, 200> training_cases;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(200)
+        .set_elite_count(0)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(20000)
-        .set_thread_count(0);
+        .set_pop_size(1)
+        .set_thread_count(1);
 
 blt::gp::gp_program program{SEED, config};
 
@@ -143,30 +144,40 @@ int main()
     BLT_TRACE("Total Allocations: %ld times with a total of %s, peak allocated bytes %s", blt::gp::tracker.getAllocations(),
               blt::byte_convert_t(blt::gp::tracker.getAllocatedBytes()).convert_to_nearest_type().to_pretty_string().c_str(),
               blt::byte_convert_t(blt::gp::tracker.getPeakAllocatedBytes()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("------------------------------------------------------");
+    auto evaluation_calls_v = blt::gp::evaluation_calls.get_calls();
+    auto evaluation_allocations_v = blt::gp::evaluation_allocations.get_calls();
+    BLT_TRACE("Total Evaluation Calls: %ld; Peak Bytes Allocated %s", evaluation_calls_v,
+              blt::string::bytes_to_pretty(blt::gp::evaluation_calls.get_value()).c_str());
+    BLT_TRACE("Total Evaluation Allocations: %ld; Bytes %s; Average %s", evaluation_allocations_v,
+              blt::string::bytes_to_pretty(blt::gp::evaluation_allocations.get_value()).c_str(),
+              blt::string::bytes_to_pretty(blt::average(blt::gp::evaluation_allocations.get_value(), evaluation_allocations_v)).c_str());
+    BLT_TRACE("Percent Evaluation calls allocate? %lf%%", blt::average(evaluation_allocations_v, evaluation_calls_v) * 100);
+    BLT_TRACE("------------------------------------------------------");
     auto crossover_calls_v = blt::gp::crossover_calls.get_calls();
     auto crossover_allocations_v = blt::gp::crossover_allocations.get_calls();
     auto mutation_calls_v = blt::gp::mutation_calls.get_calls();
     auto mutation_allocations_v = blt::gp::mutation_allocations.get_calls();
     auto reproduction_calls_v = blt::gp::reproduction_calls.get_calls();
     auto reproduction_allocations_v = blt::gp::reproduction_allocations.get_calls();
-    BLT_TRACE("Total Crossover Calls: %ld Peak Bytes Allocated %s", crossover_calls_v,
-              blt::byte_convert_t(blt::gp::crossover_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Mutation Calls: %ld Peak Bytes Allocated %s", mutation_calls_v,
-              blt::byte_convert_t(blt::gp::mutation_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Reproduction Calls: %ld Peak Bytes Allocated %s", reproduction_calls_v,
-              blt::byte_convert_t(blt::gp::reproduction_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Crossover Allocations: %ld Bytes %s", crossover_allocations_v,
-              blt::byte_convert_t(blt::gp::crossover_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Mutation Allocations: %ld Bytes %s", mutation_allocations_v,
-              blt::byte_convert_t(blt::gp::mutation_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Reproduction Allocations: %ld Bytes %s", reproduction_allocations_v,
-              blt::byte_convert_t(blt::gp::reproduction_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Percent Crossover calls allocate? %lf%%",
-              static_cast<double>(crossover_allocations_v) / static_cast<double>(crossover_calls_v == 0 ? 1 : crossover_calls_v) * 100);
-    BLT_TRACE("Percent Mutation calls allocate? %lf%%",
-              static_cast<double>(mutation_allocations_v) / static_cast<double>(mutation_calls_v == 0 ? 1 : mutation_calls_v) * 100);
-    BLT_TRACE("Percent Reproduction calls allocate? %lf%%",
-              static_cast<double>(reproduction_allocations_v) / static_cast<double>(reproduction_calls_v == 0 ? 1 : reproduction_calls_v) * 100);
+    BLT_TRACE("Total Crossover Calls: %ld; Peak Bytes Allocated %s", crossover_calls_v,
+              blt::string::bytes_to_pretty(blt::gp::crossover_calls.get_value()).c_str());
+    BLT_TRACE("Total Mutation Calls: %ld; Peak Bytes Allocated %s", mutation_calls_v,
+              blt::string::bytes_to_pretty(blt::gp::mutation_calls.get_value()).c_str());
+    BLT_TRACE("Total Reproduction Calls: %ld; Peak Bytes Allocated %s", reproduction_calls_v,
+              blt::string::bytes_to_pretty(blt::gp::reproduction_calls.get_value()).c_str());
+    BLT_TRACE("Total Crossover Allocations: %ld; Bytes %s; Average %s", crossover_allocations_v,
+              blt::string::bytes_to_pretty(blt::gp::crossover_allocations.get_value()).c_str(),
+              blt::string::bytes_to_pretty(blt::average(blt::gp::crossover_allocations.get_value(), crossover_allocations_v)).c_str());
+    BLT_TRACE("Total Mutation Allocations: %ld; Bytes %s; Average %s", mutation_allocations_v,
+              blt::string::bytes_to_pretty(blt::gp::mutation_allocations.get_value()).c_str(),
+              blt::string::bytes_to_pretty(blt::average(blt::gp::mutation_allocations.get_value(), mutation_allocations_v)).c_str());
+    BLT_TRACE("Total Reproduction Allocations: %ld; Bytes %s; Average %s", reproduction_allocations_v,
+              blt::string::bytes_to_pretty(blt::gp::reproduction_allocations.get_value()).c_str(),
+              blt::string::bytes_to_pretty(blt::average(blt::gp::reproduction_allocations.get_value(), reproduction_allocations_v)).c_str());
+    BLT_TRACE("Percent Crossover calls allocate? %lf%%", blt::average(crossover_allocations_v, crossover_calls_v) * 100);
+    BLT_TRACE("Percent Mutation calls allocate? %lf%%", blt::average(mutation_allocations_v, mutation_calls_v) * 100);
+    BLT_TRACE("Percent Reproduction calls allocate? %lf%%", blt::average(reproduction_allocations_v, reproduction_calls_v) * 100);
 #endif
     
     return 0;

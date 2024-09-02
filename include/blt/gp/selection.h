@@ -41,7 +41,7 @@ namespace blt::gp
     constexpr inline auto perform_elitism = [](const selector_args& args, population_t& next_pop) {
         auto& [program, current_pop, current_stats, config, random] = args;
         
-        if (config.elites > 0)
+        if (config.elites > 0 && current_pop.get_individuals().size() >= config.elites)
         {
             static thread_local tracked_vector<std::pair<std::size_t, double>> values;
             values.clear();
@@ -70,7 +70,9 @@ namespace blt::gp
             
             for (blt::size_t i = 0; i < config.elites; i++)
                 next_pop.get_individuals()[i].copy_fast(current_pop.get_individuals()[values[i].first].tree);
+            return config.elites;
         }
+        return 0ul;
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>

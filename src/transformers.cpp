@@ -171,7 +171,7 @@ namespace blt::gp
         blt::size_t attempted_point = 0;
         
         const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id);
-        operator_info* attempted_point_type = nullptr;
+        operator_info_t* attempted_point_type = nullptr;
         
         blt::size_t counter = 0;
         do

@@ -69,7 +69,7 @@ namespace blt::gp
             thread_helper.threads.emplace_back(new std::thread([i, this]() {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.reserve();
-                tracker.await_completion(config.threads);
+                tracker.await_thread_loading_complete(config.threads);
 #endif
                 std::function<void(blt::size_t)>* execution_function = nullptr;
                 while (!should_thread_terminate())
@@ -91,7 +91,7 @@ namespace blt::gp
             }));
         }
 #ifdef BLT_TRACK_ALLOCATIONS
-        tracker.await_completion(config.threads);
+        tracker.await_thread_loading_complete(config.threads);
 #endif
     }
 }
