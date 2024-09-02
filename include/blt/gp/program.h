@@ -362,10 +362,6 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                 auto gen_alloc = blt::gp::tracker.start_measurement();
 #endif
-                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
-                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
-                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
-                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 // should already be empty
                 thread_helper.next_gen_left.store(config.population_size, std::memory_order_release);
                 (*thread_execution_service)(0);
@@ -378,10 +374,6 @@ namespace blt::gp
             
             void next_generation()
             {
-                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
-                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
-                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
-                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 std::swap(current_pop, next_pop);
                 current_generation++;
             }
@@ -406,6 +398,10 @@ namespace blt::gp
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 next_pop = population_t(current_pop);
+                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
+                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
+                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
+                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 if (eval_fitness_now)
                     evaluate_fitness_internal();
             }
@@ -434,6 +430,10 @@ namespace blt::gp
                 current_pop = config.pop_initializer.get().generate(
                         {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
                 next_pop = population_t(current_pop);
+                BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
+                               ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
+                BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
+                               ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
                 if (config.threads == 1)
                 {
                     BLT_INFO("Starting with single thread variant!");
@@ -593,7 +593,7 @@ namespace blt::gp
                                             auto index = config.elites + begin;
                                             tree_t& c1 = next_pop.get_individuals()[index].tree;
                                             tree_t* c2 = nullptr;
-                                            if (index + 1 < end)
+                                            if (begin + 1 < end)
                                                 c2 = &next_pop.get_individuals()[index + 1].tree;
                                             begin += func(args, crossover_selection, mutation_selection, reproduction_selection, c1, c2);
                                         }
