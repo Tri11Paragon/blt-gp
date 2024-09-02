@@ -28,6 +28,7 @@
 
 namespace blt::gp
 {
+#ifdef BLT_TRACK_ALLOCATIONS
     inline allocation_tracker_t tracker;
     inline call_tracker_t crossover_calls;
     inline call_tracker_t mutation_calls;
@@ -35,6 +36,7 @@ namespace blt::gp
     inline call_tracker_t crossover_allocations;
     inline call_tracker_t mutation_allocations;
     inline call_tracker_t reproduction_allocations;
+#endif
     
     class gp_program;
     
@@ -66,9 +68,14 @@ namespace blt::gp
     
     template<typename T>
     class tracked_allocator_t;
-    
+
+#ifdef BLT_TRACK_ALLOCATIONS
     template<typename T>
     using tracked_vector = std::vector<T, tracked_allocator_t<T>>;
+#else
+    template<typename T>
+    using tracked_vector = std::vector<T>;
+#endif
     
 //    using operation_vector_t = tracked_vector<op_container_t>;
 //    using individual_vector_t = tracked_vector<individual_t, tracked_allocator_t<individual_t>>;
