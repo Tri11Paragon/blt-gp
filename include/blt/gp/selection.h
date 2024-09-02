@@ -102,6 +102,7 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
                     crossover_calls.call();
+                    crossover_calls.set_value(std::max(crossover_calls.get_value(), state.getAllocatedByteDifference()));
                     if (state.getAllocatedByteDifference() != 0)
                     {
                         crossover_allocations.call(state.getAllocatedByteDifference());
@@ -125,6 +126,7 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
                     mutation_calls.call();
+                    mutation_calls.set_value(std::max(mutation_calls.get_value(), state.getAllocatedByteDifference()));
                     if (state.getAllocationDifference() != 0)
                     {
                         mutation_allocations.call(state.getAllocatedByteDifference());
@@ -144,6 +146,7 @@ namespace blt::gp
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
                     reproduction_calls.call();
+                    reproduction_calls.set_value(std::max(reproduction_calls.get_value(), state.getAllocatedByteDifference()));
                     if (state.getAllocationDifference() != 0)
                     {
                         reproduction_allocations.call(state.getAllocatedByteDifference());

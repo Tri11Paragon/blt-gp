@@ -27,6 +27,7 @@
 #include <string>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 
 namespace blt::gp
 {
@@ -72,6 +73,9 @@ namespace blt::gp
                     blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> deallocations;
                     blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> allocated_bytes;
                     blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> deallocated_bytes;
+                    
+                    std::mutex mutex;
+                    std::condition_variable var;
             };
             
             struct allocation_data_t
@@ -111,17 +115,39 @@ namespace blt::gp
             
             void reserve()
             {
-                std::scoped_lock lock(mutex);
-                tl.allocations[std::this_thread::get_id()] = std::make_unique<blt::u64>();
-                tl.deallocations[std::this_thread::get_id()] = std::make_unique<blt::u64>();
-                tl.allocated_bytes[std::this_thread::get_id()] = std::make_unique<blt::u64>();
-                tl.deallocated_bytes[std::this_thread::get_id()] = std::make_unique<blt::u64>();
+                {
+                    std::scoped_lock lock(tl.mutex);
+                    tl.allocations.insert({std::this_thread::get_id(), std::make_unique<blt::u64>()});
+                    tl.deallocations.insert({std::this_thread::get_id(), std::make_unique<blt::u64>()});
+                    tl.allocated_bytes.insert({std::this_thread::get_id(), std::make_unique<blt::u64>()});
+                    tl.deallocated_bytes.insert({std::this_thread::get_id(), std::make_unique<blt::u64>()});
+                }
+                tl.var.notify_all();
+            }
+            
+            blt::size_t reserved_threads()
+            {
+                return tl.allocations.size();
+            }
+            
+            void await_completion(blt::u64 required_threads)
+            {
+                std::unique_lock lock(tl.mutex);
+                tl.var.wait(lock, [this, required_threads]() {
+                    return reserved_threads() == required_threads;
+                });
             }
             
             void allocate(blt::size_t bytes)
             {
                 allocations++;
                 allocated_bytes += bytes;
+                
+                auto diff = getCurrentlyAllocatedBytes();
+                auto atomic_val = peak_allocated_bytes.load(std::memory_order_relaxed);
+                while (diff > atomic_val &&
+                       !peak_allocated_bytes.compare_exchange_weak(atomic_val, diff, std::memory_order_relaxed, std::memory_order_relaxed));
+                
                 add_map(tl.allocations, 1);
                 add_map(tl.allocated_bytes, bytes);
             }
@@ -162,6 +188,11 @@ namespace blt::gp
             [[nodiscard]] blt::u64 getCurrentlyAllocatedBytes() const
             {
                 return getAllocatedBytes() - getDeallocatedBytes();
+            }
+            
+            [[nodiscard]] blt::u64 getPeakAllocatedBytes() const
+            {
+                return peak_allocated_bytes;
             }
             
             allocation_tracker_t::tl_t& get_thread_local()
@@ -230,7 +261,7 @@ namespace blt::gp
             std::atomic_uint64_t allocated_bytes = 0;
             std::atomic_uint64_t deallocated_bytes = 0;
             
-            std::mutex mutex;
+            std::atomic_uint64_t peak_allocated_bytes = 0;
     };
     
     class call_tracker_t
@@ -257,6 +288,11 @@ namespace blt::gp
             void value(blt::u64 value)
             {
                 secondary_value += value;
+            }
+            
+            void set_value(blt::u64 value)
+            {
+                secondary_value = value;
             }
             
             void call()
