@@ -58,12 +58,18 @@ namespace blt::gp
     
     void gp_program::create_threads()
     {
+#ifdef BLT_TRACK_ALLOCATIONS
+        tracker.reserve();
+#endif
         if (config.threads == 0)
             config.set_thread_count(std::thread::hardware_concurrency());
         // main thread is thread0
         for (blt::size_t i = 1; i < config.threads; i++)
         {
             thread_helper.threads.emplace_back(new std::thread([i, this]() {
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.reserve();
+#endif
                 std::function<void(blt::size_t)>* execution_function = nullptr;
                 while (!should_thread_terminate())
                 {

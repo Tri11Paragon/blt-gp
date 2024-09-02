@@ -89,7 +89,7 @@ namespace blt::gp
                 if (random.choice(config.crossover_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // crossover
                     const tree_t* p1;
@@ -100,10 +100,12 @@ namespace blt::gp
                         p2 = &crossover_selection.select(program, current_pop);
                     } while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    crossover_calls.call(state.getAllocatedByteDifference());
-                    if (state.getAllocationDifference() != 0)
+                    tracker.stop_measurement_thread_local(state);
+                    crossover_calls.call();
+                    if (state.getAllocatedByteDifference() != 0)
+                    {
                         crossover_allocations.call(state.getAllocatedByteDifference());
+                    }
 #endif
                     return 2;
                 }
@@ -112,7 +114,7 @@ namespace blt::gp
                 if (random.choice(config.mutation_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // mutation
                     const tree_t* p;
@@ -121,8 +123,8 @@ namespace blt::gp
                         p = &mutation_selection.select(program, current_pop);
                     } while (!config.mutator.get().apply(program, *p, c1));
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    mutation_calls.call(state.getAllocatedByteDifference());
+                    tracker.stop_measurement_thread_local(state);
+                    mutation_calls.call();
                     if (state.getAllocationDifference() != 0)
                     {
                         mutation_allocations.call(state.getAllocatedByteDifference());
@@ -135,13 +137,13 @@ namespace blt::gp
                 if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // reproduction
                     c1 = reproduction_selection.select(program, current_pop);
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    reproduction_calls.call(state.getAllocatedByteDifference());
+                    tracker.stop_measurement_thread_local(state);
+                    reproduction_calls.call();
                     if (state.getAllocationDifference() != 0)
                     {
                         reproduction_allocations.call(state.getAllocatedByteDifference());

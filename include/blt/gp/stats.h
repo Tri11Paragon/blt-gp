@@ -20,15 +20,60 @@
 #define BLT_GP_STATS_H
 
 #include <blt/std/types.h>
-#include <atomic>
+#include <blt/std/hashmap.h>
+#include <blt/std/assert.h>
+#include <thread>
 #include <cmath>
+#include <string>
+#include <mutex>
+#include <atomic>
 
 namespace blt::gp
 {
-    
     class allocation_tracker_t
     {
         public:
+            class tl_t
+            {
+                    friend allocation_tracker_t;
+                public:
+                    [[nodiscard]] blt::u64 getAllocations() const
+                    {
+                        return get_map(allocations);
+                    }
+                    
+                    [[nodiscard]] blt::u64 getDeallocations() const
+                    {
+                        return get_map(deallocations);
+                    }
+                    
+                    [[nodiscard]] blt::u64 getAllocatedBytes() const
+                    {
+                        return get_map(allocated_bytes);
+                    }
+                    
+                    [[nodiscard]] blt::u64 getDeallocatedBytes() const
+                    {
+                        return get_map(deallocated_bytes);
+                    }
+                    
+                    [[nodiscard]] blt::u64 getAllocationDifference() const
+                    {
+                        return std::abs(static_cast<blt::i64>(getAllocations()) - static_cast<blt::i64>(getDeallocations()));
+                    }
+                    
+                    [[nodiscard]] blt::u64 getCurrentlyAllocatedBytes() const
+                    {
+                        return getAllocatedBytes() - getDeallocatedBytes();
+                    }
+                
+                private:
+                    blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> allocations;
+                    blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> deallocations;
+                    blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> allocated_bytes;
+                    blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>> deallocated_bytes;
+            };
+            
             struct allocation_data_t
             {
                 blt::u64 start_allocations = 0;
@@ -60,18 +105,33 @@ namespace blt::gp
                 {
                     return end_deallocated_bytes - start_deallocated_bytes;
                 }
+                
+                void pretty_print(const std::string& name) const;
             };
+            
+            void reserve()
+            {
+                std::scoped_lock lock(mutex);
+                tl.allocations[std::this_thread::get_id()] = std::make_unique<blt::u64>();
+                tl.deallocations[std::this_thread::get_id()] = std::make_unique<blt::u64>();
+                tl.allocated_bytes[std::this_thread::get_id()] = std::make_unique<blt::u64>();
+                tl.deallocated_bytes[std::this_thread::get_id()] = std::make_unique<blt::u64>();
+            }
             
             void allocate(blt::size_t bytes)
             {
                 allocations++;
                 allocated_bytes += bytes;
+                add_map(tl.allocations, 1);
+                add_map(tl.allocated_bytes, bytes);
             }
             
             void deallocate(blt::size_t bytes)
             {
                 deallocations++;
                 deallocated_bytes += bytes;
+                add_map(tl.deallocations, 1);
+                add_map(tl.deallocated_bytes, bytes);
             }
             
             [[nodiscard]] blt::u64 getAllocations() const
@@ -104,29 +164,73 @@ namespace blt::gp
                 return getAllocatedBytes() - getDeallocatedBytes();
             }
             
+            allocation_tracker_t::tl_t& get_thread_local()
+            {
+                return tl;
+            }
+            
             [[nodiscard]] allocation_data_t start_measurement() const
             {
                 allocation_data_t data{};
-                data.start_allocations = allocations;
-                data.start_deallocations = deallocations;
-                data.start_allocated_bytes = allocated_bytes;
-                data.start_deallocated_bytes = deallocated_bytes;
+                data.start_allocations = getAllocations();
+                data.start_deallocations = getDeallocations();
+                data.start_allocated_bytes = getAllocatedBytes();
+                data.start_deallocated_bytes = getDeallocatedBytes();
+                return data;
+            }
+            
+            [[nodiscard]] allocation_data_t start_measurement_thread_local() const
+            {
+                allocation_data_t data{};
+                data.start_allocations = tl.getAllocations();
+                data.start_deallocations = tl.getDeallocations();
+                data.start_allocated_bytes = tl.getAllocatedBytes();
+                data.start_deallocated_bytes = tl.getDeallocatedBytes();
                 return data;
             }
             
             void stop_measurement(allocation_data_t& data) const
             {
-                data.end_allocations = allocations;
-                data.end_deallocations = deallocations;
-                data.end_allocated_bytes = allocated_bytes;
-                data.end_deallocated_bytes = deallocated_bytes;
+                data.end_allocations = getAllocations();
+                data.end_deallocations = getDeallocations();
+                data.end_allocated_bytes = getAllocatedBytes();
+                data.end_deallocated_bytes = getDeallocatedBytes();
+            }
+            
+            void stop_measurement_thread_local(allocation_data_t& data) const
+            {
+                data.end_allocations = tl.getAllocations();
+                data.end_deallocations = tl.getDeallocations();
+                data.end_allocated_bytes = tl.getAllocatedBytes();
+                data.end_deallocated_bytes = tl.getDeallocatedBytes();
             }
         
         private:
+            static void add_map(blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>>& map, blt::u64 value)
+            {
+                auto l = map.find(std::this_thread::get_id());
+                if (l == map.end())
+                    BLT_ABORT("Thread doesn't exist inside this map!");
+                auto& v = *l->second;
+                v += value;
+            }
+            
+            static blt::u64 get_map(const blt::hashmap_t<std::thread::id, std::unique_ptr<blt::u64>>& map)
+            {
+                auto l = map.find(std::this_thread::get_id());
+                if (l == map.end())
+                    BLT_ABORT("Thread doesn't exist inside this map!");
+                return *l->second;
+            }
+            
+            tl_t tl;
+            
             std::atomic_uint64_t allocations = 0;
             std::atomic_uint64_t deallocations = 0;
             std::atomic_uint64_t allocated_bytes = 0;
             std::atomic_uint64_t deallocated_bytes = 0;
+            
+            std::mutex mutex;
     };
     
     class call_tracker_t
@@ -190,7 +294,6 @@ namespace blt::gp
             std::atomic_uint64_t primary_calls = 0;
             std::atomic_uint64_t secondary_value = 0;
     };
-    
 }
 
 #endif //BLT_GP_STATS_H

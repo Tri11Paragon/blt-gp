@@ -17,8 +17,14 @@
  */
 #include <blt/gp/stats.h>
 #include <blt/std/logging.h>
+#include "blt/std/format.h"
 
 namespace blt::gp
 {
-
+    
+    void allocation_tracker_t::allocation_data_t::pretty_print(const std::string& name) const
+    {
+        BLT_TRACE("%s Allocations: %ld times with a total of %s", name.c_str(), getAllocationDifference(),
+                  blt::byte_convert_t(getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+    }
 }

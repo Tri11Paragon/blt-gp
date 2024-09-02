@@ -367,8 +367,7 @@ namespace blt::gp
                 (*thread_execution_service)(0);
 #ifdef BLT_TRACK_ALLOCATIONS
                 blt::gp::tracker.stop_measurement(gen_alloc);
-        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+                gen_alloc.pretty_print("Generation");
 #endif
             }
             
@@ -386,8 +385,7 @@ namespace blt::gp
                 evaluate_fitness_internal();
 #ifdef BLT_TRACK_ALLOCATIONS
                 blt::gp::tracker.stop_measurement(fitness_alloc);
-                BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
-                          blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
+                fitness_alloc.pretty_print("Fitness");
 #endif
                 
             }

@@ -148,9 +148,9 @@ int main()
     auto mutation_allocations_v = blt::gp::mutation_allocations.get_calls();
     auto reproduction_calls_v = blt::gp::reproduction_calls.get_calls();
     auto reproduction_allocations_v = blt::gp::reproduction_allocations.get_calls();
-    BLT_TRACE("Total Crossover Calls: %ld Bytes %s", crossover_calls_v, blt::byte_convert_t(blt::gp::crossover_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Mutation Calls: %ld Bytes %s", mutation_calls_v, blt::byte_convert_t(blt::gp::mutation_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
-    BLT_TRACE("Total Reproduction Calls: %ld Bytes %s", reproduction_calls_v, blt::byte_convert_t(blt::gp::reproduction_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Crossover Calls: %ld", crossover_calls_v);
+    BLT_TRACE("Total Mutation Calls: %ld", mutation_calls_v);
+    BLT_TRACE("Total Reproduction Calls: %ld", reproduction_calls_v);
     BLT_TRACE("Total Crossover Allocations: %ld Bytes %s", crossover_allocations_v, blt::byte_convert_t(blt::gp::crossover_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
     BLT_TRACE("Total Mutation Allocations: %ld Bytes %s", mutation_allocations_v, blt::byte_convert_t(blt::gp::mutation_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
     BLT_TRACE("Total Reproduction Allocations: %ld Bytes %s", reproduction_allocations_v, blt::byte_convert_t(blt::gp::reproduction_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());

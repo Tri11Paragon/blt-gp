@@ -105,6 +105,9 @@ namespace blt::gp
         auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
         auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
         
+        c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
+        c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
+        
         c1_stack.copy_to(copy_ptr_c1, c1_total);
         c1_stack.pop_bytes(c1_total);
         

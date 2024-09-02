@@ -76,7 +76,7 @@ namespace blt::gp
     template<typename T>
     using tracked_vector = std::vector<T>;
 #endif
-    
+
 //    using operation_vector_t = tracked_vector<op_container_t>;
 //    using individual_vector_t = tracked_vector<individual_t, tracked_allocator_t<individual_t>>;
 //    using tree_vector_t = tracked_vector<tree_t>;
