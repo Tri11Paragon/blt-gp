@@ -106,35 +106,15 @@ int main()
     {
         BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        auto gen_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_START_INTERVAL("Symbolic Regression", "Gen");
         program.create_next_generation();
         BLT_END_INTERVAL("Symbolic Regression", "Gen");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(gen_alloc);
-        BLT_TRACE("Generation Allocated %ld times with a total of %s", gen_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(gen_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-        auto fitness_alloc = blt::gp::tracker.start_measurement();
-#endif
-        
         BLT_TRACE("Move to next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Fitness");
         program.next_generation();
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         BLT_END_INTERVAL("Symbolic Regression", "Fitness");
-
-#ifdef BLT_TRACK_ALLOCATIONS
-        blt::gp::tracker.stop_measurement(fitness_alloc);
-        BLT_TRACE("Fitness Allocated %ld times with a total of %s", fitness_alloc.getAllocationDifference(),
-                  blt::byte_convert_t(fitness_alloc.getAllocatedByteDifference()).convert_to_nearest_type().to_pretty_string().c_str());
-#endif
-        
         BLT_TRACE("----------------------------------------------");
         std::cout << std::endl;
     }
@@ -164,6 +144,24 @@ int main()
 #ifdef BLT_TRACK_ALLOCATIONS
     BLT_TRACE("Total Allocations: %ld times with a total of %s", blt::gp::tracker.getAllocations(),
               blt::byte_convert_t(blt::gp::tracker.getAllocatedBytes()).convert_to_nearest_type().to_pretty_string().c_str());
+    auto crossover_calls_v = blt::gp::crossover_calls.get_calls();
+    auto crossover_allocations_v = blt::gp::crossover_allocations.get_calls();
+    auto mutation_calls_v = blt::gp::mutation_calls.get_calls();
+    auto mutation_allocations_v = blt::gp::mutation_allocations.get_calls();
+    auto reproduction_calls_v = blt::gp::reproduction_calls.get_calls();
+    auto reproduction_allocations_v = blt::gp::reproduction_allocations.get_calls();
+    BLT_TRACE("Total Crossover Calls: %ld Bytes %s", crossover_calls_v, blt::byte_convert_t(blt::gp::crossover_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Mutation Calls: %ld Bytes %s", mutation_calls_v, blt::byte_convert_t(blt::gp::mutation_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Reproduction Calls: %ld Bytes %s", reproduction_calls_v, blt::byte_convert_t(blt::gp::reproduction_calls.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Crossover Allocations: %ld Bytes %s", crossover_allocations_v, blt::byte_convert_t(blt::gp::crossover_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Mutation Allocations: %ld Bytes %s", mutation_allocations_v, blt::byte_convert_t(blt::gp::mutation_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Total Reproduction Allocations: %ld Bytes %s", reproduction_allocations_v, blt::byte_convert_t(blt::gp::reproduction_allocations.get_value()).convert_to_nearest_type().to_pretty_string().c_str());
+    BLT_TRACE("Percent Crossover calls allocate? %lf%%",
+              static_cast<double>(crossover_allocations_v) / static_cast<double>(crossover_calls_v == 0 ? 1 : crossover_calls_v) * 100);
+    BLT_TRACE("Percent Mutation calls allocate? %lf%%",
+              static_cast<double>(mutation_allocations_v) / static_cast<double>(mutation_calls_v == 0 ? 1 : mutation_calls_v) * 100);
+    BLT_TRACE("Percent Reproduction calls allocate? %lf%%",
+              static_cast<double>(reproduction_allocations_v) / static_cast<double>(reproduction_calls_v == 0 ? 1 : reproduction_calls_v) * 100);
 #endif
     
     return 0;
