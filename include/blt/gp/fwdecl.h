@@ -94,6 +94,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.allocate(bytes);
+                std::cout << "Hey our aligned allocator allocated " << bytes << " bytes!\n";
 #endif
                 return std::aligned_alloc(8, bytes);
             }
@@ -104,6 +105,7 @@ namespace blt::gp
                     return;
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.deallocate(bytes);
+                std::cout << "[Hey our aligned allocator deallocated " << bytes << " bytes!]\n";
 #else
                 (void) bytes;
 #endif
@@ -134,6 +136,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.allocate(n * sizeof(T));
+//                std::cout << "Hey our tracked allocator allocated " << (n * sizeof(T)) << " bytes!\n";
 #endif
                 return static_cast<pointer>(std::malloc(n * sizeof(T)));
             }
@@ -147,6 +150,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.deallocate(n * sizeof(T));
+//                std::cout << "[Hey our tracked allocator deallocated " << (n * sizeof(T)) << " bytes!]\n";
 #else
                 (void) n;
 #endif

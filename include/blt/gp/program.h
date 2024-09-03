@@ -83,6 +83,7 @@ namespace blt::gp
     {
         blt::size_t arg_size_bytes = 0;
         blt::size_t return_size_bytes = 0;
+        argc_t argc{};
     };
     
     struct program_operator_storage_t
@@ -118,8 +119,13 @@ namespace blt::gp
             program_operator_storage_t& build(Operators& ... operators)
             {
                 blt::size_t largest = 0;
+                blt::u32 largest_argc = 0;
                 operator_metadata_t meta;
-                ((meta = add_operator(operators), largest = std::max(std::max(meta.arg_size_bytes, meta.return_size_bytes), largest)), ...);
+                ((meta = add_operator(operators), largest_argc = std::max(meta.argc.argc, largest_argc),
+                  largest = std::max(std::max(meta.arg_size_bytes, meta.return_size_bytes), largest)), ...);
+
+//                largest = largest * largest_argc;
+                BLT_TRACE(largest);
                 
                 storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
                     const auto& ops = tree.get_operations();
@@ -130,16 +136,30 @@ namespace blt::gp
                     results.values.reserve(largest);
                     
                     blt::size_t total_so_far = 0;
+                    blt::size_t op_pos = 0;
                     
                     for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
                     {
+                        op_pos++;
                         if (operation.is_value)
                         {
+                            auto cur = tracker.start_measurement();
                             total_so_far += stack_allocator::aligned_size(operation.type_size);
                             results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
+                            tracker.stop_measurement(cur);
+                            if (cur.getAllocatedByteDifference() > 0)
+                            {
+                                BLT_TRACE("Operator %ld allocated! pos: %ld", operation.id, op_pos);
+                            }
                             continue;
                         }
+                        auto cur = tracker.start_measurement();
                         call_jmp_table(operation.id, context, results.values, results.values, operators...);
+                        tracker.stop_measurement(cur);
+                        if (cur.getAllocatedByteDifference() > 0)
+                        {
+                            BLT_TRACE("Operator %ld allocated! pos: %ld", operation.id, op_pos);
+                        }
                     }
                     
                     return results;
@@ -219,13 +239,6 @@ namespace blt::gp
                 (storage.system.register_type<Args>(), ...);
                 storage.system.register_type<Return>();
                 
-                operator_metadata_t meta;
-                if constexpr (sizeof...(Args) != 0)
-                {
-                    meta.arg_size_bytes = (stack_allocator::aligned_size(sizeof(Args)) + ...);
-                }
-                meta.return_size_bytes = sizeof(Return);
-                
                 auto return_type_id = storage.system.get_type<Return>().id();
                 auto operator_id = blt::gp::operator_id(storage.operators.size());
                 op.id = operator_id;
@@ -249,6 +262,15 @@ namespace blt::gp
                 BLT_ASSERT(info.argc.argc_context - info.argc.argc <= 1 && "Cannot pass multiple context as arguments!");
                 
                 storage.operators.push_back(info);
+                
+                operator_metadata_t meta;
+                if constexpr (sizeof...(Args) != 0)
+                {
+                    meta.arg_size_bytes = (stack_allocator::aligned_size(sizeof(Args)) + ...);
+                }
+                meta.return_size_bytes = sizeof(Return);
+                meta.argc = info.argc;
+                
                 storage.operator_metadata.push_back(meta);
                 storage.print_funcs.push_back([&op](std::ostream& out, stack_allocator& stack) {
                     if constexpr (blt::meta::is_streamable_v<Return>)

@@ -295,7 +295,7 @@ namespace blt::gp
         }
     }
     
-    tree_t::tree_t(gp_program& program): func(&program.get_eval_func())
+    tree_t::tree_t(gp_program& program): func(&program.get_eval_func()), program(&program)
     {
     
     }

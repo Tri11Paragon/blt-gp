@@ -118,7 +118,14 @@ namespace blt::gp
             
             evaluation_context& evaluate(void* context) const
             {
-                return (*func)(*this, context);
+                auto cur = tracker.start_measurement();
+                auto& v =  (*func)(*this, context);
+                tracker.stop_measurement(cur);
+                if (cur.getAllocatedByteDifference() > 0)
+                {
+                    print(*program, std::cout, false, true, false);
+                }
+                return v;
             }
             
             blt::size_t get_depth(gp_program& program);
@@ -194,6 +201,7 @@ namespace blt::gp
             tracked_vector<op_container_t> operations;
             blt::gp::stack_allocator values;
             detail::eval_func_t* func;
+            gp_program* program;
     };
     
     struct fitness_t
