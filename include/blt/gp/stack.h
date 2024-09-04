@@ -49,7 +49,7 @@ namespace blt::gp
             constexpr static blt::size_t MAX_ALIGNMENT = 8;
             template<typename T>
             using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
-            using Allocator = aligned_allocator;
+            using Allocator = variable_bump_allocator<>;
         public:
             static Allocator& get_allocator();
             
