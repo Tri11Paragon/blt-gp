@@ -115,7 +115,7 @@ namespace blt::gp
             {
                 if (stack.empty())
                     return;
-                if (size_ < stack.bytes_stored + bytes_stored)
+                if (stack.bytes_stored + bytes_stored > size_)
                     expand(stack.bytes_stored + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_, stack.bytes_stored);
                 bytes_stored += stack.bytes_stored;
@@ -125,7 +125,7 @@ namespace blt::gp
             {
                 if (bytes == 0)
                     return;
-                if (size_ < bytes + bytes_stored)
+                if (bytes + bytes_stored > size_)
                     expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
                 bytes_stored += bytes;
@@ -135,7 +135,7 @@ namespace blt::gp
             {
                 if (bytes == 0 || data == nullptr)
                     return;
-                if (size_ < bytes + bytes_stored)
+                if (bytes + bytes_stored > size_)
                     expand(bytes + size_);
                 std::memcpy(data_ + bytes_stored, data, bytes);
                 bytes_stored += bytes;

@@ -247,6 +247,16 @@ namespace blt::gp
                 normalized_fitness.push_back(v);
         }
         
+        population_stats(population_stats&& move) noexcept:
+                overall_fitness(move.overall_fitness.load()), average_fitness(move.average_fitness.load()), best_fitness(move.best_fitness.load()),
+                worst_fitness(move.worst_fitness.load()), normalized_fitness(std::move(move.normalized_fitness))
+        {
+            move.overall_fitness = 0;
+            move.average_fitness = 0;
+            move.best_fitness = 0;
+            move.worst_fitness = 0;
+        }
+        
         std::atomic<double> overall_fitness = 0;
         std::atomic<double> average_fitness = 0;
         std::atomic<double> best_fitness = 0;

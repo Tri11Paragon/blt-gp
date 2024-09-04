@@ -30,12 +30,18 @@ namespace blt::gp
 {
 #ifdef BLT_TRACK_ALLOCATIONS
     inline allocation_tracker_t tracker;
+    
+    // population gen specifics
     inline call_tracker_t crossover_calls;
     inline call_tracker_t mutation_calls;
     inline call_tracker_t reproduction_calls;
     inline call_tracker_t crossover_allocations;
     inline call_tracker_t mutation_allocations;
     inline call_tracker_t reproduction_allocations;
+    
+    // for evaluating fitness
+    inline call_tracker_t evaluation_calls;
+    inline call_tracker_t evaluation_allocations;
 #endif
     
     class gp_program;
@@ -76,7 +82,7 @@ namespace blt::gp
     template<typename T>
     using tracked_vector = std::vector<T>;
 #endif
-    
+
 //    using operation_vector_t = tracked_vector<op_container_t>;
 //    using individual_vector_t = tracked_vector<individual_t, tracked_allocator_t<individual_t>>;
 //    using tree_vector_t = tracked_vector<tree_t>;
@@ -88,6 +94,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.allocate(bytes);
+//                std::cout << "Hey our aligned allocator allocated " << bytes << " bytes!\n";
 #endif
                 return std::aligned_alloc(8, bytes);
             }
@@ -98,6 +105,7 @@ namespace blt::gp
                     return;
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.deallocate(bytes);
+//                std::cout << "[Hey our aligned allocator deallocated " << bytes << " bytes!]\n";
 #else
                 (void) bytes;
 #endif
@@ -128,6 +136,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.allocate(n * sizeof(T));
+//                std::cout << "Hey our tracked allocator allocated " << (n * sizeof(T)) << " bytes!\n";
 #endif
                 return static_cast<pointer>(std::malloc(n * sizeof(T)));
             }
@@ -141,6 +150,7 @@ namespace blt::gp
             {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.deallocate(n * sizeof(T));
+//                std::cout << "[Hey our tracked allocator deallocated " << (n * sizeof(T)) << " bytes!]\n";
 #else
                 (void) n;
 #endif

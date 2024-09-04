@@ -105,6 +105,9 @@ namespace blt::gp
         auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
         auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
         
+        c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
+        c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
+        
         c1_stack.copy_to(copy_ptr_c1, c1_total);
         c1_stack.pop_bytes(c1_total);
         
@@ -168,7 +171,7 @@ namespace blt::gp
         blt::size_t attempted_point = 0;
         
         const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id);
-        operator_info* attempted_point_type = nullptr;
+        operator_info_t* attempted_point_type = nullptr;
         
         blt::size_t counter = 0;
         do
@@ -456,8 +459,7 @@ namespace blt::gp
                                 config.generator.get().generate(tree,
                                         {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                          config.replacement_max_depth});
-                                blt::size_t total_bytes_for = tree.total_value_bytes();
-                                vals.copy_from(tree.get_values(), total_bytes_for);
+                                vals.insert(tree.get_values());
                                 ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(start_index), tree.get_operations().begin(),
                                            tree.get_operations().end());
                                 start_index += tree.get_operations().size();

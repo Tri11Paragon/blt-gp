@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(blt-gp VERSION 0.1.40)
+project(blt-gp VERSION 0.1.45)
 
 include(CTest)
 
@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-#SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
+SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
 
 if (NOT TARGET BLT)
     add_subdirectory(lib/blt)

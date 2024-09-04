@@ -41,7 +41,7 @@ namespace blt::gp
     constexpr inline auto perform_elitism = [](const selector_args& args, population_t& next_pop) {
         auto& [program, current_pop, current_stats, config, random] = args;
         
-        if (config.elites > 0)
+        if (config.elites > 0 && current_pop.get_individuals().size() >= config.elites)
         {
             static thread_local tracked_vector<std::pair<std::size_t, double>> values;
             values.clear();
@@ -70,7 +70,9 @@ namespace blt::gp
             
             for (blt::size_t i = 0; i < config.elites; i++)
                 next_pop.get_individuals()[i].copy_fast(current_pop.get_individuals()[values[i].first].tree);
+            return config.elites;
         }
+        return 0ul;
     };
     
     template<typename Crossover, typename Mutation, typename Reproduction>
@@ -89,7 +91,7 @@ namespace blt::gp
                 if (random.choice(config.crossover_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // crossover
                     const tree_t* p1;
@@ -100,10 +102,13 @@ namespace blt::gp
                         p2 = &crossover_selection.select(program, current_pop);
                     } while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    crossover_calls.call(state.getAllocatedByteDifference());
-                    if (state.getAllocationDifference() != 0)
+                    tracker.stop_measurement_thread_local(state);
+                    crossover_calls.call();
+                    crossover_calls.set_value(std::max(crossover_calls.get_value(), state.getAllocatedByteDifference()));
+                    if (state.getAllocatedByteDifference() != 0)
+                    {
                         crossover_allocations.call(state.getAllocatedByteDifference());
+                    }
 #endif
                     return 2;
                 }
@@ -112,7 +117,7 @@ namespace blt::gp
                 if (random.choice(config.mutation_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // mutation
                     const tree_t* p;
@@ -121,8 +126,9 @@ namespace blt::gp
                         p = &mutation_selection.select(program, current_pop);
                     } while (!config.mutator.get().apply(program, *p, c1));
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    mutation_calls.call(state.getAllocatedByteDifference());
+                    tracker.stop_measurement_thread_local(state);
+                    mutation_calls.call();
+                    mutation_calls.set_value(std::max(mutation_calls.get_value(), state.getAllocatedByteDifference()));
                     if (state.getAllocationDifference() != 0)
                     {
                         mutation_allocations.call(state.getAllocatedByteDifference());
@@ -135,13 +141,14 @@ namespace blt::gp
                 if (config.reproduction_chance > 0 && random.choice(config.reproduction_chance))
                 {
 #ifdef BLT_TRACK_ALLOCATIONS
-                    auto state = tracker.start_measurement();
+                    auto state = tracker.start_measurement_thread_local();
 #endif
                     // reproduction
                     c1 = reproduction_selection.select(program, current_pop);
 #ifdef BLT_TRACK_ALLOCATIONS
-                    tracker.stop_measurement(state);
-                    reproduction_calls.call(state.getAllocatedByteDifference());
+                    tracker.stop_measurement_thread_local(state);
+                    reproduction_calls.call();
+                    reproduction_calls.set_value(std::max(reproduction_calls.get_value(), state.getAllocatedByteDifference()));
                     if (state.getAllocationDifference() != 0)
                     {
                         reproduction_allocations.call(state.getAllocatedByteDifference());

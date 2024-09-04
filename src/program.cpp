@@ -58,12 +58,20 @@ namespace blt::gp
     
     void gp_program::create_threads()
     {
+#ifdef BLT_TRACK_ALLOCATIONS
+        tracker.reserve();
+#endif
+        statistic_history.reserve(config.max_generations + 1);
         if (config.threads == 0)
             config.set_thread_count(std::thread::hardware_concurrency());
         // main thread is thread0
         for (blt::size_t i = 1; i < config.threads; i++)
         {
             thread_helper.threads.emplace_back(new std::thread([i, this]() {
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.reserve();
+                tracker.await_thread_loading_complete(config.threads);
+#endif
                 std::function<void(blt::size_t)>* execution_function = nullptr;
                 while (!should_thread_terminate())
                 {
@@ -83,5 +91,8 @@ namespace blt::gp
                 }
             }));
         }
+#ifdef BLT_TRACK_ALLOCATIONS
+        tracker.await_thread_loading_complete(config.threads);
+#endif
     }
 }
