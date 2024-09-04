@@ -241,7 +241,7 @@ namespace blt::gp
             void push_block(blt::size_t bytes)
             {
                 auto blk = allocate_block(bytes);
-                BLT_TRACE("Allocated block %p", blk);
+//                BLT_TRACE("Allocated block %p", blk);
                 blk->metadata.next = head;
                 head = blk;
             }
