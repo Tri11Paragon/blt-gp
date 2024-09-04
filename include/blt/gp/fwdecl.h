@@ -116,7 +116,7 @@ namespace blt::gp
             }
     };
     
-    template<typename Alloc = blt::mmap_huge_allocator>
+    template<typename Alloc = blt::aligned_huge_allocator>
     class variable_bump_allocator
     {
         public:
@@ -256,7 +256,7 @@ namespace blt::gp
                     return blk;
                 }
                 auto size = align_size_to(bytes + sizeof(typename block_t::block_metadata_t), default_block_size);
-                auto* ptr = static_cast<block_t*>(alloc.allocate(size, blt::huge_page_t::BLT_2MB_PAGE));
+                auto* ptr = static_cast<block_t*>(alloc.allocate(size));
                 new(ptr) block_t{size};
                 return ptr;
             }
