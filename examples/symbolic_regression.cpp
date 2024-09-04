@@ -37,13 +37,13 @@ std::array<context, 200> training_cases;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(0)
+        .set_elite_count(200)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(1)
-        .set_thread_count(1);
+        .set_pop_size(20000)
+        .set_thread_count(0);
 
 blt::gp::gp_program program{SEED, config};
 
