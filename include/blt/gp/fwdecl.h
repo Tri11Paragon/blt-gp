@@ -149,24 +149,29 @@ namespace blt::gp
                 (void) bytes;
 #endif
                 std::scoped_lock lock(mutex);
-                auto blk = to_block(ptr);
+                block_t* blk = to_block(ptr);
                 --blk->metadata.allocated_objects;
                 if (blk->metadata.allocated_objects == 0)
                 {
-                    if (head == blk)
-                        head = head->metadata.next;
+                    if (blk->metadata.has_deallocated)
+                        alloc.deallocate(blk, blk->metadata.size);
                     else
                     {
-                        auto prev = head;
-                        auto next = head->metadata.next;
-                        while (next != blk)
+                        if (head == blk)
+                            head = head->metadata.next;
+                        else
                         {
-                            prev = next;
-                            next = next->metadata.next;
+                            auto prev = head;
+                            auto next = head->metadata.next;
+                            while (next != blk)
+                            {
+                                prev = next;
+                                next = next->metadata.next;
+                            }
+                            prev->metadata.next = next->metadata.next;
                         }
-                        prev->metadata.next = next->metadata.next;
+                        deallocated_blocks.push_back(blk);
                     }
-                    deallocated_blocks.push_back(blk);
                 }
             }
             
@@ -174,13 +179,15 @@ namespace blt::gp
             {
                 std::scoped_lock lock(mutex);
                 for (auto* blk : deallocated_blocks)
+                {
                     alloc.deallocate(blk, blk->metadata.size);
+                }
                 auto cur = head;
                 while (cur != nullptr)
                 {
                     auto* ptr = cur;
+                    ptr->metadata.has_deallocated = true;
                     cur = cur->metadata.next;
-                    alloc.deallocate(ptr, ptr->metadata.size);
                 }
                 head = nullptr;
             }
@@ -190,22 +197,24 @@ namespace blt::gp
             {
                 struct block_metadata_t
                 {
-                    blt::size_t size = 0;
-                    blt::size_t allocated_objects = 0;
-                    block_t* next = nullptr;
-                    blt::u8* offset = nullptr;
+                    blt::size_t size;
+                    blt::size_t allocated_objects : 63;
+                    bool has_deallocated : 1;
+                    block_t* next;
+                    blt::u8* offset;
                 } metadata;
                 blt::u8 buffer[8]{};
                 
-                explicit block_t(blt::size_t size)
+                explicit block_t(blt::size_t size): metadata{size, 0, false, nullptr, nullptr}
                 {
-                    metadata.size = size;
                     reset();
                 }
                 
                 void reset()
                 {
                     metadata.offset = buffer;
+                    metadata.allocated_objects = 0;
+                    metadata.next = nullptr;
                 }
                 
                 [[nodiscard]] blt::ptrdiff_t storage_size() const noexcept
@@ -232,6 +241,7 @@ namespace blt::gp
             void push_block(blt::size_t bytes)
             {
                 auto blk = allocate_block(bytes);
+                BLT_TRACE("Allocated block %p", blk);
                 blk->metadata.next = head;
                 head = blk;
             }
@@ -240,9 +250,9 @@ namespace blt::gp
             {
                 if (!deallocated_blocks.empty())
                 {
-                    auto blk = deallocated_blocks.back();
-                    blk->reset();
+                    block_t* blk = deallocated_blocks.back();
                     deallocated_blocks.pop_back();
+                    blk->reset();
                     return blk;
                 }
                 auto size = align_size_to(bytes + sizeof(typename block_t::block_metadata_t), default_block_size);
@@ -255,8 +265,8 @@ namespace blt::gp
             block_t* head = nullptr;
             std::mutex mutex;
             std::vector<block_t*> deallocated_blocks;
-            Alloc alloc;
             blt::size_t default_block_size;
+            Alloc alloc;
     };
     
     template<typename T>
