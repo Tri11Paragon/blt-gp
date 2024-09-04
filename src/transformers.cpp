@@ -459,8 +459,7 @@ namespace blt::gp
                                 config.generator.get().generate(tree,
                                         {program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                          config.replacement_max_depth});
-                                blt::size_t total_bytes_for = tree.total_value_bytes();
-                                vals.copy_from(tree.get_values(), total_bytes_for);
+                                vals.insert(tree.get_values());
                                 ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(start_index), tree.get_operations().begin(),
                                            tree.get_operations().end());
                                 start_index += tree.get_operations().size();

@@ -118,13 +118,16 @@ namespace blt::gp
             template<typename... Operators>
             program_operator_storage_t& build(Operators& ... operators)
             {
-                blt::size_t largest = 0;
+                blt::size_t largest_args = 0;
+                blt::size_t largest_returns = 0;
                 blt::u32 largest_argc = 0;
                 operator_metadata_t meta;
                 ((meta = add_operator(operators), largest_argc = std::max(meta.argc.argc, largest_argc),
-                  largest = std::max(std::max(meta.arg_size_bytes, meta.return_size_bytes), largest)), ...);
+                  largest_args = std::max(meta.arg_size_bytes, largest_args), largest_returns = std::max(meta.return_size_bytes,
+                                                                                                         largest_returns)), ...);
 
 //                largest = largest * largest_argc;
+                blt::size_t largest = largest_args * largest_argc * largest_returns * largest_argc;
                 BLT_TRACE(largest);
                 
                 storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
@@ -143,23 +146,11 @@ namespace blt::gp
                         op_pos++;
                         if (operation.is_value)
                         {
-                            auto cur = tracker.start_measurement();
                             total_so_far += stack_allocator::aligned_size(operation.type_size);
                             results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
-                            tracker.stop_measurement(cur);
-                            if (cur.getAllocatedByteDifference() > 0)
-                            {
-                                BLT_TRACE("Operator %ld allocated! pos: %ld", operation.id, op_pos);
-                            }
                             continue;
                         }
-                        auto cur = tracker.start_measurement();
                         call_jmp_table(operation.id, context, results.values, results.values, operators...);
-                        tracker.stop_measurement(cur);
-                        if (cur.getAllocatedByteDifference() > 0)
-                        {
-                            BLT_TRACE("Operator %ld allocated! pos: %ld", operation.id, op_pos);
-                        }
                     }
                     
                     return results;

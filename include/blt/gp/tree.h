@@ -118,14 +118,7 @@ namespace blt::gp
             
             evaluation_context& evaluate(void* context) const
             {
-                auto cur = tracker.start_measurement();
-                auto& v =  (*func)(*this, context);
-                tracker.stop_measurement(cur);
-                if (cur.getAllocatedByteDifference() > 0)
-                {
-                    print(*program, std::cout, false, true, false);
-                }
-                return v;
+                return (*func)(*this, context);
             }
             
             blt::size_t get_depth(gp_program& program);
@@ -201,7 +194,6 @@ namespace blt::gp
             tracked_vector<op_container_t> operations;
             blt::gp::stack_allocator values;
             detail::eval_func_t* func;
-            gp_program* program;
     };
     
     struct fitness_t
@@ -253,6 +245,16 @@ namespace blt::gp
             normalized_fitness.reserve(copy.normalized_fitness.size());
             for (auto v : copy.normalized_fitness)
                 normalized_fitness.push_back(v);
+        }
+        
+        population_stats(population_stats&& move) noexcept:
+                overall_fitness(move.overall_fitness.load()), average_fitness(move.average_fitness.load()), best_fitness(move.best_fitness.load()),
+                worst_fitness(move.worst_fitness.load()), normalized_fitness(std::move(move.normalized_fitness))
+        {
+            move.overall_fitness = 0;
+            move.average_fitness = 0;
+            move.best_fitness = 0;
+            move.worst_fitness = 0;
         }
         
         std::atomic<double> overall_fitness = 0;
