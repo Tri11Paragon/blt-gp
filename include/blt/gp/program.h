@@ -128,7 +128,6 @@ namespace blt::gp
 
 //                largest = largest * largest_argc;
                 blt::size_t largest = largest_args * largest_argc * largest_returns * largest_argc;
-                BLT_TRACE(largest);
                 
                 storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
                     const auto& ops = tree.get_operations();
