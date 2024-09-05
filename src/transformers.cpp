@@ -61,9 +61,6 @@ namespace blt::gp
     
     bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
-        c1.copy_fast(p1);
-        c2.copy_fast(p2);
-        
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
         
@@ -214,12 +211,9 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    bool mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
+    bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)
     {
-        c.copy_fast(p);
-        
         mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));
-        
         return true;
     }
     
@@ -307,9 +301,7 @@ namespace blt::gp
     
     bool advanced_mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
     {
-        // child tree
-        c.copy_fast(p);
-        
+        (void) p;
         auto& ops = c.get_operations();
         auto& vals = c.get_values();
         

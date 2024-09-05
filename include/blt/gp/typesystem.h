@@ -30,14 +30,14 @@
 
 namespace blt::gp
 {
-    struct operator_id : integer_type<blt::size_t>
+    struct operator_id : integer_type<blt::u64>
     {
-        using integer_type<blt::size_t>::integer_type;
+        using integer_type<blt::u64>::integer_type;
     };
     
-    struct type_id : integer_type<blt::size_t>
+    struct type_id : integer_type<blt::u64>
     {
-        using integer_type<blt::size_t>::integer_type;
+        using integer_type<blt::u64>::integer_type;
     };
     
     class type

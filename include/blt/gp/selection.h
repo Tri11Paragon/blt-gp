@@ -100,6 +100,8 @@ namespace blt::gp
                     {
                         p1 = &crossover_selection.select(program, current_pop);
                         p2 = &crossover_selection.select(program, current_pop);
+                        c1.copy_fast(*p1);
+                        c2->copy_fast(*p2);
                     } while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
@@ -124,6 +126,7 @@ namespace blt::gp
                     do
                     {
                         p = &mutation_selection.select(program, current_pop);
+                        c1.copy_fast(*p);
                     } while (!config.mutator.get().apply(program, *p, c1));
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
@@ -144,7 +147,7 @@ namespace blt::gp
                     auto state = tracker.start_measurement_thread_local();
 #endif
                     // reproduction
-                    c1 = reproduction_selection.select(program, current_pop);
+                    c1.copy_fast(reproduction_selection.select(program, current_pop));
 #ifdef BLT_TRACK_ALLOCATIONS
                     tracker.stop_measurement_thread_local(state);
                     reproduction_calls.call();

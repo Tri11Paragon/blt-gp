@@ -39,12 +39,12 @@ blt::gp::mutation_t mut;
 blt::gp::prog_config_t config = blt::gp::prog_config_t()
         .set_initial_min_tree_size(2)
         .set_initial_max_tree_size(6)
-        .set_elite_count(200)
+        .set_elite_count(2)
         .set_crossover_chance(0.9)
         .set_mutation_chance(0.1)
         .set_reproduction_chance(0)
         .set_max_generations(50)
-        .set_pop_size(20000)
+        .set_pop_size(500)
         .set_thread_count(0);
 
 blt::gp::gp_program program{SEED, config};
@@ -65,7 +65,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
-            if (diff < 0.01)
+            if (diff <= 0.01)
                 fitness.hits++;
         } else
             fitness.raw_fitness += value_cutoff;
@@ -99,7 +99,7 @@ int main()
     program.set_operations(builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x));
     
     BLT_DEBUG("Generate Initial Population");
-    auto sel = blt::gp::select_tournament_t{};
+    auto sel = blt::gp::select_fitness_proportionate_t{};
     program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function, sel, sel, sel);
     
     BLT_DEBUG("Begin Generation Loop");
