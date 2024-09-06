@@ -17,7 +17,7 @@
  */
 #include <blt/gp/stats.h>
 #include <blt/std/logging.h>
-#include "blt/std/format.h"
+#include "blt/format/format.h"
 
 namespace blt::gp
 {

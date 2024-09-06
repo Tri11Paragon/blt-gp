@@ -22,6 +22,7 @@
 #include <utility>
 #include <thread>
 #include <blt/std/types.h>
+#include <blt/meta/config_generator.h>
 #include <blt/gp/generators.h>
 #include <blt/gp/transformers.h>
 

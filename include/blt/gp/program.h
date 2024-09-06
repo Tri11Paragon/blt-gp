@@ -40,7 +40,7 @@
 #include <blt/std/hashmap.h>
 #include <blt/std/types.h>
 #include <blt/std/utility.h>
-#include <blt/std/meta.h>
+#include <blt/meta/meta.h>
 #include <blt/std/memory.h>
 #include <blt/std/thread.h>
 #include <blt/gp/fwdecl.h>
@@ -52,7 +52,7 @@
 #include <blt/gp/stack.h>
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
-#include "blt/std/format.h"
+#include "blt/format/format.h"
 
 namespace blt::gp
 {

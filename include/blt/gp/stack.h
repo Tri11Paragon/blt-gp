@@ -25,7 +25,7 @@
 #include <blt/std/logging.h>
 #include <blt/std/allocator.h>
 #include <blt/std/ranges.h>
-#include <blt/std/meta.h>
+#include <blt/meta/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/stats.h>
 #include <utility>

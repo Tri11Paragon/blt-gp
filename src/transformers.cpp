@@ -211,6 +211,11 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
+    std::optional<blt::ptrdiff_t> crossover_t::find_place_of_type(gp_program& program, const tree_t& t, type_id type) const
+    {
+        return std::optional<blt::ptrdiff_t>();
+    }
+    
     bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)
     {
         mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));

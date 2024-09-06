@@ -19,7 +19,7 @@
 #include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
-#include <blt/std/format.h>
+#include <blt/format/format.h>
 #include <iostream>
 #include "operations_common.h"
 #include "blt/math/averages.h"
@@ -80,8 +80,12 @@ float example_function(float x)
     return x * x * x * x + x * x * x + x * x + x;
 }
 
+BLT_MAKE_CONFIG_TYPE(test, BLT_MAKE_GETTER_AND_SETTER(int, silly) BLT_MAKE_GETTER(int, billy));
+
 int main()
 {
+    test t;
+    
     BLT_INFO("Starting BLT-GP Symbolic Regression Example");
     BLT_START_INTERVAL("Symbolic Regression", "Main");
     BLT_DEBUG("Setup Fitness cases");

@@ -78,6 +78,7 @@ namespace blt::gp
             {}
             
             std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            std::optional<blt::ptrdiff_t> find_place_of_type(gp_program& program, const tree_t& t, type_id type) const;
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.

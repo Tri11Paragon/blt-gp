@@ -24,7 +24,7 @@
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
 #include <blt/std/assert.h>
-#include "blt/std/format.h"
+#include "blt/format/format.h"
 
 namespace blt::gp
 {
