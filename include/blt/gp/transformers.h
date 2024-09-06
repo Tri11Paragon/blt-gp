@@ -24,6 +24,7 @@
 #include <blt/gp/tree.h>
 #include <blt/gp/generators.h>
 #include <blt/std/expected.h>
+#include <blt/meta/config_generator.h>
 
 namespace blt::gp
 {
@@ -83,6 +84,9 @@ namespace blt::gp
             {}
             
             std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            
+            std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type,
+                                                           bool scale_per_depth = true) const;
             
             static std::optional<point_info_t> find_place_of_type(gp_program& program, const tree_t& t, type_id type);
             
