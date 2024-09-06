@@ -211,12 +211,12 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    std::optional<blt::ptrdiff_t> crossover_t::find_place_of_type(gp_program& program, const tree_t& t, type_id type)
+    std::optional<crossover_t::point_info_t> crossover_t::find_place_of_type(gp_program& program, const tree_t& t, type_id type)
     {
         auto attempted_point = program.get_random().get_size_t(1ul, t.get_operations().size());
         auto& attempted_point_type = program.get_operator_info(t.get_operations()[attempted_point].id);
         if (type == attempted_point_type.return_type)
-            return {attempted_point};
+            return {{attempted_point, attempted_point_type}};
         return {};
     }
     

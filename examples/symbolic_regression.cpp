@@ -71,7 +71,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     constexpr double value_cutoff = 1.e15;
     for (auto& fitness_case : training_cases)
     {
-        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(&fitness_case));
+        auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(fitness_case));
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
@@ -92,8 +92,6 @@ float example_function(float x)
 
 int main()
 {
-    test t;
-    
     BLT_INFO("Starting BLT-GP Symbolic Regression Example");
     BLT_START_INTERVAL("Symbolic Regression", "Main");
     BLT_DEBUG("Setup Fitness cases");

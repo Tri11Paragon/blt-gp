@@ -60,6 +60,7 @@ namespace blt::gp
             struct point_info_t
             {
                 type_id return_type;
+                operator_info_t& type_operator_info;
             };
             struct crossover_point_t
             {
@@ -83,7 +84,7 @@ namespace blt::gp
             
             std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            static std::optional<blt::ptrdiff_t> find_place_of_type(gp_program& program, const tree_t& t, type_id type);
+            static std::optional<point_info_t> find_place_of_type(gp_program& program, const tree_t& t, type_id type);
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
