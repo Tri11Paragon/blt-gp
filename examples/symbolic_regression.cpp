@@ -90,8 +90,6 @@ float example_function(float x)
     return x * x * x * x + x * x * x + x * x + x;
 }
 
-BLT_MAKE_CONFIG_TYPE(test, BLT_MAKE_GETTER_AND_SETTER(int, silly) BLT_MAKE_GETTER(int, billy));
-
 int main()
 {
     test t;
