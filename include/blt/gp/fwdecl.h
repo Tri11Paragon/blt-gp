@@ -25,6 +25,9 @@
 #include <blt/gp/stats.h>
 #include <ostream>
 #include <cstdlib>
+#include <mutex>
+#include <atomic>
+#include <blt/std/mmap.h>
 
 namespace blt::gp
 {
@@ -111,6 +114,159 @@ namespace blt::gp
 #endif
                 std::free(ptr);
             }
+    };
+    
+    template<typename Alloc = blt::aligned_huge_allocator>
+    class variable_bump_allocator
+    {
+        public:
+            explicit variable_bump_allocator(blt::size_t default_block_size = BLT_2MB_SIZE): default_block_size(default_block_size)
+            {}
+            
+            void* allocate(blt::size_t bytes)
+            {
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.allocate(bytes);
+#endif
+                std::scoped_lock lock(mutex);
+                if (head == nullptr || head->remaining_bytes_in_block() < static_cast<blt::ptrdiff_t>(bytes))
+                {
+                    push_block(bytes);
+                }
+                auto ptr = head->metadata.offset;
+                head->metadata.offset += bytes;
+                ++head->metadata.allocated_objects;
+                return ptr;
+            }
+            
+            void deallocate(void* ptr, blt::size_t bytes)
+            {
+                if (ptr == nullptr)
+                    return;
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.deallocate(bytes);
+#else
+                (void) bytes;
+#endif
+                std::scoped_lock lock(mutex);
+                block_t* blk = to_block(ptr);
+                --blk->metadata.allocated_objects;
+                if (blk->metadata.allocated_objects == 0)
+                {
+                    if (blk->metadata.has_deallocated)
+                        alloc.deallocate(blk, blk->metadata.size);
+                    else
+                    {
+                        if (head == blk)
+                            head = head->metadata.next;
+                        else
+                        {
+                            auto prev = head;
+                            auto next = head->metadata.next;
+                            while (next != blk)
+                            {
+                                prev = next;
+                                next = next->metadata.next;
+                            }
+                            prev->metadata.next = next->metadata.next;
+                        }
+                        deallocated_blocks.push_back(blk);
+                    }
+                }
+            }
+            
+            ~variable_bump_allocator()
+            {
+                std::scoped_lock lock(mutex);
+                for (auto* blk : deallocated_blocks)
+                {
+                    alloc.deallocate(blk, blk->metadata.size);
+                }
+                auto cur = head;
+                while (cur != nullptr)
+                {
+                    auto* ptr = cur;
+                    ptr->metadata.has_deallocated = true;
+                    cur = cur->metadata.next;
+                }
+                head = nullptr;
+            }
+        
+        private:
+            struct block_t
+            {
+                struct block_metadata_t
+                {
+                    blt::size_t size;
+                    blt::size_t allocated_objects : 63;
+                    bool has_deallocated : 1;
+                    block_t* next;
+                    blt::u8* offset;
+                } metadata;
+                blt::u8 buffer[8]{};
+                
+                explicit block_t(blt::size_t size): metadata{size, 0, false, nullptr, nullptr}
+                {
+                    reset();
+                }
+                
+                void reset()
+                {
+                    metadata.offset = buffer;
+                    metadata.allocated_objects = 0;
+                    metadata.next = nullptr;
+                }
+                
+                [[nodiscard]] blt::ptrdiff_t storage_size() const noexcept
+                {
+                    return static_cast<blt::ptrdiff_t>(metadata.size - sizeof(typename block_t::block_metadata_t));
+                }
+                
+                [[nodiscard]] blt::ptrdiff_t used_bytes_in_block() const noexcept
+                {
+                    return static_cast<blt::ptrdiff_t>(metadata.offset - buffer);
+                }
+                
+                [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const noexcept
+                {
+                    return storage_size() - used_bytes_in_block();
+                }
+            };
+            
+            static inline block_t* to_block(void* p)
+            {
+                return reinterpret_cast<block_t*>(reinterpret_cast<std::uintptr_t>(p) & static_cast<std::uintptr_t>(~(BLT_2MB_SIZE - 1)));
+            }
+            
+            void push_block(blt::size_t bytes)
+            {
+                auto blk = allocate_block(bytes);
+//                BLT_TRACE("Allocated block %p", blk);
+                blk->metadata.next = head;
+                head = blk;
+            }
+            
+            inline block_t* allocate_block(blt::size_t bytes)
+            {
+                if (!deallocated_blocks.empty())
+                {
+                    block_t* blk = deallocated_blocks.back();
+                    deallocated_blocks.pop_back();
+                    blk->reset();
+                    return blk;
+                }
+                auto size = align_size_to(bytes + sizeof(typename block_t::block_metadata_t), default_block_size);
+                auto* ptr = static_cast<block_t*>(alloc.allocate(size));
+                new(ptr) block_t{size};
+                return ptr;
+            }
+        
+        private:
+            block_t* head = nullptr;
+            std::mutex mutex;
+            std::vector<block_t*> deallocated_blocks;
+            blt::size_t default_block_size;
+            Alloc alloc;
     };
     
     template<typename T>

@@ -52,7 +52,7 @@ namespace blt::gp
     
     stack_allocator::Allocator& stack_allocator::get_allocator()
     {
-        thread_local static Allocator allocator;
+        static Allocator allocator;
         return allocator;
     }
     
