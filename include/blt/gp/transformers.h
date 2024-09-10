@@ -85,10 +85,11 @@ namespace blt::gp
             
             std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type,
-                                                           bool scale_per_depth = true) const;
+            std::optional<crossover_t::crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            static std::optional<point_info_t> find_place_of_type(gp_program& program, const tree_t& t, type_id type);
+            static std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type);
+            
+            static std::optional<point_info_t> random_place_of_type(gp_program& program, const tree_t& t, type_id type);
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -103,6 +104,8 @@ namespace blt::gp
             virtual ~crossover_t() = default;
         
         protected:
+            std::optional<point_info_t> get_point_traverse_retry(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
+            
             config_t config;
     };
     

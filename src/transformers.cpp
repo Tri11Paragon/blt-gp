@@ -211,7 +211,15 @@ namespace blt::gp
         return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
     }
     
-    std::optional<crossover_t::point_info_t> crossover_t::find_place_of_type(gp_program& program, const tree_t& t, type_id type)
+    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(gp_program& program, const tree_t& c1,
+                                                                                            const tree_t& c2) const
+    {
+//        crossover_t::point_info_t c1_point = get_point_traverse_retry(program, c1, {});
+        
+        return std::optional<crossover_t::crossover_point_t>();
+    }
+    
+    std::optional<crossover_t::point_info_t> crossover_t::random_place_of_type(gp_program& program, const tree_t& t, type_id type)
     {
         auto attempted_point = program.get_random().get_size_t(1ul, t.get_operations().size());
         auto& attempted_point_type = program.get_operator_info(t.get_operations()[attempted_point].id);
@@ -220,24 +228,48 @@ namespace blt::gp
         return {};
     }
     
-    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type,
-                                                                             bool scale_per_depth) const
+    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type)
     {
         auto& random = program.get_random();
         
         blt::ptrdiff_t point = 0;
         while (true)
         {
+            auto& current_op_type = program.get_operator_info(t.get_operations()[point].id);
+            if (current_op_type.argc.is_terminal())
+            {
+                if (type && *type != current_op_type.return_type)
+                    return {};
+                return {{point, current_op_type}};
+            }
             // traverse to a child
             if (random.choice())
             {
-            
+                auto args = current_op_type.argc.argc;
+                auto argument = random.get_size_t(0, args);
+                
+                // move to the first child
+                point += 1;
+                // loop through all the children we wish to skip. The result will be the first node of the next child, becoming the new parent
+                for (blt::size_t i = 0; i < argument; i++)
+                    point += t.find_endpoint(program, point);
+                
+                continue;
             }
-            if (type)
-            {
-            
-            }
+            if (type && *type == current_op_type.return_type)
+                return {{point, current_op_type}};
         }
+    }
+    
+    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse_retry(gp_program& program, const tree_t& t,
+                                                                                   std::optional<type_id> type) const
+    {
+        for (blt::size_t i = 0; i < config.max_crossover_tries; i++)
+        {
+            if (auto found = get_point_traverse(program, t, type))
+                return found;
+        }
+        return {};
     }
     
     bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)
