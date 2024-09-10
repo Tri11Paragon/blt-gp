@@ -214,9 +214,16 @@ namespace blt::gp
     std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(gp_program& program, const tree_t& c1,
                                                                                             const tree_t& c2) const
     {
-//        crossover_t::point_info_t c1_point = get_point_traverse_retry(program, c1, {});
+        crossover_t::point_info_t c1_point{};
+        crossover_t::point_info_t c2_point{};
         
-        return std::optional<crossover_t::crossover_point_t>();
+        if (auto point = get_point_traverse_retry(program, c1, {}))
+            c1_point = *point;
+        else
+            return {};
+        
+        
+        return {};
     }
     
     std::optional<crossover_t::point_info_t> crossover_t::random_place_of_type(gp_program& program, const tree_t& t, type_id type)
@@ -224,11 +231,11 @@ namespace blt::gp
         auto attempted_point = program.get_random().get_size_t(1ul, t.get_operations().size());
         auto& attempted_point_type = program.get_operator_info(t.get_operations()[attempted_point].id);
         if (type == attempted_point_type.return_type)
-            return {{attempted_point, attempted_point_type}};
+            return {{attempted_point, &attempted_point_type}};
         return {};
     }
     
-    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type)
+    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type) const
     {
         auto& random = program.get_random();
         
@@ -240,10 +247,10 @@ namespace blt::gp
             {
                 if (type && *type != current_op_type.return_type)
                     return {};
-                return {{point, current_op_type}};
+                return {{point, &current_op_type}};
             }
             // traverse to a child
-            if (random.choice())
+            if (random.choice(config.traverse_chance))
             {
                 auto args = current_op_type.argc.argc;
                 auto argument = random.get_size_t(0, args);
@@ -256,8 +263,8 @@ namespace blt::gp
                 
                 continue;
             }
-            if (type && *type == current_op_type.return_type)
-                return {{point, current_op_type}};
+            if (!type || (type && *type == current_op_type.return_type))
+                return {{point, &current_op_type}};
         }
     }
     

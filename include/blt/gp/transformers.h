@@ -61,7 +61,7 @@ namespace blt::gp
             struct point_info_t
             {
                 type_id return_type;
-                operator_info_t& type_operator_info;
+                operator_info_t* type_operator_info;
             };
             struct crossover_point_t
             {
@@ -72,6 +72,10 @@ namespace blt::gp
             {
                 // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
                 blt::u16 max_crossover_tries = 5;
+                blt::f32 traverse_chance = 0.75;
+                
+                // legacy settings:
+                
                 // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
                 bool should_crossover_try_forward = false;
                 // avoid selecting terminals when doing crossover
@@ -87,7 +91,7 @@ namespace blt::gp
             
             std::optional<crossover_t::crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            static std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type);
+            std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
             
             static std::optional<point_info_t> random_place_of_type(gp_program& program, const tree_t& t, type_id type);
             
