@@ -61,83 +61,103 @@ namespace blt::gp
     
     bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
+        if (p1.get_operations().size() < config.min_tree_size || p2.get_operations().size() < config.min_tree_size)
+            return false;
+        
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
-        
-        if (c1_ops.size() < 5 || c2_ops.size() < 5)
-            return false;
         
         auto point = get_crossover_point(program, p1, p2);
         
         if (!point)
             return false;
         
-        auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
-        auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
+        auto selection = program.get_random().get_u32(0, 2);
         
-        auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
-        auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
-        
-        stack_allocator& c1_stack = c1.get_values();
-        stack_allocator& c2_stack = c2.get_values();
-        
-        // we have to make a copy because we will modify the underlying storage.
+        // Used to make copies of operators. Statically stored for memory caching purposes.
+        // Thread local as this function cannot have external modifications / will be called from multiple threads.
         static thread_local tracked_vector<op_container_t> c1_operators;
         static thread_local tracked_vector<op_container_t> c2_operators;
-        
         c1_operators.clear();
         c2_operators.clear();
         
-        for (const auto& op : blt::iterate(crossover_point_begin_itr, crossover_point_end_itr))
-            c1_operators.push_back(op);
-        for (const auto& op : blt::iterate(found_point_begin_itr, found_point_end_itr))
-            c2_operators.push_back(op);
-        
-        blt::size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
-        blt::size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
-        blt::size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
-        blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
-        auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
-        auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
-        auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
-        auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
-        
-        c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
-        c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
-        
-        c1_stack.copy_to(copy_ptr_c1, c1_total);
-        c1_stack.pop_bytes(c1_total);
-        
-        c2_stack.copy_to(copy_ptr_c2, c2_total);
-        c2_stack.pop_bytes(c2_total);
-        
-        c2_stack.copy_from(copy_ptr_c1, c1_stack_for_bytes);
-        c2_stack.copy_from(copy_ptr_c2 + c2_stack_for_bytes, c2_stack_after_bytes);
-        
-        c1_stack.copy_from(copy_ptr_c2, c2_stack_for_bytes);
-        c1_stack.copy_from(copy_ptr_c1 + c1_stack_for_bytes, c1_stack_after_bytes);
-        
-        // now swap the operators
-        auto insert_point_c1 = crossover_point_begin_itr - 1;
-        auto insert_point_c2 = found_point_begin_itr - 1;
-        
-        // invalidates [begin, end()) so the insert points should be fine
-        c1_ops.erase(crossover_point_begin_itr, crossover_point_end_itr);
-        c2_ops.erase(found_point_begin_itr, found_point_end_itr);
-        
-        c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
-        c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
+        switch (selection)
+        {
+            case 0:
+            {
+                // basic crossover
+                auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
+                auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
+                
+                auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
+                auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
+                
+                stack_allocator& c1_stack = c1.get_values();
+                stack_allocator& c2_stack = c2.get_values();
+                
+                for (const auto& op : blt::iterate(crossover_point_begin_itr, crossover_point_end_itr))
+                    c1_operators.push_back(op);
+                for (const auto& op : blt::iterate(found_point_begin_itr, found_point_end_itr))
+                    c2_operators.push_back(op);
+                
+                blt::size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
+                blt::size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
+                blt::size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
+                blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
+                auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
+                auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
+                auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
+                auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
+                
+                c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
+                c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
+                
+                c1_stack.copy_to(copy_ptr_c1, c1_total);
+                c1_stack.pop_bytes(c1_total);
+                
+                c2_stack.copy_to(copy_ptr_c2, c2_total);
+                c2_stack.pop_bytes(c2_total);
+                
+                c2_stack.copy_from(copy_ptr_c1, c1_stack_for_bytes);
+                c2_stack.copy_from(copy_ptr_c2 + c2_stack_for_bytes, c2_stack_after_bytes);
+                
+                c1_stack.copy_from(copy_ptr_c2, c2_stack_for_bytes);
+                c1_stack.copy_from(copy_ptr_c1 + c1_stack_for_bytes, c1_stack_after_bytes);
+                
+                // now swap the operators
+                auto insert_point_c1 = crossover_point_begin_itr - 1;
+                auto insert_point_c2 = found_point_begin_itr - 1;
+                
+                // invalidates [begin, end()) so the insert points should be fine
+                c1_ops.erase(crossover_point_begin_itr, crossover_point_end_itr);
+                c2_ops.erase(found_point_begin_itr, found_point_end_itr);
+                
+                c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
+                c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
+            }
+                break;
+            case 1: {
+            
+            }
+                break;
+            default:
+#if BLT_DEBUG_LEVEL > 0
+                BLT_ABORT("This place should be unreachable!");
+#else
+                BLT_UNREACHABLE;
+#endif
+        }
 
 #if BLT_DEBUG_LEVEL >= 2
         blt::size_t c1_found_bytes = c1.get_values().size().total_used_bytes;
         blt::size_t c2_found_bytes = c2.get_values().size().total_used_bytes;
-        blt::size_t c1_expected_bytes = std::accumulate(result.child1.get_operations().begin(), result.child1.get_operations().end(), 0ul,
+        blt::size_t c1_expected_bytes = std::accumulate(c1.get_operations().begin(), c1.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
                                                             if (v2.is_value)
                                                                 return v1 + stack_allocator::aligned_size(v2.type_size);
                                                             return v1;
                                                         });
-        blt::size_t c2_expected_bytes = std::accumulate(result.child2.get_operations().begin(), result.child2.get_operations().end(), 0ul,
+        blt::size_t c2_expected_bytes = std::accumulate(c2.get_operations().begin(), c2.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
                                                             if (v2.is_value)
                                                                 return v1 + stack_allocator::aligned_size(v2.type_size);
@@ -214,24 +234,22 @@ namespace blt::gp
     std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(gp_program& program, const tree_t& c1,
                                                                                             const tree_t& c2) const
     {
-        crossover_t::point_info_t c1_point{};
-        crossover_t::point_info_t c2_point{};
-        
-        if (auto point = get_point_traverse_retry(program, c1, {}))
-            c1_point = *point;
-        else
+        auto c1_point_o = get_point_traverse_retry(program, c1, {});
+        if (!c1_point_o)
+            return {};
+        auto c2_point_o = get_point_traverse_retry(program, c2, c1_point_o->type_operator_info.return_type);
+        if (!c2_point_o)
             return {};
         
-        
-        return {};
+        return {{c1_point_o->point, c2_point_o->point}};
     }
     
     std::optional<crossover_t::point_info_t> crossover_t::random_place_of_type(gp_program& program, const tree_t& t, type_id type)
     {
-        auto attempted_point = program.get_random().get_size_t(1ul, t.get_operations().size());
+        auto attempted_point = program.get_random().get_i64(1ul, t.get_operations().size());
         auto& attempted_point_type = program.get_operator_info(t.get_operations()[attempted_point].id);
         if (type == attempted_point_type.return_type)
-            return {{attempted_point, &attempted_point_type}};
+            return {{attempted_point, attempted_point_type}};
         return {};
     }
     
@@ -247,7 +265,7 @@ namespace blt::gp
             {
                 if (type && *type != current_op_type.return_type)
                     return {};
-                return {{point, &current_op_type}};
+                return {{point, current_op_type}};
             }
             // traverse to a child
             if (random.choice(config.traverse_chance))
@@ -259,12 +277,12 @@ namespace blt::gp
                 point += 1;
                 // loop through all the children we wish to skip. The result will be the first node of the next child, becoming the new parent
                 for (blt::size_t i = 0; i < argument; i++)
-                    point += t.find_endpoint(program, point);
+                    point = t.find_endpoint(program, point);
                 
                 continue;
             }
             if (!type || (type && *type == current_op_type.return_type))
-                return {{point, &current_op_type}};
+                return {{point, current_op_type}};
         }
     }
     

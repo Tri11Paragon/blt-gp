@@ -60,8 +60,8 @@ namespace blt::gp
         public:
             struct point_info_t
             {
-                type_id return_type;
-                operator_info_t* type_operator_info;
+                blt::ptrdiff_t point;
+                operator_info_t& type_operator_info;
             };
             struct crossover_point_t
             {
@@ -72,7 +72,8 @@ namespace blt::gp
             {
                 // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
                 blt::u16 max_crossover_tries = 5;
-                blt::f32 traverse_chance = 0.75;
+                blt::f32 traverse_chance = 0.5;
+                blt::u32 min_tree_size = 5;
                 
                 // legacy settings:
                 
