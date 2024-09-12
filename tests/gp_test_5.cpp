@@ -40,11 +40,9 @@
 #include <string_view>
 #include <iostream>
 
-static constexpr long SEED = 41912;
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-
-blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, SEED); // NOLINT
+blt::gp::gp_program program(SEED_FUNC); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
 blt::gp::operation_t sub([](float a, float b) { return a - b; }, "sub"); // 1
@@ -72,15 +70,12 @@ auto lit = blt::gp::operation_t([]() {
  */
 int main()
 {
-    type_system.register_type<float>();
-    type_system.register_type<bool>();
-    
-    blt::gp::operator_builder builder{type_system};
+    blt::gp::operator_builder builder{};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_if, eq_f, eq_b, lt, gt, op_and, op_or, op_xor, op_not, lit));
     
     blt::gp::ramped_half_initializer_t pop_init;
     
-    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
+    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, program.get_typesystem().get_type<float>().id(), 500, 3, 10});
 
 //    for (auto& tree : pop.getIndividuals())
 //    {
@@ -99,7 +94,7 @@ int main()
     BLT_INFO("Pre-Crossover:");
     for (auto& tree : pop.get_individuals())
     {
-        auto f = tree.tree.get_evaluation_value<float>(nullptr);
+        auto f = tree.tree.get_evaluation_value<float>();
         pre.push_back(f);
         BLT_TRACE(f);
     }
@@ -116,34 +111,31 @@ int main()
             second = random.get_size_t(0ul, pop.get_individuals().size());
         } while (second == first);
         
-        auto results = crossover.apply(program, ind[first].tree, ind[second].tree);
-        if (results.has_value())
+        blt::gp::tree_t child1{program};
+        blt::gp::tree_t child2{program};
+        // crossover function assumes that children have been copied from parents
+        child1.copy_fast(ind[first].tree);
+        child2.copy_fast(ind[second].tree);
+        auto results = crossover.apply(program, ind[first].tree, ind[second].tree, child1, child2);
+        if (results)
         {
 //            bool print_literals = true;
 //            bool pretty_print = false;
 //            bool print_returns = false;
-//            BLT_TRACE("Parent 1: %f", ind[0].get_evaluation_value<float>(nullptr));
+//            BLT_TRACE("Parent 1: %f", ind[0].get_evaluation_value<float>());
 //            ind[0].print(program, std::cout, print_literals, pretty_print, print_returns);
-//            BLT_TRACE("Parent 2: %f", ind[1].get_evaluation_value<float>(nullptr));
+//            BLT_TRACE("Parent 2: %f", ind[1].get_evaluation_value<float>());
 //            ind[1].print(program, std::cout, print_literals, pretty_print, print_returns);
 //            BLT_TRACE("------------");
-//            BLT_TRACE("Child 1: %f", results->child1.get_evaluation_value<float>(nullptr));
+//            BLT_TRACE("Child 1: %f", results->child1.get_evaluation_value<float>());
 //            results->child1.print(program, std::cout, print_literals, pretty_print, print_returns);
-//            BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>(nullptr));
+//            BLT_TRACE("Child 2: %f", results->child2.get_evaluation_value<float>());
 //            results->child2.print(program, std::cout, print_literals, pretty_print, print_returns);
-            new_pop.get_individuals().emplace_back(std::move(results->child1));
-            new_pop.get_individuals().emplace_back(std::move(results->child2));
+            new_pop.get_individuals().emplace_back(std::move(child1));
+            new_pop.get_individuals().emplace_back(std::move(child2));
         } else
         {
-            switch (results.error())
-            {
-                case blt::gp::crossover_t::error_t::NO_VALID_TYPE:
-                    BLT_DEBUG("No valid type!");
-                    break;
-                case blt::gp::crossover_t::error_t::TREE_TOO_SMALL:
-                    BLT_DEBUG("Tree is too small!");
-                    break;
-            }
+            BLT_DEBUG("Crossover Failed.");
             errors++;
             new_pop.get_individuals().push_back(ind[first]);
             new_pop.get_individuals().push_back(ind[second]);
@@ -153,7 +145,7 @@ int main()
     BLT_INFO("Post-Crossover:");
     for (auto& tree : new_pop.for_each_tree())
     {
-        auto f = tree.get_evaluation_value<float>(nullptr);
+        auto f = tree.get_evaluation_value<float>();
         pos.push_back(f);
         BLT_TRACE(f);
     }

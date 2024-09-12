@@ -21,10 +21,9 @@
 #include <blt/std/logging.h>
 
 
-static constexpr long SEED = 41912;
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, SEED); // NOLINT
+blt::gp::gp_program program(SEED_FUNC); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) {
     BLT_TRACE("a: %f + b: %f = %f", a, b, a + b);
@@ -53,16 +52,15 @@ auto lit = blt::gp::operation_t([]() {
  */
 int main()
 {
-    type_system.register_type<float>();
-    
-    blt::gp::operator_builder silly{type_system};
+    blt::gp::operator_builder silly{};
     
     program.set_operations(silly.build(add, sub, mul, pro_div, lit));
     
     blt::gp::grow_generator_t grow;
-    auto tree = grow.generate(blt::gp::generator_arguments{program, type_system.get_type<float>().id(), 3, 7});
+    blt::gp::tree_t tree{program};
+    grow.generate(tree, blt::gp::generator_arguments{program, program.get_typesystem().get_type<float>().id(), 3, 7});
     
-    auto value = tree.get_evaluation_value<float>(nullptr);
+    auto value = tree.get_evaluation_value<float>();
     
     BLT_TRACE(value);
     

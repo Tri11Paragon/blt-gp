@@ -27,7 +27,6 @@
 const blt::u64 SEED = std::random_device()();
 //const blt::u64 SEED = 3495535167;
 blt::gp::random_t b_rand {SEED};
-blt::gp::type_provider type_system;
 
 struct context
 {
@@ -82,18 +81,19 @@ auto basic_lit_b = blt::gp::operation_t([]() {
 
 void basic_test()
 {
-    blt::gp::gp_program program{type_system, SEED};
+    blt::gp::gp_program program{SEED};
     
-    blt::gp::operator_builder<context> builder{type_system};
+    blt::gp::operator_builder<context> builder{};
     
     program.set_operations(builder.build(basic_sub, basic_lit_f, basic_lit_b));
     
     blt::gp::grow_generator_t gen;
-    blt::gp::generator_arguments args{program, type_system.get_type<float>().id(), 1, 1};
-    auto tree = gen.generate(args);
+    blt::gp::generator_arguments args{program, program.get_typesystem().get_type<float>().id(), 1, 1};
+    blt::gp::tree_t tree{program};
+    gen.generate(tree, args);
     
     context ctx{&program};
-    auto result = tree.get_evaluation_value<float>(&ctx);
+    auto result = tree.get_evaluation_value<float>(ctx);
     BLT_TRACE(result);
     BLT_ASSERT(result == -5.0f || result == 5.0f || result == 0.0f);
     tree.print(program, std::cout, true, true);
@@ -102,10 +102,6 @@ void basic_test()
 int main()
 {
     BLT_INFO("Starting with seed %ld", SEED);
-    
-    type_system.register_type<float>();
-    type_system.register_type<bool>();
-    type_system.register_type<large_18290>();
     
     basic_test();
 }

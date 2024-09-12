@@ -20,10 +20,9 @@
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 
-static constexpr long SEED = 41912;
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, SEED); // NOLINT
+blt::gp::gp_program program(SEED_FUNC); // NOLINT
 
 blt::gp::operation_t add([](float a, float b) { return a + b; });
 blt::gp::operation_t sub([](float a, float b) { return a - b; });
@@ -51,19 +50,16 @@ auto lit = blt::gp::operation_t([]() {
  */
 int main()
 {
-    type_system.register_type<float>();
-    type_system.register_type<bool>();
-    
-    blt::gp::operator_builder builder{type_system};
+    blt::gp::operator_builder builder{};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_if, eq_f, eq_b, lt, gt, op_and, op_or, op_xor, op_not, lit));
     
     blt::gp::ramped_half_initializer_t pop_init;
     
-    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, type_system.get_type<float>().id(), 500, 3, 10});
+    auto pop = pop_init.generate(blt::gp::initializer_arguments{program, program.get_typesystem().get_type<float>().id(), 500, 3, 10});
     
     for (auto& tree : pop.for_each_tree())
     {
-        auto value = tree.get_evaluation_value<float>(nullptr);
+        auto value = tree.get_evaluation_value<float>();
         
         BLT_TRACE(value);
     }

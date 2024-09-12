@@ -81,9 +81,11 @@ namespace blt::gp
         c1_operators.clear();
         c2_operators.clear();
         
+        // TODO: more crossover!
         switch (selection)
         {
             case 0:
+            case 1:
             {
                 // basic crossover
                 auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
@@ -136,9 +138,6 @@ namespace blt::gp
                 c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
             }
                 break;
-            case 1: {
-            
-            }
                 break;
             default:
 #if BLT_DEBUG_LEVEL > 0

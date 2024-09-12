@@ -22,7 +22,7 @@
 #include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
-#include <blt/std/format.h>
+#include <blt/format/format.h>
 #include <blt/parse/argparse.h>
 #include <iostream>
 #include "operations_common.h"
@@ -99,7 +99,7 @@ blt::gp::operation_t op_extent([](const rice_record& rice_data) {
 constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness_t& fitness, blt::size_t) {
     for (auto& training_case : training_cases)
     {
-        auto v = current_tree.get_evaluation_value<float>(&training_case);
+        auto v = current_tree.get_evaluation_value<float>(training_case);
         switch (training_case.type)
         {
             case rice_type_t::Cammeo:
@@ -209,7 +209,7 @@ test_results_t test_individual(blt::gp::individual_t& i)
     
     for (auto& testing_case : testing_cases)
     {
-        auto result = i.tree.get_evaluation_value<float>(&testing_case);
+        auto result = i.tree.get_evaluation_value<float>(testing_case);
         switch (testing_case.type)
         {
             case rice_type_t::Cammeo:

@@ -438,9 +438,7 @@ int main()
         return ctx.x;
     });
     
-    blt::gp::type_provider system;
-    system.register_type<float>();
-    blt::gp::operator_builder<context> ops{system};
+    blt::gp::operator_builder<context> ops{};
     
     //BLT_TRACE(blt::type_string<decltype(silly_op_3)::first::type>());
     //BLT_TRACE(typeid(decltype(silly_op_3)::first::type).name());

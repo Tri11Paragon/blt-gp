@@ -116,10 +116,15 @@ namespace blt::gp
                 return values;
             }
             
-            template<typename T, std::enable_if_t<!std::is_pointer_v<T>, bool> = true>
+            template<typename T, std::enable_if_t<!(std::is_pointer_v<T> || std::is_null_pointer_v<T>), bool> = true>
             [[nodiscard]] evaluation_context& evaluate(const T& context) const
             {
                 return (*func)(*this, const_cast<void*>(static_cast<const void*>(&context)));
+            }
+            
+            [[nodiscard]] evaluation_context& evaluate() const
+            {
+                return (*func)(*this, nullptr);
             }
             
             blt::size_t get_depth(gp_program& program);
@@ -149,6 +154,12 @@ namespace blt::gp
             T get_evaluation_value(const Context& context)
             {
                 return evaluate(context).values.template pop<T>();
+            }
+            
+            template<typename T>
+            T get_evaluation_value()
+            {
+                return evaluate().values.pop<T>();
             }
             
             void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false,

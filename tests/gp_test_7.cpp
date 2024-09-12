@@ -19,12 +19,11 @@
 #include <blt/gp/tree.h>
 #include <blt/std/logging.h>
 
-static constexpr long SEED = 41912;
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
 blt::gp::prog_config_t config = blt::gp::prog_config_t().set_elite_count(2);
 
-blt::gp::type_provider type_system;
-blt::gp::gp_program program(type_system, SEED, config); // NOLINT
+blt::gp::gp_program program(SEED_FUNC, config); // NOLINT
 std::array<float, 500> result_container;
 
 blt::gp::operation_t add([](float a, float b) { return a + b; }, "add"); // 0
@@ -59,7 +58,7 @@ void print_best()
         auto& tree = v.tree;
         auto size = tree.get_values().size();
         BLT_TRACE("%lf [index %ld] (fitness: %lf, raw: %lf) (depth: %ld) (size: t: %ld u: %ld r: %ld) filled: %f%%",
-                  tree.get_evaluation_value<float>(nullptr), i, v.fitness.adjusted_fitness, v.fitness.raw_fitness,
+                  tree.get_evaluation_value<float>(), i, v.fitness.adjusted_fitness, v.fitness.raw_fitness,
                   tree.get_depth(program), size.total_size_bytes, size.total_used_bytes,
                   size.total_remaining_bytes,
                   static_cast<double>(size.total_used_bytes) / (size.total_size_bytes == 0 ? 1 : static_cast<double>(size.total_size_bytes)));
@@ -75,7 +74,7 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
     BLT_DEBUG("(depth: %ld) (blocks: %ld) (size: t: %ld m: %ld u: %ld r: %ld) filled: %f%%",
               current_tree.get_depth(program), size.blocks, size.total_size_bytes, size.total_no_meta_bytes, size.total_used_bytes,
               size.total_remaining_bytes, static_cast<double>(size.total_used_bytes) / static_cast<double>(size.total_no_meta_bytes));*/
-    result_container[index] = current_tree.get_evaluation_value<float>(nullptr);
+    result_container[index] = current_tree.get_evaluation_value<float>();
     fitness.raw_fitness = result_container[index] / 1000000000.0;
     fitness.standardized_fitness = fitness.raw_fitness;
     fitness.adjusted_fitness = 1.0 - (1.0 / (1.0 + fitness.raw_fitness));
@@ -86,14 +85,11 @@ constexpr auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fit
  */
 int main()
 {
-    type_system.register_type<float>();
-    type_system.register_type<bool>();
-    
-    blt::gp::operator_builder builder{type_system};
+    blt::gp::operator_builder builder{};
     program.set_operations(builder.build(add, sub, mul, pro_div, op_if, eq_f, eq_b, lt, gt, op_and, op_or, op_xor, op_not, lit));
     
     auto sel = blt::gp::select_tournament_t{};
-    program.generate_population(type_system.get_type<float>().id(), fitness_function, sel, sel, sel);
+    program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function, sel, sel, sel);
     
     while (!program.should_terminate())
     {
