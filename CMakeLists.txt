@@ -1,4 +1,26 @@
 cmake_minimum_required(VERSION 3.25)
+macro(compile_options target_name)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_link_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+endmacro()
+
+macro(sanitizers target_name)
+    if (${ENABLE_ADDRSAN} MATCHES ON)
+        target_compile_options(${target_name} PRIVATE -fsanitize=address)
+        target_link_options(${target_name} PRIVATE -fsanitize=address)
+    endif ()
+
+    if (${ENABLE_UBSAN} MATCHES ON)
+        target_compile_options(${target_name} PRIVATE -fsanitize=undefined)
+        target_link_options(${target_name} PRIVATE -fsanitize=undefined)
+    endif ()
+
+    if (${ENABLE_TSAN} MATCHES ON)
+        target_compile_options(${target_name} PRIVATE -fsanitize=thread)
+        target_link_options(${target_name} PRIVATE -fsanitize=thread)
+    endif ()
+endmacro()
+
 project(blt-gp VERSION 0.2.1)
 
 include(CTest)
