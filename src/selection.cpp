@@ -20,57 +20,63 @@
 
 namespace blt::gp
 {
-    
+    void select_best_t::pre_process(gp_program&, population_t& pop)
+    {
+        std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
+        {
+            return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
+        });
+        index = 0;
+    }
+
     const tree_t& select_best_t::select(gp_program&, const population_t& pop)
     {
-        auto& first = pop.get_individuals()[0];
-        double best_fitness = first.fitness.adjusted_fitness;
-        const tree_t* tree = &first.tree;
-        for (auto& ind : pop.get_individuals())
-        {
-            if (ind.fitness.adjusted_fitness > best_fitness)
-            {
-                best_fitness = ind.fitness.adjusted_fitness;
-                tree = &ind.tree;
-            }
-        }
-        return *tree;
+        const auto size = pop.get_individuals().size();
+        return pop.get_individuals()[index.fetch_add(1, std::memory_order_relaxed) % size].tree;
     }
-    
+
+    void select_worst_t::pre_process(gp_program&, population_t& pop)
+    {
+        std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
+        {
+            return a.fitness.adjusted_fitness < b.fitness.adjusted_fitness;
+        });
+        index = 0;
+    }
+
     const tree_t& select_worst_t::select(gp_program&, const population_t& pop)
     {
-        auto& first = pop.get_individuals()[0];
-        double worst_fitness = first.fitness.adjusted_fitness;
-        const tree_t* tree = &first.tree;
-        for (auto& ind : pop.get_individuals())
-        {
-            if (ind.fitness.adjusted_fitness < worst_fitness)
-            {
-                worst_fitness = ind.fitness.adjusted_fitness;
-                tree = &ind.tree;
-            }
-        }
-        return *tree;
+        const auto size = pop.get_individuals().size();
+        return pop.get_individuals()[index.fetch_add(1, std::memory_order_relaxed) % size].tree;
     }
-    
+
     const tree_t& select_random_t::select(gp_program& program, const population_t& pop)
     {
         return pop.get_individuals()[program.get_random().get_size_t(0ul, pop.get_individuals().size())].tree;
     }
-    
+
     const tree_t& select_tournament_t::select(gp_program& program, const population_t& pop)
     {
-        blt::u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
+        thread_local hashset_t<u64> already_selected;
+        already_selected.clear();
         auto& i_ref = pop.get_individuals();
-        for (blt::size_t i = 0; i < selection_size; i++)
+
+        u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
+        for (size_t i = 0; i < selection_size; i++)
         {
-            auto sel_point = program.get_random().get_u64(0ul, pop.get_individuals().size());
+            u64 sel_point;
+            do
+            {
+                sel_point = program.get_random().get_u64(0ul, pop.get_individuals().size());;
+            }
+            while (already_selected.contains(sel_point));
+            already_selected.insert(sel_point);
             if (i_ref[sel_point].fitness.adjusted_fitness > i_ref[best].fitness.adjusted_fitness)
                 best = sel_point;
         }
         return i_ref[best].tree;
     }
-    
+
     const tree_t& select_fitness_proportionate_t::select(gp_program& program, const population_t& pop)
     {
         auto& stats = program.get_population_stats();
@@ -81,7 +87,8 @@ namespace blt::gp
             {
                 if (choice <= stats.normalized_fitness[index])
                     return ref.tree;
-            } else
+            }
+            else
             {
                 if (choice > stats.normalized_fitness[index - 1] && choice <= stats.normalized_fitness[index])
                     return ref.tree;

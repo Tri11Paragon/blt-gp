@@ -1,8 +1,4 @@
 cmake_minimum_required(VERSION 3.25)
-macro(compile_options target_name)
-    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-    target_link_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-endmacro()
 
 macro(sanitizers target_name)
     if (${ENABLE_ADDRSAN} MATCHES ON)
@@ -21,7 +17,39 @@ macro(sanitizers target_name)
     endif ()
 endmacro()
 
-project(blt-gp VERSION 0.2.1)
+macro(compile_options target_name)
+    if (NOT ${MOLD} STREQUAL MOLD-NOTFOUND)
+        target_compile_options(${target_name} PUBLIC -fuse-ld=mold)
+    endif ()
+
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    target_link_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+    sanitizers(${target_name})
+endmacro()
+
+macro(blt_add_project name source type)
+
+    project(${name}-${type})
+
+    add_executable(${name}-${type} ${source})
+
+    target_link_libraries(${name}-${type} PRIVATE BLT blt-gp Threads::Threads)
+
+    compile_options(${name}-${type})
+    target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
+
+    if (${TRACK_ALLOCATIONS})
+        target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
+    endif ()
+
+    add_test(NAME ${name} COMMAND ${name}-${type})
+
+    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
+
+    project(blt-gp)
+endmacro()
+
+project(blt-gp VERSION 0.2.2)
 
 include(CTest)
 
@@ -49,8 +77,7 @@ file(GLOB_RECURSE PROJECT_BUILD_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_library(blt-gp ${PROJECT_BUILD_FILES})
 
-target_compile_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-target_link_options(blt-gp PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
+compile_options(blt-gp)
 
 find_program(MOLD "mold")
 
@@ -67,70 +94,10 @@ if (${TRACK_ALLOCATIONS})
     target_compile_definitions(blt-gp PRIVATE BLT_TRACK_ALLOCATIONS=1)
 endif ()
 
-if (${ENABLE_ADDRSAN} MATCHES ON)
-    target_compile_options(blt-gp PRIVATE -fsanitize=address)
-    target_link_options(blt-gp PRIVATE -fsanitize=address)
-endif ()
-
-if (${ENABLE_UBSAN} MATCHES ON)
-    target_compile_options(blt-gp PRIVATE -fsanitize=undefined)
-    target_link_options(blt-gp PRIVATE -fsanitize=undefined)
-endif ()
-
-if (${ENABLE_TSAN} MATCHES ON)
-    target_compile_options(blt-gp PRIVATE -fsanitize=thread)
-    target_link_options(blt-gp PRIVATE -fsanitize=thread)
-endif ()
-
-macro(blt_add_project name source type)
-
-    project(${name}-${type})
-
-    #add_compile_options(-fuse-ld=mold)
-
-    add_executable(${name}-${type} ${source})
-
-    target_link_libraries(${name}-${type} PRIVATE BLT blt-gp Threads::Threads)
-
-    target_compile_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-    target_link_options(${name}-${type} PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
-    target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
-
-    if (${TRACK_ALLOCATIONS})
-        target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
-    endif ()
-
-    if (${ENABLE_ADDRSAN} MATCHES ON)
-        target_compile_options(${name}-${type} PRIVATE -fsanitize=address)
-        target_link_options(${name}-${type} PRIVATE -fsanitize=address)
-    endif ()
-
-    if (${ENABLE_UBSAN} MATCHES ON)
-        target_compile_options(${name}-${type} PRIVATE -fsanitize=undefined)
-        target_link_options(${name}-${type} PRIVATE -fsanitize=undefined)
-    endif ()
-
-    if (${ENABLE_TSAN} MATCHES ON)
-        target_compile_options(${name}-${type} PRIVATE -fsanitize=thread)
-        target_link_options(${name}-${type} PRIVATE -fsanitize=thread)
-    endif ()
-
-    add_test(NAME ${name} COMMAND ${name}-${type})
-
-    #    set (passRegex "Pass" "Passed" "PASS" "PASSED")
-    #    set (failRegex "WARN" "FAIL" "ERROR" "FATAL")
-    set(failRegex "\\[WARN\\]" "FAIL" "ERROR" "FATAL" "exception")
-
-    #    set_property (TEST ${name} PROPERTY PASS_REGULAR_EXPRESSION "${passRegex}")
-    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "${failRegex}")
-
-    project(blt-gp)
-endmacro()
-
 if (${BUILD_EXAMPLES})
 
-    blt_add_project(blt-symbolic-regression examples/symbolic_regression.cpp example)
-    blt_add_project(blt-rice-classification examples/rice_classification.cpp example)
+    blt_add_project(blt-symbolic-regression examples/src/symbolic_regression.cpp example)
+    blt_add_project(blt-rice-classification examples/src/rice_classification.cpp example)
 
 endif ()
 

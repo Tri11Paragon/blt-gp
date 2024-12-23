@@ -316,14 +316,15 @@ namespace blt::gp
                 return secondary_value.load();
             }
             
-            call_data_t start_measurement()
+            call_data_t start_measurement() const
             {
-                return {primary_calls.load(), 0};
+                return {primary_calls.load(), secondary_value.load()};
             }
             
-            void stop_measurement(call_data_t& data)
+            void stop_measurement(call_data_t& data) const
             {
                 data.end_calls = primary_calls.load();
+                data.end_value = secondary_value.load();
             }
         
         private:

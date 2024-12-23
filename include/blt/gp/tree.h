@@ -133,7 +133,7 @@ namespace blt::gp
              * Helper template for returning the result of the last evaluation
              */
             template<typename T>
-            T get_evaluation_value(evaluation_context& context)
+            T get_evaluation_value(evaluation_context& context) const
             {
                 return context.values.pop<T>();
             }
@@ -142,7 +142,7 @@ namespace blt::gp
              * Helper template for returning the result of the last evaluation
              */
             template<typename T>
-            T& get_evaluation_ref(evaluation_context& context)
+            T& get_evaluation_ref(evaluation_context& context) const
             {
                 return context.values.from<T>(0);
             }
@@ -151,13 +151,13 @@ namespace blt::gp
              * Helper template for returning the result of evaluation (this calls it)
              */
             template<typename T, typename Context>
-            T get_evaluation_value(const Context& context)
+            T get_evaluation_value(const Context& context) const
             {
                 return evaluate(context).values.template pop<T>();
             }
             
             template<typename T>
-            T get_evaluation_value()
+            T get_evaluation_value() const
             {
                 return evaluate().values.pop<T>();
             }
