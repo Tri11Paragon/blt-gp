@@ -122,7 +122,7 @@ bool blt::gp::example::rice_classification_t::fitness_function(const tree_t& cur
 {
     for (auto& training_case : training_cases)
     {
-        auto v = current_tree.get_evaluation_value<float>(training_case);
+        const auto v = current_tree.get_evaluation_value<float>(training_case);
         switch (training_case.type)
         {
         case rice_type_t::Cammeo:
@@ -137,7 +137,8 @@ bool blt::gp::example::rice_classification_t::fitness_function(const tree_t& cur
     }
     fitness.raw_fitness = static_cast<double>(fitness.hits);
     fitness.standardized_fitness = fitness.raw_fitness;
-    fitness.adjusted_fitness = 1.0 - (1.0 / (1.0 + fitness.standardized_fitness));
+    // fitness.adjusted_fitness = 1.0 - (1.0 / (1.0 + fitness.standardized_fitness));
+    fitness.adjusted_fitness = fitness.standardized_fitness / static_cast<double>(training_cases.size());
     return static_cast<size_t>(fitness.hits) == training_cases.size();
 }
 
@@ -169,20 +170,20 @@ void blt::gp::example::rice_classification_t::load_rice_data(const std::string_v
         }
     }
 
-    size_t total_records = c.size() + o.size();
-    size_t training_size = std::min(total_records / 3, 1000ul);
-    for (size_t i = 0; i < training_size; i++)
+    const size_t total_records = c.size() + o.size();
+    const size_t testing_size = total_records / 3;
+    for (size_t i = 0; i < testing_size; i++)
     {
         auto& random = program.get_random();
         auto& vec = random.choice() ? c : o;
-        auto pos = random.get_i64(0, static_cast<i64>(vec.size()));
-        training_cases.push_back(vec[pos]);
+        const auto pos = random.get_i64(0, static_cast<i64>(vec.size()));
+        testing_cases.push_back(vec[pos]);
         vec.erase(vec.begin() + pos);
     }
-    testing_cases.insert(testing_cases.end(), c.begin(), c.end());
-    testing_cases.insert(testing_cases.end(), o.begin(), o.end());
-    std::shuffle(testing_cases.begin(), testing_cases.end(), program.get_random());
-    BLT_INFO("Created training set of size %ld, testing set is of size %ld", training_size, testing_cases.size());
+    training_cases.insert(training_cases.end(), c.begin(), c.end());
+    training_cases.insert(training_cases.end(), o.begin(), o.end());
+    std::shuffle(training_cases.begin(), training_cases.end(), program.get_random());
+    BLT_INFO("Created testing set of size %ld, training set is of size %ld", testing_cases.size(), training_cases.size());
 }
 
 blt::gp::confusion_matrix_t blt::gp::example::rice_classification_t::test_individual(const individual_t& individual) const

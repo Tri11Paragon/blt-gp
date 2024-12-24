@@ -213,7 +213,7 @@ namespace blt::gp
         double raw_fitness = 0;
         double standardized_fitness = 0;
         double adjusted_fitness = 0;
-        blt::i64 hits = 0;
+        i64 hits = 0;
     };
     
     struct individual_t

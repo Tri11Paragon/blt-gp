@@ -45,6 +45,7 @@ namespace blt::gp::example
         };
 
         bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t) const;
+
     public:
         template <typename SEED>
         rice_classification_t(SEED&& seed, const prog_config_t& config): example_base_t{std::forward<SEED>(seed), config}
@@ -60,7 +61,7 @@ namespace blt::gp::example
 
         void load_rice_data(std::string_view rice_file_path);
 
-        confusion_matrix_t test_individual(const individual_t& individual) const;
+        [[nodiscard]] confusion_matrix_t test_individual(const individual_t& individual) const;
 
         void execute(const std::string_view rice_file_path)
         {
@@ -165,6 +166,9 @@ namespace blt::gp::example
             std::cout << avg.pretty_print() << std::endl;
             std::cout << "\n";
         }
+
+        auto& get_results() { return results; }
+        const auto& get_results() const { return results; }
 
     private:
         std::vector<rice_record> training_cases;

@@ -35,14 +35,14 @@ int main()
             .set_elite_count(2)
             .set_crossover_chance(0.9)
             .set_mutation_chance(0.1)
-            .set_reproduction_chance(0.25)
+            .set_reproduction_chance(0.0)
             .set_max_generations(50)
             .set_pop_size(500)
             .set_thread_count(16);
 
     // example on how you can change the mutation config
     blt::gp::mutation_t::config_t mut_config{};
-    mut_config.generator = full_generator;
+    mut_config.generator = grow_generator;
     mut_config.replacement_min_depth = 2;
     mut_config.replacement_max_depth = 6;
 

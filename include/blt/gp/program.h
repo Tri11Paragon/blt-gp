@@ -490,6 +490,7 @@ namespace blt::gp
                             double sum_of_prob = 0;
                             for (const auto& [index, ind] : blt::enumerate(current_pop.get_individuals()))
                             {
+                                ind.fitness = {};
                                 if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
                                 {
                                     auto result = fitness_function(ind.tree, ind.fitness, index);
@@ -565,7 +566,7 @@ namespace blt::gp
                                 {
                                     auto& ind = current_pop.get_individuals()[i];
 
-
+                                    ind.fitness = {};
                                     if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
                                     {
                                         auto result = fitness_function(ind.tree, ind.fitness, i);

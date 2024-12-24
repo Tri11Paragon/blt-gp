@@ -71,9 +71,14 @@ namespace blt::gp
             struct config_t
             {
                 // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
-                blt::u16 max_crossover_tries = 5;
-                blt::f32 traverse_chance = 0.5;
-                blt::u32 min_tree_size = 5;
+                u32 max_crossover_tries = 5;
+                // if tree have fewer nodes than this number, they will not be considered for crossover
+                u32 min_tree_size = 3;
+                // used by the traverse version of get_crossover_point
+                // at each depth level, what chance do we have to exit with this as our point? or in other words what's the chance we continue traversing
+                // this is what this option configures.
+                f32 traverse_chance = 0.5;
+
                 
                 // legacy settings:
                 
@@ -88,9 +93,9 @@ namespace blt::gp
             explicit crossover_t(const config_t& config): config(config)
             {}
             
-            std::optional<crossover_t::crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            std::optional<crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            std::optional<crossover_t::crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            std::optional<crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
             std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
             
