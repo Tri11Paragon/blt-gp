@@ -86,6 +86,26 @@ namespace blt::gp
             return is_B_pred_A;
         }
 
+        [[nodiscard]] u64 get_hits() const
+        {
+            return is_A_pred_A + is_B_pred_B;
+        }
+
+        [[nodiscard]] u64 get_misses() const
+        {
+            return is_B_pred_A + is_A_pred_B;
+        }
+
+        [[nodiscard]] u64 get_total() const
+        {
+            return get_hits() + get_misses();
+        }
+
+        [[nodiscard]] double get_percent_hit() const
+        {
+            return static_cast<double>(get_hits()) / static_cast<double>(get_total());
+        }
+
         confusion_matrix_t& operator+=(const confusion_matrix_t& op)
         {
             is_A_pred_A += op.is_A_pred_A;
@@ -118,6 +138,16 @@ namespace blt::gp
             return result;
         }
 
+        friend bool operator<(const confusion_matrix_t& a, const confusion_matrix_t& b)
+        {
+            return a.get_percent_hit() < b.get_percent_hit();
+        }
+
+        friend bool operator>(const confusion_matrix_t& a, const confusion_matrix_t& b)
+        {
+            return a.get_percent_hit() > b.get_percent_hit();
+        }
+
         [[nodiscard]] std::string pretty_print(const std::string& table_name = "Confusion Matrix") const;
 
     private:
@@ -127,40 +157,6 @@ namespace blt::gp
         u64 is_B_pred_A = 0;
         std::string name_A = "A";
         std::string name_B = "B";
-    };
-
-    struct classifier_results_t : public confusion_matrix_t
-    {
-    public:
-        [[nodiscard]] u64 get_hits() const
-        {
-            return hits;
-        }
-
-        [[nodiscard]] u64 get_size() const
-        {
-            return size;
-        }
-
-        [[nodiscard]] double get_percent_hit() const
-        {
-            return static_cast<double>(hits) / static_cast<double>(hits + misses);
-        }
-
-        void hit()
-        {
-            ++hits;
-        }
-
-        void miss()
-        {
-            ++misses;
-        }
-
-
-    private:
-        u64 hits = 0;
-        u64 misses = 0;
     };
 
     struct population_stats

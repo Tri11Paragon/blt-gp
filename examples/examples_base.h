@@ -49,6 +49,9 @@ namespace blt::gp::example
             return *this;
         }
 
+        gp_program& get_program() { return program; }
+        const gp_program& get_program() const { return program; }
+
     protected:
         gp_program program;
         selection_t* crossover_sel = nullptr;

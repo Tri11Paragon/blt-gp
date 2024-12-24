@@ -61,3 +61,49 @@ int main()
 
     return 0;
 }
+
+bool blt::gp::example::symbolic_regression_t::fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t) const
+{
+    constexpr static double value_cutoff = 1.e15;
+    for (auto& fitness_case : training_cases)
+    {
+        const auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(fitness_case));
+        if (diff < value_cutoff)
+        {
+            fitness.raw_fitness += diff;
+            if (diff <= 0.01)
+                fitness.hits++;
+        }
+        else
+            fitness.raw_fitness += value_cutoff;
+    }
+    fitness.standardized_fitness = fitness.raw_fitness;
+    fitness.adjusted_fitness = (1.0 / (1.0 + fitness.standardized_fitness));
+    return static_cast<size_t>(fitness.hits) == training_cases.size();
+}
+
+void blt::gp::example::symbolic_regression_t::setup_operations()
+{
+    BLT_DEBUG("Setup Types and Operators");
+    static operation_t add{[](const float a, const float b) { return a + b; }, "add"};
+    static operation_t sub([](const float a, const float b) { return a - b; }, "sub");
+    static operation_t mul([](const float a, const float b) { return a * b; }, "mul");
+    static operation_t pro_div([](const float a, const float b) { return b == 0.0f ? 0.0f : a / b; }, "div");
+    static operation_t op_sin([](const float a) { return std::sin(a); }, "sin");
+    static operation_t op_cos([](const float a) { return std::cos(a); }, "cos");
+    static operation_t op_exp([](const float a) { return std::exp(a); }, "exp");
+    static operation_t op_log([](const float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
+    static auto lit = operation_t([this]()
+    {
+        return program.get_random().get_float(-1.0f, 1.0f);
+    }, "lit").set_ephemeral();
+
+    static operation_t op_x([](const context& context)
+    {
+        return context.x;
+    }, "x");
+
+    operator_builder<context> builder{};
+    builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x);
+    program.set_operations(builder.grab());
+}

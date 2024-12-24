@@ -26,18 +26,18 @@ namespace blt::gp {
         string::TableFormatter formatter{table_name};
         formatter.addColumn("Predicted " + name_A);
         formatter.addColumn("Predicted " + name_B);
-        formatter.addColumn("");
+        formatter.addColumn("Actual Class");
 
         string::TableRow row;
         row.rowValues.push_back(std::to_string(is_A_pred_A));
         row.rowValues.push_back(std::to_string(is_A_pred_B));
-        row.rowValues.push_back("Actual" + name_A);
+        row.rowValues.push_back(name_A);
         formatter.addRow(row);
 
         string::TableRow row2;
         row2.rowValues.push_back(std::to_string(is_B_pred_A));
         row2.rowValues.push_back(std::to_string(is_B_pred_B));
-        row2.rowValues.push_back("Actual" + name_B);
+        row2.rowValues.push_back(name_B);
         formatter.addRow(row2);
 
         auto tbl = formatter.createTable(true, true);
