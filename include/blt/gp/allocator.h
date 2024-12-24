@@ -20,9 +20,9 @@
 #define BLT_GP_ALLOCATOR_H
 
 #include <blt/std/types.h>
-#include <blt/gp/stats.h>
-#include <blt/gp/fwdecl.h>
+#include <blt/gp/util/trackers.h>
 #include <cstdlib>
+#include <vector>
 
 namespace blt::gp
 {
@@ -142,6 +142,14 @@ namespace blt::gp
     {
         return &lhs != &rhs;
     }
+
+#ifdef BLT_TRACK_ALLOCATIONS
+    template<typename T>
+    using tracked_vector = std::vector<T, tracked_allocator_t<T>>;
+#else
+    template<typename T>
+    using tracked_vector = std::vector<T>;
+#endif
 }
 
 #endif //BLT_GP_ALLOCATOR_H

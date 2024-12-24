@@ -140,7 +140,7 @@ namespace blt::gp
                 blt::size_t total_so_far = 0;
                 blt::size_t op_pos = 0;
 
-                for (const auto& operation : blt::reverse_iterate(ops.begin(), ops.end()))
+                for (const auto& operation : iterate(ops).rev())
                 {
                     op_pos++;
                     if (operation.is_value)
@@ -157,19 +157,19 @@ namespace blt::gp
 
             blt::hashset_t<type_id> has_terminals;
 
-            for (const auto& v : blt::enumerate(storage.terminals))
+            for (const auto& [index, value] : blt::enumerate(storage.terminals))
             {
-                if (!v.second.empty())
-                    has_terminals.insert(v.first);
+                if (!value.empty())
+                    has_terminals.insert(index);
             }
 
-            for (const auto& op_r : blt::enumerate(storage.non_terminals))
+            for (const auto& [index, value] : blt::enumerate(storage.non_terminals))
             {
-                if (op_r.second.empty())
+                if (value.empty())
                     continue;
-                auto return_type = op_r.first;
+                auto return_type = index;
                 tracked_vector<std::pair<operator_id, blt::size_t>> ordered_terminals;
-                for (const auto& op : op_r.second)
+                for (const auto& op : value)
                 {
                     // count number of terminals
                     blt::size_t terminals = 0;
@@ -370,6 +370,11 @@ namespace blt::gp
             create_threads();
         }
 
+        /**
+         *
+         * @param seed_func Function which provides a new random seed every time it is called.
+         * This will be used by each thread to initialize a new random number generator
+         */
         explicit gp_program(std::function<blt::u64()> seed_func): seed_func(std::move(seed_func))
         {
             create_threads();
@@ -765,8 +770,8 @@ namespace blt::gp
             tracked_vector<std::pair<blt::size_t, double>> values;
             values.reserve(current_pop.get_individuals().size());
 
-            for (const auto& ind : blt::enumerate(current_pop.get_individuals()))
-                values.emplace_back(ind.first, ind.second.fitness.adjusted_fitness);
+            for (const auto& [index, value] : blt::enumerate(current_pop.get_individuals()))
+                values.emplace_back(index, value.fitness.adjusted_fitness);
 
             std::sort(values.begin(), values.end(), [](const auto& a, const auto& b)
             {

@@ -22,12 +22,12 @@
 #include <functional>
 #include <blt/std/logging.h>
 #include <blt/std/types.h>
-#include <blt/gp/stats.h>
 #include <ostream>
 #include <cstdlib>
 #include <mutex>
 #include <atomic>
 #include <blt/std/mmap.h>
+#include <blt/gp/util/trackers.h>
 #include <blt/gp/allocator.h>
 
 namespace blt::gp
@@ -65,18 +65,6 @@ namespace blt::gp
     template<typename T>
     class tracked_allocator_t;
 
-#ifdef BLT_TRACK_ALLOCATIONS
-    template<typename T>
-    using tracked_vector = std::vector<T, tracked_allocator_t<T>>;
-#else
-    template<typename T>
-    using tracked_vector = std::vector<T>;
-#endif
-
-//    using operation_vector_t = tracked_vector<op_container_t>;
-//    using individual_vector_t = tracked_vector<individual_t, tracked_allocator_t<individual_t>>;
-//    using tree_vector_t = tracked_vector<tree_t>;
-    
     namespace detail
     {
         class operator_storage_test;

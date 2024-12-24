@@ -17,25 +17,47 @@
  */
 #include "../symbolic_regression.h"
 
-static const unsigned long SEED = std::random_device()();
+// you can either use a straight numeric seed, or provide a function which produces a u64 output which will initialize the thread local random number generators.
+static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-blt::gp::prog_config_t config = blt::gp::prog_config_t()
-        .set_initial_min_tree_size(2)
-        .set_initial_max_tree_size(6)
-        .set_elite_count(2)
-        .set_crossover_chance(0.9)
-        .set_mutation_chance(0.0)
-        .set_reproduction_chance(0.25)
-        .set_max_generations(50)
-        .set_pop_size(500)
-        .set_thread_count(0);
+blt::gp::grow_generator_t grow_generator;
+blt::gp::full_generator_t full_generator;
+
+blt::gp::ramped_half_initializer_t ramped_half_initializer;
+blt::gp::full_initializer_t full_initializer;
 
 int main()
 {
-    blt::gp::example::symbolic_regression_t regression{config, SEED};
+    // config options can be chained together to form compound statements.
+    blt::gp::prog_config_t config = blt::gp::prog_config_t()
+            .set_initial_min_tree_size(2)
+            .set_initial_max_tree_size(6)
+            .set_elite_count(2)
+            .set_crossover_chance(0.9)
+            .set_mutation_chance(0.1)
+            .set_reproduction_chance(0.25)
+            .set_max_generations(50)
+            .set_pop_size(500)
+            .set_thread_count(16);
+
+    // example on how you can change the mutation config
+    blt::gp::mutation_t::config_t mut_config{};
+    mut_config.generator = full_generator;
+    mut_config.replacement_min_depth = 2;
+    mut_config.replacement_max_depth = 6;
+
+    blt::gp::advanced_mutation_t mut_adv{mut_config};
+    blt::gp::mutation_t mut{mut_config};
+
+    // you can choose to set any type of system used by the GP. Mutation, Crossover, and Initializers
+    // (config options changed do not affect others, so you can programmatically change them at runtime)
+    config.set_initializer(ramped_half_initializer);
+    config.set_mutation(mut_adv);
+
+    // the config is copied into the gp_system so changing the config will not change the runtime of the program.
+    blt::gp::example::symbolic_regression_t regression{SEED_FUNC, config};
+
     regression.execute();
 
-    BLT_TRACE("%lf vs %lf", blt::gp::parent_fitness.load(std::memory_order_relaxed), blt::gp::child_fitness.load(std::memory_order_relaxed));
-    
     return 0;
 }

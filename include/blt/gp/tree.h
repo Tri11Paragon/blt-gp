@@ -246,45 +246,6 @@ namespace blt::gp
         individual_t& operator=(individual_t&&) = default;
     };
     
-    struct population_stats
-    {
-        population_stats() = default;
-        
-        population_stats(const population_stats& copy):
-                overall_fitness(copy.overall_fitness.load()), average_fitness(copy.average_fitness.load()), best_fitness(copy.best_fitness.load()),
-                worst_fitness(copy.worst_fitness.load())
-        {
-            normalized_fitness.reserve(copy.normalized_fitness.size());
-            for (auto v : copy.normalized_fitness)
-                normalized_fitness.push_back(v);
-        }
-        
-        population_stats(population_stats&& move) noexcept:
-                overall_fitness(move.overall_fitness.load()), average_fitness(move.average_fitness.load()), best_fitness(move.best_fitness.load()),
-                worst_fitness(move.worst_fitness.load()), normalized_fitness(std::move(move.normalized_fitness))
-        {
-            move.overall_fitness = 0;
-            move.average_fitness = 0;
-            move.best_fitness = 0;
-            move.worst_fitness = 0;
-        }
-        
-        std::atomic<double> overall_fitness = 0;
-        std::atomic<double> average_fitness = 0;
-        std::atomic<double> best_fitness = 0;
-        std::atomic<double> worst_fitness = 1;
-        tracked_vector<double> normalized_fitness{};
-        
-        void clear()
-        {
-            overall_fitness = 0;
-            average_fitness = 0;
-            best_fitness = 0;
-            worst_fitness = 0;
-            normalized_fitness.clear();
-        }
-    };
-    
     class population_t
     {
         public:

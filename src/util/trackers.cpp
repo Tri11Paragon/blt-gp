@@ -15,9 +15,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/gp/stats.h>
+#include <blt/gp/util/trackers.h>
 #include <blt/std/logging.h>
 #include "blt/format/format.h"
+#include <numeric>
 
 namespace blt::gp
 {

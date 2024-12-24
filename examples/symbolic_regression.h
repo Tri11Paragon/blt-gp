@@ -19,15 +19,14 @@
 #ifndef BLT_GP_EXAMPLE_SYMBOLIC_REGRESSION_H
 #define BLT_GP_EXAMPLE_SYMBOLIC_REGRESSION_H
 
-#include <blt/gp/program.h>
-#include <blt/gp/tree.h>
+#include "examples_base.h"
 #include <blt/std/logging.h>
 #include <blt/format/format.h>
 #include <iostream>
 
 namespace blt::gp::example
 {
-    class symbolic_regression_t
+    class symbolic_regression_t : public example_base_t
     {
     public:
         struct context
@@ -62,7 +61,8 @@ namespace blt::gp::example
         }
 
     public:
-        symbolic_regression_t(const prog_config_t& config, const size_t seed): program{seed, config}
+        template<typename SEED>
+        symbolic_regression_t(SEED seed, const prog_config_t& config): example_base_t{std::forward<SEED>(seed), config}
         {
             BLT_INFO("Starting BLT-GP Symbolic Regression Example");
             BLT_DEBUG("Setup Fitness cases");
@@ -74,6 +74,11 @@ namespace blt::gp::example
                 const auto y = example_function(x);
                 fitness_case = {x, y};
             }
+
+            fitness_function_ref = [this](const tree_t& t, fitness_t& f, const size_t i)
+            {
+                return fitness_function(t, f, i);
+            };
         }
 
         template <typename Ctx>
@@ -100,23 +105,38 @@ namespace blt::gp::example
             return builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x);
         }
 
-        void execute()
+        void setup_operations()
         {
             BLT_DEBUG("Setup Types and Operators");
             operator_builder<context> builder{};
-            program.set_operations(make_operations(builder));
+            make_operations(builder);
+            program.set_operations(builder.grab());
+        }
 
+        void generate_initial_population()
+        {
             BLT_DEBUG("Generate Initial Population");
-            auto sel = select_tournament_t{};
-            auto fitness = [this](const tree_t& c, fitness_t& f, const size_t i) { return fitness_function(c, f, i); };
-            program.generate_population(program.get_typesystem().get_type<float>().id(), fitness, sel, sel, sel);
+            static auto sel = select_tournament_t{};
+            if (crossover_sel == nullptr)
+                crossover_sel = &sel;
+            if (mutation_sel == nullptr)
+                mutation_sel = &sel;
+            if (reproduction_sel == nullptr)
+                reproduction_sel = &sel;
+            program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function_ref, *crossover_sel, *mutation_sel,
+                                        *reproduction_sel);
+        }
 
+        void run_generation_loop()
+        {
             BLT_DEBUG("Begin Generation Loop");
             while (!program.should_terminate())
             {
+#ifdef BLT_TRACK_ALLOCATIONS
                 auto cross = crossover_calls.start_measurement();
                 auto mut = mutation_calls.start_measurement();
                 auto repo = reproduction_calls.start_measurement();
+#endif
                 BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
                 BLT_TRACE("Creating next generation");
                 program.create_next_generation();
@@ -126,18 +146,23 @@ namespace blt::gp::example
                 program.evaluate_fitness();
                 const auto& stats = program.get_population_stats();
                 BLT_TRACE("Avg Fit: %lf, Best Fit: %lf, Worst Fit: %lf, Overall Fit: %lf",
-                    stats.average_fitness.load(std::memory_order_relaxed), stats.best_fitness.load(std::memory_order_relaxed),
-                    stats.worst_fitness.load(std::memory_order_relaxed), stats.overall_fitness.load(std::memory_order_relaxed));
+                          stats.average_fitness.load(std::memory_order_relaxed), stats.best_fitness.load(std::memory_order_relaxed),
+                          stats.worst_fitness.load(std::memory_order_relaxed), stats.overall_fitness.load(std::memory_order_relaxed));
+#ifdef BLT_TRACK_ALLOCATIONS
                 crossover_calls.stop_measurement(cross);
                 mutation_calls.stop_measurement(mut);
                 reproduction_calls.stop_measurement(repo);
                 const auto total = (cross.get_call_difference() * 2) + mut.get_call_difference() + repo.get_call_difference();
                 BLT_TRACE("Calls Crossover: %ld, Mutation %ld, Reproduction %ld; %ld", cross.get_call_difference(), mut.get_call_difference(), repo.get_call_difference(), total);
                 BLT_TRACE("Value Crossover: %ld, Mutation %ld, Reproduction %ld; %ld", cross.get_value_difference(), mut.get_value_difference(), repo.get_value_difference(), (cross.get_value_difference() * 2 + mut.get_value_difference() + repo.get_value_difference()) - total);
+#endif
                 BLT_TRACE("----------------------------------------------");
                 std::cout << std::endl;
             }
+        }
 
+        auto get_and_print_best()
+        {
             const auto best = program.get_best_individuals<3>();
 
             BLT_INFO("Best approximations:");
@@ -148,18 +173,35 @@ namespace blt::gp::example
                 i.tree.print(program, std::cout);
                 std::cout << "\n";
             }
+
+            return best;
+        }
+
+        void print_stats() const
+        {
+            // TODO: make stats helper
             const auto& stats = program.get_population_stats();
             BLT_INFO("Stats:");
             BLT_INFO("Average fitness: %lf", stats.average_fitness.load());
             BLT_INFO("Best fitness: %lf", stats.best_fitness.load());
             BLT_INFO("Worst fitness: %lf", stats.worst_fitness.load());
             BLT_INFO("Overall fitness: %lf", stats.overall_fitness.load());
-            // TODO: make stats helper
+        }
+
+        void execute()
+        {
+            setup_operations();
+
+            generate_initial_population();
+
+            run_generation_loop();
+
+            get_and_print_best();
+
+            print_stats();
         }
 
     private:
-        gp_program program;
-        mutation_t mut;
         std::array<context, 200> training_cases{};
     };
 }

@@ -247,7 +247,7 @@ namespace blt::gp
         blt::size_t total_produced = 0;
         blt::size_t total_consumed = 0;
 
-        for (const auto& operation : blt::reverse_iterate(operations.begin(), operations.end()))
+        for (const auto& operation : iterate(operations).rev())
         {
             if (operation.is_value)
             {

@@ -20,6 +20,7 @@
 #define BLT_GP_SELECTION_H
 
 #include <blt/gp/fwdecl.h>
+#include <blt/gp/util/statistics.h>
 #include <blt/gp/tree.h>
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
@@ -54,16 +55,16 @@ namespace blt::gp
             {
                 for (blt::size_t i = 0; i < config.elites; i++)
                 {
-                    if (ind.second.fitness.adjusted_fitness >= values[i].second)
+                    if (ind.value.fitness.adjusted_fitness >= values[i].second)
                     {
                         bool doesnt_contain = true;
                         for (blt::size_t j = 0; j < config.elites; j++)
                         {
-                            if (ind.first == values[j].first)
+                            if (ind.index == values[j].first)
                                 doesnt_contain = false;
                         }
                         if (doesnt_contain)
-                            values[i] = {ind.first, ind.second.fitness.adjusted_fitness};
+                            values[i] = {ind.index, ind.value.fitness.adjusted_fitness};
                         break;
                     }
                 }
@@ -101,43 +102,45 @@ namespace blt::gp
 
                 const tree_t* p1;
                 const tree_t* p2;
-                double parent_val = 0;
+                // double parent_val = 0;
                 do
                 {
                     p1 = &crossover_selection.select(program, current_pop);
                     p2 = &crossover_selection.select(program, current_pop);
 
-                    fitness_t fitness1;
-                    fitness_t fitness2;
-                    test_fitness_func(*p1, fitness1, 0);
-                    test_fitness_func(*p2, fitness2, 0);
-                    parent_val = fitness1.adjusted_fitness + fitness2.adjusted_fitness;
+                    // fitness_t fitness1;
+                    // fitness_t fitness2;
+                    // test_fitness_func(*p1, fitness1, 0);
+                    // test_fitness_func(*p2, fitness2, 0);
+                    // parent_val = fitness1.adjusted_fitness + fitness2.adjusted_fitness;
                     // BLT_TRACE("%ld> P1 Fit: %lf, P2 Fit: %lf", val, fitness1.adjusted_fitness, fitness2.adjusted_fitness);
 
                     c1.copy_fast(*p1);
                     c2->copy_fast(*p2);
 
+#ifdef BLT_TRACK_ALLOCATIONS
                     crossover_calls.value(1);
+#endif
                 }
                 while (!config.crossover.get().apply(program, *p1, *p2, c1, *c2));
-                fitness_t fitness1;
-                fitness_t fitness2;
-                test_fitness_func(c1, fitness1, 0);
-                test_fitness_func(*c2, fitness2, 0);
+                // fitness_t fitness1;
+                // fitness_t fitness2;
+                // test_fitness_func(c1, fitness1, 0);
+                // test_fitness_func(*c2, fitness2, 0);
 
-                const auto child_val = fitness1.adjusted_fitness + fitness2.adjusted_fitness;
+                // const auto child_val = fitness1.adjusted_fitness + fitness2.adjusted_fitness;
 
-                auto old_parent_val = parent_fitness.load(std::memory_order_relaxed);
-                while (!parent_fitness.compare_exchange_weak(old_parent_val, old_parent_val + parent_val, std::memory_order_relaxed,
-                                                             std::memory_order_relaxed))
-                {
-                }
+                // auto old_parent_val = parent_fitness.load(std::memory_order_relaxed);
+                // while (!parent_fitness.compare_exchange_weak(old_parent_val, old_parent_val + parent_val, std::memory_order_relaxed,
+                                                             // std::memory_order_relaxed))
+                // {
+                // }
 
-                auto old_child_val = child_fitness.load(std::memory_order_relaxed);
-                while (!child_fitness.compare_exchange_weak(old_child_val, old_child_val + child_val, std::memory_order_relaxed,
-                                                             std::memory_order_relaxed))
-                {
-                }
+                // auto old_child_val = child_fitness.load(std::memory_order_relaxed);
+                // while (!child_fitness.compare_exchange_weak(old_child_val, old_child_val + child_val, std::memory_order_relaxed,
+                                                             // std::memory_order_relaxed))
+                // {
+                // }
 
                 // BLT_TRACE("%ld> C1 Fit: %lf, C2 Fit: %lf", val, fitness1.adjusted_fitness, fitness2.adjusted_fitness);
 #ifdef BLT_TRACK_ALLOCATIONS
@@ -164,7 +167,9 @@ namespace blt::gp
                 {
                     p = &mutation_selection.select(program, current_pop);
                     c1.copy_fast(*p);
+#ifdef BLT_TRACK_ALLOCATIONS
                     mutation_calls.value(1);
+#endif
                 }
                 while (!config.mutator.get().apply(program, *p, c1));
 #ifdef BLT_TRACK_ALLOCATIONS

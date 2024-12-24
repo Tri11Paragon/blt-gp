@@ -27,29 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-macro(blt_add_project name source type)
-
-    project(${name}-${type})
-
-    add_executable(${name}-${type} ${source})
-
-    target_link_libraries(${name}-${type} PRIVATE BLT blt-gp Threads::Threads)
-
-    compile_options(${name}-${type})
-    target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
-
-    if (${TRACK_ALLOCATIONS})
-        target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
-    endif ()
-
-    add_test(NAME ${name} COMMAND ${name}-${type})
-
-    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
-
-    project(blt-gp)
-endmacro()
-
-project(blt-gp VERSION 0.2.2)
+project(blt-gp VERSION 0.2.3)
 
 include(CTest)
 
@@ -93,6 +71,28 @@ target_compile_definitions(blt-gp PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
 if (${TRACK_ALLOCATIONS})
     target_compile_definitions(blt-gp PRIVATE BLT_TRACK_ALLOCATIONS=1)
 endif ()
+
+macro(blt_add_project name source type)
+
+    project(${name}-${type})
+
+    add_executable(${name}-${type} ${source})
+
+    target_link_libraries(${name}-${type} PRIVATE BLT blt-gp Threads::Threads)
+
+    compile_options(${name}-${type})
+    target_compile_definitions(${name}-${type} PRIVATE BLT_DEBUG_LEVEL=${DEBUG_LEVEL})
+
+    if (${TRACK_ALLOCATIONS})
+        target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
+    endif ()
+
+    add_test(NAME ${name} COMMAND ${name}-${type})
+
+    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
+
+    project(blt-gp)
+endmacro()
 
 if (${BUILD_EXAMPLES})
 

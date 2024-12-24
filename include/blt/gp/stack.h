@@ -27,7 +27,7 @@
 #include <blt/std/ranges.h>
 #include <blt/meta/meta.h>
 #include <blt/gp/fwdecl.h>
-#include <blt/gp/stats.h>
+#include <blt/gp/util/trackers.h>
 #include <utility>
 #include <stdexcept>
 #include <cstdlib>
