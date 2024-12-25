@@ -67,7 +67,12 @@ namespace blt::gp
         auto& c1_ops = c1.get_operations();
         auto& c2_ops = c2.get_operations();
 
-        const auto point = get_crossover_point(program, p1, p2);
+        std::optional<crossover_point_t> point;
+
+        if (config.traverse)
+            point = get_crossover_point_traverse(program, p1, p2);
+        else
+            point = get_crossover_point(program, p1, p2);
 
         if (!point)
             return false;
@@ -88,28 +93,28 @@ namespace blt::gp
         case 1:
             {
                 // basic crossover
-                auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
-                auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
+                const auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
+                const auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
 
-                auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
-                auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
+                const auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
+                const auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
 
                 stack_allocator& c1_stack = c1.get_values();
                 stack_allocator& c2_stack = c2.get_values();
 
-                for (const auto& op : blt::iterate(crossover_point_begin_itr, crossover_point_end_itr))
+                for (const auto& op : iterate(crossover_point_begin_itr, crossover_point_end_itr))
                     c1_operators.push_back(op);
-                for (const auto& op : blt::iterate(found_point_begin_itr, found_point_end_itr))
+                for (const auto& op : iterate(found_point_begin_itr, found_point_end_itr))
                     c2_operators.push_back(op);
 
-                blt::size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
-                blt::size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
-                blt::size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
-                blt::size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
-                auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
-                auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
-                auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
-                auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
+                const size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
+                const size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
+                const size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
+                const size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
+                const auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
+                const auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
+                const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
+                const auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
 
                 c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
                 c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
@@ -170,6 +175,8 @@ namespace blt::gp
         }
 #endif
 
+        c1.get_depth(program);
+
         return true;
     }
 
@@ -181,52 +188,32 @@ namespace blt::gp
 
         size_t crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
 
-        while (config.avoid_terminals && program.get_operator_info(c1_ops[crossover_point].id).argc.is_terminal())
+        const bool allow_terminal_selection = program.get_random().choice(config.terminal_chance);
+
+        blt::size_t counter = 0;
+        while (!allow_terminal_selection && program.get_operator_info(c1_ops[crossover_point].id).argc.is_terminal())
+        {
+            if (counter >= config.max_crossover_tries)
+                return {};
             crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
+            counter++;
+        }
 
         size_t attempted_point = 0;
 
         const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id);
-        operator_info_t* attempted_point_type = nullptr;
+        const operator_info_t* attempted_point_type = nullptr;
 
-        blt::size_t counter = 0;
-        do
+        for (counter = 0; counter < config.max_crossover_tries; counter++)
         {
-            if (counter >= config.max_crossover_tries)
-            {
-                if (config.should_crossover_try_forward)
-                {
-                    bool found = false;
-                    for (auto i = attempted_point + 1; i < c2_ops.size(); i++)
-                    {
-                        auto* info = &program.get_operator_info(c2_ops[i].id);
-                        if (info->return_type == crossover_point_type.return_type)
-                        {
-                            if (config.avoid_terminals && info->argc.is_terminal())
-                                continue;
-                            attempted_point = i;
-                            attempted_point_type = info;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                        return {};
-                }
-                // should we try again over the whole tree? probably not.
-                return {};
-            }
             attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
             attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id);
-            if (config.avoid_terminals && attempted_point_type->argc.is_terminal())
+            if (!allow_terminal_selection && attempted_point_type->argc.is_terminal())
                 continue;
             if (crossover_point_type.return_type == attempted_point_type->return_type)
-                break;
-            counter++;
+                return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
         }
-        while (true);
-
-        return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
+        return {};
     }
 
     std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(gp_program& program, const tree_t& c1,
@@ -241,25 +228,29 @@ namespace blt::gp
         return {{c1_point_o->point, c2_point_o->point}};
     }
 
-    std::optional<crossover_t::point_info_t> crossover_t::random_place_of_type(gp_program& program, const tree_t& t, type_id type)
-    {
-        auto attempted_point = program.get_random().get_i64(1ul, t.get_operations().size());
-        auto& attempted_point_type = program.get_operator_info(t.get_operations()[attempted_point].id);
-        if (type == attempted_point_type.return_type)
-            return {{attempted_point, attempted_point_type}};
-        return {};
-    }
-
-    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type) const
+    std::optional<crossover_t::point_info_t> crossover_t::get_point_from_traverse_raw(gp_program& program, const tree_t& t,
+                                                                                      std::optional<type_id> type) const
     {
         auto& random = program.get_random();
 
+        bool should_select_terminal = program.get_random().choice(config.terminal_chance);
+
+        ptrdiff_t parent = -1;
         ptrdiff_t point = 0;
         while (true)
         {
             auto& current_op_type = program.get_operator_info(t.get_operations()[point].id);
             if (current_op_type.argc.is_terminal())
             {
+                if (!should_select_terminal)
+                {
+                    if (parent == -1)
+                        return {};
+                    auto& parent_type = program.get_operator_info(t.get_operations()[parent].id);
+                    if (type && *type != parent_type.return_type)
+                        return {};
+                    return {{parent, parent_type}};
+                }
                 if (type && *type != current_op_type.return_type)
                     return {};
                 return {{point, current_op_type}};
@@ -270,6 +261,7 @@ namespace blt::gp
                 const auto args = current_op_type.argc.argc;
                 const auto argument = random.get_size_t(0, args);
 
+                parent = point;
                 // move to the first child
                 point += 1;
                 // loop through all the children we wish to skip. The result will be the first node of the next child, becoming the new parent
@@ -288,7 +280,7 @@ namespace blt::gp
     {
         for (size_t i = 0; i < config.max_crossover_tries; i++)
         {
-            if (auto found = get_point_traverse(program, t, type))
+            if (auto found = get_point_from_traverse_raw(program, t, type))
                 return found;
         }
         return {};
@@ -300,7 +292,7 @@ namespace blt::gp
         return true;
     }
 
-    blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node)
+    blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node) const
     {
         auto& ops_r = c.get_operations();
         auto& vals_r = c.get_values();

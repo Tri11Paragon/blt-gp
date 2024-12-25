@@ -140,14 +140,17 @@ namespace blt::gp
         out << '\n';
     }
     
-    blt::size_t tree_t::get_depth(gp_program& program)
+    size_t tree_t::get_depth(gp_program& program) const
     {
-        blt::size_t depth = 0;
+        size_t depth = 0;
         
         auto operations_stack = operations;
-        tracked_vector<blt::size_t> values_process;
-        tracked_vector<blt::size_t> value_stack;
-        
+        thread_local tracked_vector<size_t> values_process;
+        thread_local tracked_vector<size_t> value_stack;
+
+        values_process.clear();
+        value_stack.clear();
+
         for (const auto& op : operations_stack)
         {
             if (op.is_value)
@@ -167,8 +170,8 @@ namespace blt::gp
                 value_stack.pop_back();
                 continue;
             }
-            blt::size_t local_depth = 0;
-            for (blt::size_t i = 0; i < program.get_operator_info(operation.id).argc.argc; i++)
+            size_t local_depth = 0;
+            for (size_t i = 0; i < program.get_operator_info(operation.id).argc.argc; i++)
             {
                 local_depth = std::max(local_depth, values_process.back());
                 values_process.pop_back();

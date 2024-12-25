@@ -106,7 +106,7 @@ namespace blt::gp
                 return operations;
             }
             
-            [[nodiscard]] inline blt::gp::stack_allocator& get_values()
+            [[nodiscard]] inline stack_allocator& get_values()
             {
                 return values;
             }
@@ -127,7 +127,7 @@ namespace blt::gp
                 return (*func)(*this, nullptr);
             }
             
-            blt::size_t get_depth(gp_program& program);
+            blt::size_t get_depth(gp_program& program) const;
             
             /**
              * Helper template for returning the result of the last evaluation

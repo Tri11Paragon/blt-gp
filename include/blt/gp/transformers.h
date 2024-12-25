@@ -60,32 +60,30 @@ namespace blt::gp
         public:
             struct point_info_t
             {
-                blt::ptrdiff_t point;
+                ptrdiff_t point;
                 operator_info_t& type_operator_info;
             };
             struct crossover_point_t
             {
-                blt::ptrdiff_t p1_crossover_point;
-                blt::ptrdiff_t p2_crossover_point;
+                ptrdiff_t p1_crossover_point;
+                ptrdiff_t p2_crossover_point;
             };
             struct config_t
             {
                 // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
                 u32 max_crossover_tries = 5;
                 // if tree have fewer nodes than this number, they will not be considered for crossover
-                u32 min_tree_size = 3;
+                // should be at least 5 as crossover will not select the root node.
+                u32 min_tree_size = 5;
                 // used by the traverse version of get_crossover_point
                 // at each depth level, what chance do we have to exit with this as our point? or in other words what's the chance we continue traversing
                 // this is what this option configures.
                 f32 traverse_chance = 0.5;
-
-                
-                // legacy settings:
-                
-                // if we fail to find a point in the tree, should we search forward from the last point to the end of the operators?
-                bool should_crossover_try_forward = false;
-                // avoid selecting terminals when doing crossover
-                bool avoid_terminals = false;
+                // how often should we select terminals over functions. By default, we only allow selection of terminals 10% of the time
+                // this applies to both types of crossover point functions. Traversal will use the parent if it should not pick a terminal.
+                f32 terminal_chance = 0.1;
+                // use traversal to select point instead of random selection
+                bool traverse = false;
             };
             
             crossover_t() = default;
@@ -97,9 +95,7 @@ namespace blt::gp
             
             std::optional<crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             
-            std::optional<point_info_t> get_point_traverse(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
-            
-            static std::optional<point_info_t> random_place_of_type(gp_program& program, const tree_t& t, type_id type);
+            std::optional<point_info_t> get_point_from_traverse_raw(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -143,7 +139,7 @@ namespace blt::gp
             virtual bool apply(gp_program& program, const tree_t& p, tree_t& c);
             
             // returns the point after the mutation
-            blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node);
+            blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node) const;
             
             virtual ~mutation_t() = default;
         
