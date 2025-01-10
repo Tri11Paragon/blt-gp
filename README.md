@@ -43,3 +43,6 @@ const auto fitness_function = [](blt::gp::tree_t& current_tree, blt::gp::fitness
 ```
 
 ## Performance
+
+## Bibliography
+Rice (Cammeo and Osmancik) [Dataset]. (2019). UCI Machine Learning Repository. https://doi.org/10.24432/C5MW4Z.

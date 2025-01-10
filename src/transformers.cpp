@@ -352,7 +352,7 @@ namespace blt::gp
                 auto copy = c;
                 try
                 {
-                    auto result = copy.evaluate(nullptr);
+                    const auto& result = copy.evaluate();
                     blt::black_box(result);
                 } catch (...)
                 {

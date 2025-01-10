@@ -25,6 +25,7 @@
 #include <blt/format/format.h>
 #include <blt/parse/argparse.h>
 #include <iostream>
+#include <filesystem>
 #include "../rice_classification.h"
 #include "blt/fs/loader.h"
 
@@ -44,7 +45,8 @@ blt::gp::prog_config_t config = blt::gp::prog_config_t()
 int main(int argc, const char** argv)
 {
     blt::arg_parse parser;
-    parser.addArgument(blt::arg_builder{"-f", "--file"}.setHelp("File for rice data. Should be in .arff format.").setRequired().build());
+    parser.addArgument(blt::arg_builder{"file"}
+                       .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
 
     auto args = parser.parse_args(argc, argv);
 
@@ -144,6 +146,11 @@ bool blt::gp::example::rice_classification_t::fitness_function(const tree_t& cur
 
 void blt::gp::example::rice_classification_t::load_rice_data(const std::string_view rice_file_path)
 {
+    if (!std::filesystem::exists(rice_file_path))
+    {
+        BLT_WARN("Rice file not found!");
+        std::exit(0);
+    }
     BLT_DEBUG("Setup Fitness cases");
     auto rice_file_data = fs::getLinesFromFile(rice_file_path);
     size_t index = 0;
