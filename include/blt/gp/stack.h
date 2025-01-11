@@ -74,9 +74,12 @@ namespace blt::gp
         };
 
         template <typename T>
-        static inline constexpr blt::size_t aligned_size() noexcept
+        static inline constexpr size_t aligned_size() noexcept
         {
-            return aligned_size(sizeof(NO_REF_T<T>));
+            const auto bytes = aligned_size(sizeof(NO_REF_T<T>));
+            if constexpr (blt::gp::detail::has_func_drop_v<T>)
+                return bytes + sizeof(size_t*);
+            return bytes;
         }
 
         static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
