@@ -72,14 +72,14 @@ namespace blt::gp
             // reverse the order of the stack
             for (const auto& v : operations)
             {
-                if (v.is_value)
-                    copy.transfer_bytes(reversed, v.type_size);
+                if (v.is_value())
+                    copy.transfer_bytes(reversed, v.type_size());
             }
         }
         for (const auto& v : operations)
         {
-            auto info = program.get_operator_info(v.id);
-            auto name = program.get_name(v.id) ? program.get_name(v.id).value() : "NULL";
+            auto info = program.get_operator_info(v.id());
+            const auto name = program.get_name(v.id()) ? program.get_name(v.id()).value() : "NULL";
             auto return_type = get_return_type(program, info.return_type, include_types);
             if (info.argc.argc > 0)
             {
@@ -92,10 +92,10 @@ namespace blt::gp
                 if (print_literals)
                 {
                     create_indent(out, indent, pretty_print);
-                    if (program.is_operator_ephemeral(v.id))
+                    if (program.is_operator_ephemeral(v.id()))
                     {
-                        program.get_print_func(v.id)(out, reversed);
-                        reversed.pop_bytes(stack_allocator::aligned_size(v.type_size));
+                        program.get_print_func(v.id())(out, reversed);
+                        reversed.pop_bytes(v.type_size());
                     } else
                         out << name;
                     out << return_type << end_indent(pretty_print);
@@ -153,7 +153,7 @@ namespace blt::gp
 
         for (const auto& op : operations_stack)
         {
-            if (op.is_value)
+            if (op.is_value())
                 value_stack.push_back(1);
         }
         
@@ -162,7 +162,7 @@ namespace blt::gp
             auto operation = operations_stack.back();
             // keep the last value in the stack on the process stack stored in the eval context, this way it can be accessed easily.
             operations_stack.pop_back();
-            if (operation.is_value)
+            if (operation.is_value())
             {
                 auto d = value_stack.back();
                 depth = std::max(depth, d);
@@ -171,54 +171,54 @@ namespace blt::gp
                 continue;
             }
             size_t local_depth = 0;
-            for (size_t i = 0; i < program.get_operator_info(operation.id).argc.argc; i++)
+            for (size_t i = 0; i < program.get_operator_info(operation.id()).argc.argc; i++)
             {
                 local_depth = std::max(local_depth, values_process.back());
                 values_process.pop_back();
             }
             value_stack.push_back(local_depth + 1);
-            operations_stack.emplace_back(operation.type_size, operation.id, true);
+            operations_stack.emplace_back(operation.type_size(), operation.id(), true);
         }
         
         return depth;
     }
     
-    blt::ptrdiff_t tree_t::find_endpoint(gp_program& program, blt::ptrdiff_t index) const
+    ptrdiff_t tree_t::find_endpoint(gp_program& program, ptrdiff_t start) const
     {
-        blt::i64 children_left = 0;
+        i64 children_left = 0;
         
         do
         {
-            const auto& type = program.get_operator_info(operations[index].id);
+            const auto& type = program.get_operator_info(operations[start].id());
             // this is a child to someone
             if (children_left != 0)
                 children_left--;
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
-            index++;
+            start++;
         } while (children_left > 0);
         
-        return index;
+        return start;
     }
     
     // this function doesn't work!
-    blt::ptrdiff_t tree_t::find_parent(gp_program& program, blt::ptrdiff_t index) const
+    ptrdiff_t tree_t::find_parent(gp_program& program, ptrdiff_t start) const
     {
-        blt::i64 children_left = 0;
+        i64 children_left = 0;
         do
         {
-            if (index == 0)
+            if (start == 0)
                 return 0;
-            const auto& type = program.get_operator_info(operations[index].id);
+            const auto& type = program.get_operator_info(operations[start].id());
             if (type.argc.argc > 0)
                 children_left -= type.argc.argc;
             children_left++;
             if (children_left <= 0)
                 break;
-            --index;
+            --start;
         } while (true);
         
-        return index;
+        return start;
     }
     
     bool tree_t::check(gp_program& program, void* context) const
@@ -228,8 +228,8 @@ namespace blt::gp
         
         for (const auto& op : get_operations())
         {
-            if (op.is_value)
-                bytes_expected += stack_allocator::aligned_size(op.type_size);
+            if (op.is_value())
+                bytes_expected += op.type_size();
         }
         
         if (bytes_expected != bytes_size)
@@ -252,24 +252,24 @@ namespace blt::gp
 
         for (const auto& operation : iterate(operations).rev())
         {
-            if (operation.is_value)
+            if (operation.is_value())
             {
-                value_stack.transfer_bytes(values_process, operation.type_size);
-                total_produced += stack_allocator::aligned_size(operation.type_size);
+                value_stack.transfer_bytes(values_process, operation.type_size());
+                total_produced += operation.type_size();
                 continue;
             }
-            auto& info = program.get_operator_info(operation.id);
+            auto& info = program.get_operator_info(operation.id());
             for (auto& arg : info.argument_types)
-                total_consumed += stack_allocator::aligned_size(program.get_typesystem().get_type(arg).size());
-            program.get_operator_info(operation.id).func(context, values_process, values_process);
-            total_produced += stack_allocator::aligned_size(program.get_typesystem().get_type(info.return_type).size());
+                total_consumed += program.get_typesystem().get_type(arg).size();
+            program.get_operator_info(operation.id()).func(context, values_process, values_process);
+            total_produced += program.get_typesystem().get_type(info.return_type).size();
         }
         
-        auto v1 = results.values.bytes_in_head();
-        auto v2 = static_cast<blt::ptrdiff_t>(stack_allocator::aligned_size(operations.front().type_size));
+        const auto v1 = results.values.bytes_in_head();
+        const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
         if (v1 != v2)
         {
-            auto vd = std::abs(v1 - v2);
+            const auto vd = std::abs(v1 - v2);
             BLT_ERROR("found %ld bytes expected %ld bytes, total difference: %ld", v1, v2, vd);
             BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
                       std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
@@ -278,7 +278,7 @@ namespace blt::gp
         return true;
     }
     
-    void tree_t::find_child_extends(gp_program& program, tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const
+    void tree_t::find_child_extends(gp_program& program, tracked_vector<child_t>& vec, const size_t parent_node, const size_t argc) const
     {
         while (vec.size() < argc)
         {
@@ -287,8 +287,8 @@ namespace blt::gp
             if (current_point == 0)
             {
                 // first child.
-                prev = {static_cast<blt::ptrdiff_t>(parent_node + 1),
-                        find_endpoint(program, static_cast<blt::ptrdiff_t>(parent_node + 1))};
+                prev = {static_cast<ptrdiff_t>(parent_node + 1),
+                        find_endpoint(program, static_cast<ptrdiff_t>(parent_node + 1))};
                 vec.push_back(prev);
                 continue;
             } else

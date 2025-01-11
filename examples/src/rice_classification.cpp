@@ -124,6 +124,7 @@ bool blt::gp::example::rice_classification_t::fitness_function(const tree_t& cur
 {
     for (auto& training_case : training_cases)
     {
+        BLT_GP_UPDATE_CONTEXT(training_case);
         const auto v = current_tree.get_evaluation_value<float>(training_case);
         switch (training_case.type)
         {

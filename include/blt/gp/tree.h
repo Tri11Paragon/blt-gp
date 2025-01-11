@@ -35,17 +35,37 @@ namespace blt::gp
     struct op_container_t
     {
         op_container_t(const size_t type_size, const operator_id id, const bool is_value):
-                type_size(type_size), id(id), is_value(is_value), has_drop(false)
+                m_type_size(type_size), m_id(id), m_is_value(is_value), m_has_drop(false)
         {}
 
         op_container_t(const size_t type_size, const operator_id id, const bool is_value, const bool has_drop):
-                type_size(type_size), id(id), is_value(is_value), has_drop(has_drop)
+                m_type_size(type_size), m_id(id), m_is_value(is_value), m_has_drop(has_drop)
         {}
-        
-        size_t type_size;
-        operator_id id;
-        bool is_value;
-        bool has_drop;
+
+        [[nodiscard]] auto type_size() const
+        {
+            return m_type_size;
+        }
+
+        [[nodiscard]] auto id() const
+        {
+            return m_id;
+        }
+
+        [[nodiscard]] auto is_value() const
+        {
+            return m_is_value;
+        }
+
+        [[nodiscard]] bool has_drop() const
+        {
+            return m_has_drop;
+        }
+    private:
+        size_t m_type_size;
+        operator_id m_id;
+        bool m_is_value;
+        bool m_has_drop;
     };
     
     class evaluation_context
@@ -83,42 +103,37 @@ namespace blt::gp
                 values.reset();
                 values.insert(copy.values);
 
-                // operations.reserve(copy.operations.size());
-                //
-                // auto copy_it = copy.operations.begin();
-                // auto op_it = operations.begin();
-                //
-                // for (; op_it != operations.end(); ++op_it)
-                // {
-                //     if (op_it->has_drop)
-                //     {
-                //
-                //     }
-                //     if (copy_it == copy.operations.end())
-                //         break;
-                //     *op_it = *copy_it;
-                //     if (copy_it->has_drop)
-                //     {
-                //
-                //     }
-                //     ++copy_it;
-                // }
-                // const auto op_it_cpy = op_it;
-                // for (;op_it != operations.end(); ++op_it)
-                // {
-                //     if (op_it->has_drop)
-                //     {
-                //
-                //     }
-                // }
-                // operations.erase(op_it_cpy, operations.end());
-                // for (; copy_it != copy.operations.end(); ++copy_it)
-                //     operations.emplace_back(*copy_it);
-
-
-                operations.clear();
                 operations.reserve(copy.operations.size());
-                operations.insert(operations.begin(), copy.operations.begin(), copy.operations.end());
+
+                auto copy_it = copy.operations.begin();
+                auto op_it = operations.begin();
+
+                for (; op_it != operations.end(); ++op_it)
+                {
+                    if (op_it->has_drop())
+                    {
+
+                    }
+                    if (copy_it == copy.operations.end())
+                        break;
+                    *op_it = *copy_it;
+                    if (copy_it->has_drop())
+                    {
+
+                    }
+                    ++copy_it;
+                }
+                const auto op_it_cpy = op_it;
+                for (;op_it != operations.end(); ++op_it)
+                {
+                    if (op_it->has_drop())
+                    {
+
+                    }
+                }
+                operations.erase(op_it_cpy, operations.end());
+                for (; copy_it != copy.operations.end(); ++copy_it)
+                    operations.emplace_back(*copy_it);
             }
             
             tree_t(tree_t&& move) = default;
@@ -213,36 +228,36 @@ namespace blt::gp
             blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
             
             // valid for [begin, end)
-            static blt::size_t total_value_bytes(detail::const_op_iter_t begin, detail::const_op_iter_t end)
+            static size_t total_value_bytes(const detail::const_op_iter_t begin, const detail::const_op_iter_t end)
             {
-                blt::size_t total = 0;
-                for (auto it = begin; it != end; it++)
+                size_t total = 0;
+                for (auto it = begin; it != end; ++it)
                 {
-                    if (it->is_value)
-                        total += stack_allocator::aligned_size(it->type_size);
+                    if (it->is_value())
+                        total += it->type_size();
                 }
                 return total;
             }
             
-            [[nodiscard]] blt::size_t total_value_bytes(blt::size_t begin, blt::size_t end) const
+            [[nodiscard]] size_t total_value_bytes(const size_t begin, const size_t end) const
             {
                 return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin),
                                          operations.begin() + static_cast<blt::ptrdiff_t>(end));
             }
             
-            [[nodiscard]] blt::size_t total_value_bytes(blt::size_t begin) const
+            [[nodiscard]] size_t total_value_bytes(const size_t begin) const
             {
                 return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin), operations.end());
             }
             
-            [[nodiscard]] blt::size_t total_value_bytes() const
+            [[nodiscard]] size_t total_value_bytes() const
             {
                 return total_value_bytes(operations.begin(), operations.end());
             }
         
         private:
             tracked_vector<op_container_t> operations;
-            blt::gp::stack_allocator values;
+            stack_allocator values;
             detail::eval_func_t* func;
     };
     

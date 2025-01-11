@@ -85,6 +85,18 @@ namespace blt::gp
         using const_op_iter_t = tracked_vector<op_container_t>::const_iterator;
         using op_iter_t = tracked_vector<op_container_t>::iterator;
     }
+
+#if BLT_DEBUG_LEVEL > 0
+
+    namespace detail::debug
+    {
+        inline void* context_ptr;
+    }
+
+#define BLT_GP_UPDATE_CONTEXT(context) blt::gp::detail::debug::context_ptr = const_cast<void*>(static_cast<const void*>(&context))
+#else
+    #define BLT_GP_UPDATE_CONTEXT(context)
+#endif
     
 }
 

@@ -143,13 +143,13 @@ namespace blt::gp
                 for (const auto& operation : iterate(ops).rev())
                 {
                     op_pos++;
-                    if (operation.is_value)
+                    if (operation.is_value())
                     {
-                        total_so_far += stack_allocator::aligned_size(operation.type_size);
-                        results.values.copy_from(vals.from(total_so_far), stack_allocator::aligned_size(operation.type_size));
+                        total_so_far += operation.type_size();
+                        results.values.copy_from(vals.from(total_so_far), operation.type_size());
                         continue;
                     }
-                    call_jmp_table(operation.id, context, results.values, results.values, operators...);
+                    call_jmp_table(operation.id(), context, results.values, results.values, operators...);
                 }
 
                 return results;
@@ -258,9 +258,9 @@ namespace blt::gp
             operator_metadata_t meta;
             if constexpr (sizeof...(Args) != 0)
             {
-                meta.arg_size_bytes = (stack_allocator::aligned_size(sizeof(Args)) + ...);
+                meta.arg_size_bytes = (stack_allocator::aligned_size<Args>() + ...);
             }
-            meta.return_size_bytes = sizeof(Return);
+            meta.return_size_bytes = stack_allocator::aligned_size<Return>();
             meta.argc = info.argc;
 
             storage.operator_metadata.push_back(meta);

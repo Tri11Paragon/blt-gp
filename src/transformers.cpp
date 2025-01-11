@@ -40,8 +40,8 @@ namespace blt::gp
         size_t total = 0;
         for (auto it = begin; it != end; ++it)
         {
-            if (it->is_value)
-                total += stack_allocator::aligned_size(it->type_size);
+            if (it->is_value())
+                total += it->type_size();
         }
         return total;
     }
@@ -157,14 +157,14 @@ namespace blt::gp
         blt::size_t c2_found_bytes = c2.get_values().size().total_used_bytes;
         blt::size_t c1_expected_bytes = std::accumulate(c1.get_operations().begin(), c1.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
-                                                            if (v2.is_value)
-                                                                return v1 + stack_allocator::aligned_size(v2.type_size);
+                                                            if (v2.is_value())
+                                                                return v1 + v2.type_size();
                                                             return v1;
                                                         });
         blt::size_t c2_expected_bytes = std::accumulate(c2.get_operations().begin(), c2.get_operations().end(), 0ul,
                                                         [](const auto& v1, const auto& v2) {
-                                                            if (v2.is_value)
-                                                                return v1 + stack_allocator::aligned_size(v2.type_size);
+                                                            if (v2.is_value())
+                                                                return v1 + v2.type_size();
                                                             return v1;
                                                         });
         if (c1_found_bytes != c1_expected_bytes || c2_found_bytes != c2_expected_bytes)
@@ -191,7 +191,7 @@ namespace blt::gp
         const bool allow_terminal_selection = program.get_random().choice(config.terminal_chance);
 
         blt::size_t counter = 0;
-        while (!allow_terminal_selection && program.get_operator_info(c1_ops[crossover_point].id).argc.is_terminal())
+        while (!allow_terminal_selection && program.get_operator_info(c1_ops[crossover_point].id()).argc.is_terminal())
         {
             if (counter >= config.max_crossover_tries)
                 return {};
@@ -201,13 +201,13 @@ namespace blt::gp
 
         size_t attempted_point = 0;
 
-        const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id);
+        const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id());
         const operator_info_t* attempted_point_type = nullptr;
 
         for (counter = 0; counter < config.max_crossover_tries; counter++)
         {
             attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
-            attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id);
+            attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id());
             if (!allow_terminal_selection && attempted_point_type->argc.is_terminal())
                 continue;
             if (crossover_point_type.return_type == attempted_point_type->return_type)
@@ -239,14 +239,14 @@ namespace blt::gp
         ptrdiff_t point = 0;
         while (true)
         {
-            auto& current_op_type = program.get_operator_info(t.get_operations()[point].id);
+            auto& current_op_type = program.get_operator_info(t.get_operations()[point].id());
             if (current_op_type.argc.is_terminal())
             {
                 if (!should_select_terminal)
                 {
                     if (parent == -1)
                         return {};
-                    auto& parent_type = program.get_operator_info(t.get_operations()[parent].id);
+                    auto& parent_type = program.get_operator_info(t.get_operations()[parent].id());
                     if (type && *type != parent_type.return_type)
                         return {};
                     return {{parent, parent_type}};
@@ -299,7 +299,7 @@ namespace blt::gp
 
         auto begin_point = static_cast<blt::ptrdiff_t>(node);
         auto end_point = c.find_endpoint(program, begin_point);
-        auto begin_operator_id = ops_r[begin_point].id;
+        auto begin_operator_id = ops_r[begin_point].id();
         const auto& type_info = program.get_operator_info(begin_operator_id);
 
         auto begin_itr = ops_r.begin() + begin_point;
@@ -337,8 +337,8 @@ namespace blt::gp
 
                 for (const auto& op : c.get_operations())
                 {
-                    if (op.is_value)
-                        bytes_expected += stack_allocator::aligned_size(op.type_size);
+                    if (op.is_value())
+                        bytes_expected += op.type_size();
                 }
 
                 if (bytes_expected != bytes_size)
@@ -352,14 +352,14 @@ namespace blt::gp
                 auto copy = c;
                 try
                 {
-                    const auto& result = copy.evaluate();
+                    const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
                     blt::black_box(result);
                 } catch (...)
                 {
                     std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
-                    std::cout << "our root type is " << ops_r[begin_point].id << " with size " << stack_allocator::aligned_size(ops_r[begin_point].type_size)
+                    std::cout << "our root type is " << ops_r[begin_point].id() << " with size " << ops_r[begin_point].type_size()
                               << "\n";
-                    std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id) ? *program.get_name(ops_r[begin_point].id) : "Unnamed") << "\n";
+                    std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id()) ? *program.get_name(ops_r[begin_point].id()) : "Unnamed") << "\n";
                     std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
                     //std::cout << "Parent:" << std::endl;
                     //p.print(program, std::cout, false, true);
@@ -422,9 +422,9 @@ namespace blt::gp
                 {
                     // this is going to be evil >:3
                     const auto& node = ops[c_node];
-                    if (!node.is_value)
+                    if (!node.is_value())
                     {
-                        auto& current_func_info = program.get_operator_info(ops[c_node].id);
+                        auto& current_func_info = program.get_operator_info(ops[c_node].id());
                         operator_id random_replacement = program.get_random().select(
                             program.get_type_non_terminals(current_func_info.return_type.id));
                         auto& replacement_func_info = program.get_operator_info(random_replacement);
@@ -483,8 +483,8 @@ namespace blt::gp
                                 blt::size_t expected_bytes = std::accumulate(ops.begin(),
                                                                              ops.end(), 0ul,
                                                                              [](const auto& v1, const auto& v2) {
-                                                                                 if (v2.is_value)
-                                                                                     return v1 + stack_allocator::aligned_size(v2.type_size);
+                                                                                 if (v2.is_value())
+                                                                                     return v1 + v2.type_size();
                                                                                  return v1;
                                                                              });
                                 if (found_bytes != expected_bytes)
@@ -545,7 +545,7 @@ namespace blt::gp
                         };
                     }
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, nullptr))
+                    if (!c.check(program, detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
                         c_copy.print(program, std::cout, false, true);
@@ -559,7 +559,7 @@ namespace blt::gp
                 break;
             case mutation_operator::SUB_FUNC:
                 {
-                    auto& current_func_info = program.get_operator_info(ops[c_node].id);
+                    auto& current_func_info = program.get_operator_info(ops[c_node].id());
 
                     // need to:
                     // mutate the current function.
@@ -640,7 +640,7 @@ namespace blt::gp
                                });
 
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, nullptr))
+                    if (!c.check(program, detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
                         p.print(program, std::cout, false, true);
@@ -656,7 +656,7 @@ namespace blt::gp
                 break;
             case mutation_operator::JUMP_FUNC:
                 {
-                    auto& info = program.get_operator_info(ops[c_node].id);
+                    auto& info = program.get_operator_info(ops[c_node].id());
                     blt::size_t argument_index = -1ul;
                     for (const auto& [index, v] : blt::enumerate(info.argument_types))
                     {
@@ -703,7 +703,7 @@ namespace blt::gp
                     vals.copy_from(storage_ptr, for_bytes + after_bytes);
 
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, nullptr))
+                    if (!c.check(program, detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
                         p.print(program, std::cout, false, true);
@@ -717,7 +717,7 @@ namespace blt::gp
                 break;
             case mutation_operator::COPY:
                 {
-                    auto& info = program.get_operator_info(ops[c_node].id);
+                    auto& info = program.get_operator_info(ops[c_node].id());
                     blt::size_t pt = -1ul;
                     blt::size_t pf = -1ul;
                     for (const auto& [index, v] : blt::enumerate(info.argument_types))
@@ -803,7 +803,7 @@ namespace blt::gp
         }
 
 #if BLT_DEBUG_LEVEL >= 2
-        if (!c.check(program, nullptr))
+        if (!c.check(program, detail::debug::context_ptr))
         {
             std::cout << "Parent: " << std::endl;
             p.print(program, std::cout, false, true);

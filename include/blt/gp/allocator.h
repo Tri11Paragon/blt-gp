@@ -20,12 +20,29 @@
 #define BLT_GP_ALLOCATOR_H
 
 #include <blt/std/types.h>
+#include <blt/std/logging.h>
 #include <blt/gp/util/trackers.h>
 #include <cstdlib>
 #include <vector>
 
 namespace blt::gp
 {
+    namespace detail
+    {
+        static constexpr inline size_t MAX_ALIGNMENT = 8;
+
+#if BLT_DEBUG_LEVEL > 0
+        static void check_alignment(const size_t bytes, const std::string& message = "Invalid alignment")
+        {
+            if (bytes % MAX_ALIGNMENT != 0)
+            {
+                BLT_ABORT((message + ", expected multiple of " + std::to_string(detail::MAX_ALIGNMENT) + " got "
+                    + std::to_string(bytes)).c_str());
+            }
+        }
+#endif
+    }
+
 #ifdef BLT_TRACK_ALLOCATIONS
     inline allocation_tracker_t tracker;
 
@@ -47,11 +64,14 @@ namespace blt::gp
     public:
         void* allocate(blt::size_t bytes) // NOLINT
         {
-#ifdef BLT_TRACK_ALLOCATIONS
+#ifdef BLT_TRACK_ALLOCATIONSS
             tracker.allocate(bytes);
             //                std::cout << "Hey our aligned allocator allocated " << bytes << " bytes!\n";
 #endif
-            return std::aligned_alloc(8, bytes);
+#if (BLT_DEBUG_LEVEL > 0)
+            detail::check_alignment(bytes);
+#endif
+            return std::aligned_alloc(detail::MAX_ALIGNMENT, bytes);
         }
 
         void deallocate(void* ptr, blt::size_t bytes) // NOLINT
@@ -62,7 +82,7 @@ namespace blt::gp
             tracker.deallocate(bytes);
             //                std::cout << "[Hey our aligned allocator deallocated " << bytes << " bytes!]\n";
 #else
-                (void) bytes;
+            (void)bytes;
 #endif
             std::free(ptr);
         }
@@ -108,7 +128,7 @@ namespace blt::gp
             ::blt::gp::tracker.deallocate(n * sizeof(T));
             //                std::cout << "[Hey our tracked allocator deallocated " << (n * sizeof(T)) << " bytes!]\n";
 #else
-                (void) n;
+            (void)n;
 #endif
             std::free(p);
         }
@@ -147,7 +167,7 @@ namespace blt::gp
     template<typename T>
     using tracked_vector = std::vector<T, tracked_allocator_t<T>>;
 #else
-    template<typename T>
+    template <typename T>
     using tracked_vector = std::vector<T>;
 #endif
 }

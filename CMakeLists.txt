@@ -27,7 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-project(blt-gp VERSION 0.2.10)
+project(blt-gp VERSION 0.3.0)
 
 include(CTest)
 
@@ -87,9 +87,9 @@ macro(blt_add_project name source type)
         target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
     endif ()
 
-    add_test(NAME ${name} COMMAND ${name}-${type})
+    add_test(NAME ${name}-${type} COMMAND ${name}-${type})
 
-    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
+    set_property(TEST ${name}-${type} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
 
     project(blt-gp)
 endmacro()
@@ -114,5 +114,7 @@ if (${BUILD_GP_TESTS})
     blt_add_project(blt-gp5 tests/old/gp_test_5.cpp test)
     blt_add_project(blt-gp6 tests/old/gp_test_6.cpp test)
     blt_add_project(blt-gp7 tests/old/gp_test_7.cpp test)
+
+    blt_add_project(blt-symbolic-regression tests/symbolic_regression_test.cpp test)
 
 endif ()

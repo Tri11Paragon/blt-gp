@@ -46,9 +46,9 @@ namespace blt::gp
             type() = default;
             
             template<typename T>
-            static type make_type(type_id id)
+            static type make_type(const type_id id)
             {
-                return type(sizeof(T), id, blt::type_string<T>());
+                return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>());
             }
             
             [[nodiscard]] inline blt::size_t size() const

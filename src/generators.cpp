@@ -60,7 +60,7 @@ namespace blt::gp
             tree_generator.pop();
             
             auto& info = args.program.get_operator_info(top.id);
-            
+
             tree.get_operations().emplace_back(
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,

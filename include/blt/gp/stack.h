@@ -28,6 +28,7 @@
 #include <blt/meta/meta.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/util/trackers.h>
+#include <blt/gp/allocator.h>
 #include <utility>
 #include <stdexcept>
 #include <cstdlib>
@@ -46,10 +47,18 @@ namespace blt::gp
     class stack_allocator
     {
         constexpr static blt::size_t PAGE_SIZE = 0x100;
-        constexpr static blt::size_t MAX_ALIGNMENT = 8;
         template <typename T>
         using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
         using Allocator = aligned_allocator;
+
+        // todo remove this once i fix all the broken references
+        struct detail
+        {
+            static constexpr size_t aligned_size(const size_t size) noexcept
+            {
+                return (size + (gp::detail::MAX_ALIGNMENT - 1)) & ~(gp::detail::MAX_ALIGNMENT - 1);
+            }
+        };
 
     public:
         static Allocator& get_allocator();
@@ -74,17 +83,12 @@ namespace blt::gp
         };
 
         template <typename T>
-        static inline constexpr size_t aligned_size() noexcept
+        static constexpr size_t aligned_size() noexcept
         {
-            const auto bytes = aligned_size(sizeof(NO_REF_T<T>));
+            const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
             if constexpr (blt::gp::detail::has_func_drop_v<T>)
-                return bytes + sizeof(size_t*);
+                return bytes + aligned_size<size_t*>();
             return bytes;
-        }
-
-        static inline constexpr blt::size_t aligned_size(blt::size_t size) noexcept
-        {
-            return (size + (MAX_ALIGNMENT - 1)) & ~(MAX_ALIGNMENT - 1);
         }
 
         stack_allocator() = default;
@@ -138,7 +142,7 @@ namespace blt::gp
             bytes_stored += bytes;
         }
 
-        void copy_from(blt::u8* data, blt::size_t bytes)
+        void copy_from(const u8* data, const size_t bytes)
         {
             if (bytes == 0 || data == nullptr)
                 return;
@@ -148,7 +152,7 @@ namespace blt::gp
             bytes_stored += bytes;
         }
 
-        void copy_to(blt::u8* data, blt::size_t bytes)
+        void copy_to(u8* data, const size_t bytes) const
         {
             if (bytes == 0 || data == nullptr)
                 return;
@@ -158,64 +162,65 @@ namespace blt::gp
         template <typename T, typename NO_REF = NO_REF_T<T>>
         void push(const T& t)
         {
-            static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-            auto ptr = allocate_bytes_for_size(sizeof(NO_REF));
+            static_assert(std::is_trivially_copyable_v<NO_REF>, "Type must be bitwise copyable!");
+            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
+            const auto ptr = allocate_bytes_for_size(aligned_size<NO_REF>());
             std::memcpy(ptr, &t, sizeof(NO_REF));
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>
         T pop()
         {
-            static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-            constexpr auto size = aligned_size(sizeof(NO_REF));
+            static_assert(std::is_trivially_copyable_v<NO_REF>, "Type must be bitwise copyable!");
+            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
+            constexpr auto size = aligned_size<NO_REF>();
 #if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < size)
-                    BLT_ABORT("Not enough bytes left to pop!");
+            if (bytes_stored < size)
+                BLT_ABORT("Not enough bytes left to pop!");
 #endif
             bytes_stored -= size;
             return *reinterpret_cast<T*>(data_ + bytes_stored);
         }
 
-        [[nodiscard]] blt::u8* from(blt::size_t bytes) const
+        [[nodiscard]] u8* from(const size_t bytes) const
         {
 #if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < bytes)
-                    BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
-                               " bytes stored!").c_str());
+            if (bytes_stored < bytes)
+                BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                " bytes stored!").c_str());
 #endif
             return data_ + (bytes_stored - bytes);
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>
-        T& from(blt::size_t bytes)
+        T& from(const size_t bytes)
         {
             static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-            return *reinterpret_cast<NO_REF*>(from(aligned_size(sizeof(NO_REF)) + bytes));
+            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
+            return *reinterpret_cast<NO_REF*>(from(aligned_size<NO_REF>() + bytes));
         }
 
-        void pop_bytes(blt::size_t bytes)
+        void pop_bytes(const size_t bytes)
         {
 #if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < bytes)
-                    BLT_ABORT(("Not enough bytes in stack to pop " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
-                               " bytes stored!").c_str());
+            if (bytes_stored < bytes)
+                BLT_ABORT(("Not enough bytes in stack to pop " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
+                " bytes stored!").c_str());
+            gp::detail::check_alignment(bytes);
 #endif
             bytes_stored -= bytes;
         }
 
-        void transfer_bytes(stack_allocator& to, blt::size_t bytes)
+        void transfer_bytes(stack_allocator& to, const size_t aligned_bytes)
         {
 #if BLT_DEBUG_LEVEL > 0
-                if (bytes_stored < bytes)
-                    BLT_ABORT(("Not enough bytes in stack to transfer " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
-                               " bytes stored!").c_str());
+            if (bytes_stored < aligned_bytes)
+                BLT_ABORT(("Not enough bytes in stack to transfer " + std::to_string(aligned_bytes) + " bytes requested but " + std::to_string(aligned_bytes) +
+                " bytes stored!").c_str());
+            gp::detail::check_alignment(aligned_bytes);
 #endif
-            auto alg = aligned_size(bytes);
-            to.copy_from(*this, alg);
-            pop_bytes(alg);
+            to.copy_from(*this, aligned_bytes);
+            pop_bytes(aligned_bytes);
         }
 
         template <typename... Args>
@@ -223,9 +228,8 @@ namespace blt::gp
         {
             if constexpr (sizeof...(Args) > 0)
             {
-                blt::size_t offset = (stack_allocator::aligned_size(sizeof(NO_REF_T<Args>)) + ...) -
-                    stack_allocator::aligned_size(sizeof(NO_REF_T<typename blt::meta::arg_helper<Args...>::First>));
-                ((call_drop<Args>(offset), offset -= stack_allocator::aligned_size(sizeof(NO_REF_T<Args>))), ...);
+                size_t offset = (aligned_size<NO_REF_T<Args>>() + ...) - aligned_size<NO_REF_T<typename meta::arg_helper<Args...>::First>>();
+                ((call_drop<Args>(offset), offset -= aligned_size<NO_REF_T<Args>>()), ...);
             }
         }
 
@@ -234,14 +238,14 @@ namespace blt::gp
             return bytes_stored == 0;
         }
 
-        [[nodiscard]] blt::ptrdiff_t remaining_bytes_in_block() const noexcept
+        [[nodiscard]] ptrdiff_t remaining_bytes_in_block() const noexcept
         {
-            return static_cast<blt::ptrdiff_t>(size_ - bytes_stored);
+            return static_cast<ptrdiff_t>(size_ - bytes_stored);
         }
 
-        [[nodiscard]] blt::ptrdiff_t bytes_in_head() const noexcept
+        [[nodiscard]] ptrdiff_t bytes_in_head() const noexcept
         {
-            return static_cast<blt::ptrdiff_t>(bytes_stored);
+            return static_cast<ptrdiff_t>(bytes_stored);
         }
 
         [[nodiscard]] size_data_t size() const noexcept
@@ -255,18 +259,18 @@ namespace blt::gp
             return data;
         }
 
-        void reserve(blt::size_t bytes)
+        void reserve(const size_t bytes)
         {
             if (bytes > size_)
                 expand_raw(bytes);
         }
 
-        [[nodiscard]] blt::size_t stored() const
+        [[nodiscard]] size_t stored() const
         {
             return bytes_stored;
         }
 
-        [[nodiscard]] blt::size_t internal_storage_size() const
+        [[nodiscard]] size_t internal_storage_size() const
         {
             return size_;
         }
@@ -277,15 +281,16 @@ namespace blt::gp
         }
 
     private:
-        void expand(blt::size_t bytes)
+        void expand(const size_t bytes)
         {
             //bytes = to_nearest_page_size(bytes);
             expand_raw(bytes);
         }
 
-        void expand_raw(blt::size_t bytes)
+        void expand_raw(const size_t bytes)
         {
-            auto new_data = static_cast<blt::u8*>(get_allocator().allocate(bytes));
+            // auto aligned = detail::aligned_size(bytes);
+            const auto new_data = static_cast<u8*>(get_allocator().allocate(bytes));
             if (bytes_stored > 0)
                 std::memcpy(new_data, data_, bytes_stored);
             get_allocator().deallocate(data_, size_);
@@ -293,40 +298,42 @@ namespace blt::gp
             size_ = bytes;
         }
 
-        static size_t to_nearest_page_size(blt::size_t bytes) noexcept
+        static size_t to_nearest_page_size(const size_t bytes) noexcept
         {
-            constexpr static blt::size_t MASK = ~(PAGE_SIZE - 1);
+            constexpr static size_t MASK = ~(PAGE_SIZE - 1);
             return (bytes & MASK) + PAGE_SIZE;
         }
 
-        void* get_aligned_pointer(blt::size_t bytes) noexcept
+        [[nodiscard]] void* get_aligned_pointer(const size_t bytes) const noexcept
         {
             if (data_ == nullptr)
                 return nullptr;
-            blt::size_t remaining_bytes = remaining_bytes_in_block();
+            size_t remaining_bytes = remaining_bytes_in_block();
             auto* pointer = static_cast<void*>(data_ + bytes_stored);
-            return std::align(MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
+            return std::align(gp::detail::MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
         }
 
-        void* allocate_bytes_for_size(blt::size_t bytes)
+        void* allocate_bytes_for_size(const size_t aligned_bytes)
         {
-            auto used_bytes = aligned_size(bytes);
-            auto aligned_ptr = get_aligned_pointer(used_bytes);
+#if BLT_DEBUG_LEVEL > 0
+            gp::detail::check_alignment(aligned_bytes);
+#endif
+            auto aligned_ptr = get_aligned_pointer(aligned_bytes);
             if (aligned_ptr == nullptr)
             {
-                expand(size_ + used_bytes);
-                aligned_ptr = get_aligned_pointer(used_bytes);
+                expand(size_ + aligned_bytes);
+                aligned_ptr = get_aligned_pointer(aligned_bytes);
             }
             if (aligned_ptr == nullptr)
                 throw std::bad_alloc();
-            bytes_stored += used_bytes;
+            bytes_stored += aligned_bytes;
             return aligned_ptr;
         }
 
         template <typename T>
-        inline void call_drop(blt::size_t offset)
+        void call_drop(const size_t offset)
         {
-            if constexpr (detail::has_func_drop_v<T>)
+            if constexpr (blt::gp::detail::has_func_drop_v<T>)
             {
                 from<NO_REF_T<T>>(offset).drop();
             }

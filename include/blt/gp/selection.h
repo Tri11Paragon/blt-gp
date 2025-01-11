@@ -43,6 +43,10 @@ namespace blt::gp
     {
         auto& [program, current_pop, current_stats, config, random] = args;
 
+        BLT_ASSERT_MSG(config.elites <= current_pop.get_individuals().size(), ("Not enough individuals in population (" +
+                           std::to_string(current_pop.get_individuals().size()) +
+                           ") for requested amount of elites (" + std::to_string(config.elites) + ")").c_str());
+
         if (config.elites > 0 && current_pop.get_individuals().size() >= config.elites)
         {
             static thread_local tracked_vector<std::pair<std::size_t, double>> values;
@@ -132,13 +136,13 @@ namespace blt::gp
 
                 // auto old_parent_val = parent_fitness.load(std::memory_order_relaxed);
                 // while (!parent_fitness.compare_exchange_weak(old_parent_val, old_parent_val + parent_val, std::memory_order_relaxed,
-                                                             // std::memory_order_relaxed))
+                // std::memory_order_relaxed))
                 // {
                 // }
 
                 // auto old_child_val = child_fitness.load(std::memory_order_relaxed);
                 // while (!child_fitness.compare_exchange_weak(old_child_val, old_child_val + child_val, std::memory_order_relaxed,
-                                                             // std::memory_order_relaxed))
+                // std::memory_order_relaxed))
                 // {
                 // }
 
