@@ -34,13 +34,18 @@ namespace blt::gp
     
     struct op_container_t
     {
-        op_container_t(blt::size_t type_size, operator_id id, bool is_value):
-                type_size(type_size), id(id), is_value(is_value)
+        op_container_t(const size_t type_size, const operator_id id, const bool is_value):
+                type_size(type_size), id(id), is_value(is_value), has_drop(false)
+        {}
+
+        op_container_t(const size_t type_size, const operator_id id, const bool is_value, const bool has_drop):
+                type_size(type_size), id(id), is_value(is_value), has_drop(has_drop)
         {}
         
-        blt::size_t type_size;
+        size_t type_size;
         operator_id id;
         bool is_value;
+        bool has_drop;
     };
     
     class evaluation_context
@@ -74,10 +79,43 @@ namespace blt::gp
             {
                 if (this == &copy)
                     return;
-                values.reserve(copy.values.internal_storage_size());
+                values.reserve(copy.values.stored());
                 values.reset();
                 values.insert(copy.values);
-                
+
+                // operations.reserve(copy.operations.size());
+                //
+                // auto copy_it = copy.operations.begin();
+                // auto op_it = operations.begin();
+                //
+                // for (; op_it != operations.end(); ++op_it)
+                // {
+                //     if (op_it->has_drop)
+                //     {
+                //
+                //     }
+                //     if (copy_it == copy.operations.end())
+                //         break;
+                //     *op_it = *copy_it;
+                //     if (copy_it->has_drop)
+                //     {
+                //
+                //     }
+                //     ++copy_it;
+                // }
+                // const auto op_it_cpy = op_it;
+                // for (;op_it != operations.end(); ++op_it)
+                // {
+                //     if (op_it->has_drop)
+                //     {
+                //
+                //     }
+                // }
+                // operations.erase(op_it_cpy, operations.end());
+                // for (; copy_it != copy.operations.end(); ++copy_it)
+                //     operations.emplace_back(*copy_it);
+
+
                 operations.clear();
                 operations.reserve(copy.operations.size());
                 operations.insert(operations.begin(), copy.operations.begin(), copy.operations.end());
