@@ -106,6 +106,8 @@ void do_run()
         {
             for (const auto reproduction_chance : reproduction_chances)
             {
+                if (crossover_chance == 0 && mutation_chance == 0 && reproduction_chance == 0)
+                    continue;
                 for (const auto elite_amount : elite_amounts)
                 {
                     for (const auto population_sizes : population_sizes)
