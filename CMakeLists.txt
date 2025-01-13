@@ -27,7 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-project(blt-gp VERSION 0.3.4)
+project(blt-gp VERSION 0.3.5)
 
 include(CTest)
 
@@ -45,6 +45,10 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -g")
+
+if (NOT ${CMAKE_BUILD_TYPE})
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 if (NOT TARGET BLT)
     add_subdirectory(lib/blt)

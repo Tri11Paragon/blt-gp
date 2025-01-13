@@ -72,6 +72,8 @@ namespace blt::gp
             {
                 // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
                 u32 max_crossover_tries = 5;
+                // how many times the crossover function can fail before we will skip this operation.
+                u32 max_crossover_iterations = 10;
                 // if tree have fewer nodes than this number, they will not be considered for crossover
                 // should be at least 5 as crossover will not select the root node.
                 u32 min_tree_size = 5;
@@ -90,6 +92,11 @@ namespace blt::gp
             
             explicit crossover_t(const config_t& config): config(config)
             {}
+
+            [[nodiscard]] const config_t& get_config() const
+            {
+                return config;
+            }
             
             std::optional<crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
             

@@ -106,6 +106,7 @@ namespace blt::gp
 
                 const tree_t* p1;
                 const tree_t* p2;
+                size_t runs = 0;
                 // double parent_val = 0;
                 do
                 {
@@ -122,6 +123,8 @@ namespace blt::gp
                     c1.copy_fast(*p1);
                     c2->copy_fast(*p2);
 
+                    if (++runs >= config.crossover.get().get_config().max_crossover_iterations)
+                        return 0;
 #ifdef BLT_TRACK_ALLOCATIONS
                     crossover_calls.value(1);
 #endif
