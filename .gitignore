@@ -1,4 +1,4 @@
-cmake-build*/
+\cmake-build*/
 build/
 out/
 ./cmake-build*/
@@ -8,3 +8,4 @@ massif.*
 callgrind.*
 *.out.*
 heaptrack.*
+vgcore.*

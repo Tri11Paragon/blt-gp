@@ -97,7 +97,7 @@ void run(const blt::gp::prog_config_t& config)
     }
 }
 
-int main()
+void do_run()
 {
     std::stringstream results;
     for (const auto crossover_chance : crossover_chances)
@@ -161,4 +161,11 @@ int main()
     std::cout << "\tElites: " << best_config.elites << std::endl;
     std::cout << "\tPopulation Size: " << best_config.population_size << std::endl;
     std::cout << std::endl;
+}
+
+int main()
+{
+    for (int i = 0; i < 1; i++)
+        do_run();
+    return 0;
 }

@@ -332,7 +332,7 @@ namespace blt::gp
 
         template <typename... Operators, size_t... operator_ids>
         static void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                                   std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
+                                            std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
         {
             if (op >= sizeof...(operator_ids))
             {
@@ -343,7 +343,7 @@ namespace blt::gp
 
         template <typename... Operators>
         static void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                          Operators&... operators)
+                                   Operators&... operators)
         {
             call_jmp_table_internal(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
         }
@@ -547,6 +547,7 @@ namespace blt::gp
                     [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t id)
                     {
                         thread_helper.barrier.wait();
+
                         if (thread_helper.evaluation_left > 0)
                         {
                             while (thread_helper.evaluation_left > 0)
@@ -606,6 +607,7 @@ namespace blt::gp
                         }
                         if (thread_helper.next_gen_left > 0)
                         {
+                            thread_helper.barrier.wait();
                             auto args = get_selector_args();
                             if (id == 0)
                             {
@@ -623,7 +625,7 @@ namespace blt::gp
                                     mutation_selection.pre_process(*this, current_pop);
                                 if (&crossover_selection != &reproduction_selection)
                                     reproduction_selection.pre_process(*this, current_pop);
-                                auto elite_amount = perform_elitism(args, next_pop);
+                                const auto elite_amount = perform_elitism(args, next_pop);
                                 thread_helper.next_gen_left -= elite_amount;
                             }
                             thread_helper.barrier.wait();
@@ -815,7 +817,7 @@ namespace blt::gp
 
         template <typename Return, blt::size_t size, typename Accessor, blt::size_t... indexes>
         Return convert_array(std::array<blt::size_t, size>&& arr, Accessor&& accessor,
-                                    std::integer_sequence<blt::size_t, indexes...>)
+                             std::integer_sequence<blt::size_t, indexes...>)
         {
             return Return{accessor(arr, indexes)...};
         }
