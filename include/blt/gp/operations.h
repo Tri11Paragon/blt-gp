@@ -22,53 +22,13 @@
 #include <blt/std/types.h>
 #include <blt/gp/typesystem.h>
 #include <blt/gp/stack.h>
+#include <blt/gp/util/meta.h>
 #include <functional>
 #include <type_traits>
 #include <optional>
 
 namespace blt::gp
 {
-    namespace detail
-    {
-        template<typename T>
-        using remove_cv_ref = std::remove_cv_t<std::remove_reference_t<T>>;
-        
-        
-        template<typename...>
-        struct first_arg;
-        
-        template<typename First, typename... Args>
-        struct first_arg<First, Args...>
-        {
-            using type = First;
-        };
-        
-        template<>
-        struct first_arg<>
-        {
-            using type = void;
-        };
-        
-        template<bool b, typename... types>
-        struct is_same;
-        
-        template<typename... types>
-        struct is_same<true, types...> : public std::false_type
-        {
-        };
-        
-        template<typename... types>
-        struct is_same<false, types...> : public std::is_same<types...>
-        {
-        };
-        
-        template<typename... types>
-        constexpr bool is_same_v = is_same<sizeof...(types) == 0, types...>::value;
-        
-        struct empty_t
-        {
-        };
-    }
     
     template<typename Return, typename... Args>
     struct call_with

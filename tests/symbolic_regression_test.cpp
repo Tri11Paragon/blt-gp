@@ -189,22 +189,22 @@ inline void there(blt::size_t)
 
 int main()
 {
-    blt::gp::thread_manager_t threads{
-        std::thread::hardware_concurrency(), blt::gp::task_builder_t<test>::make_callable(
-            blt::gp::task_t{test::hello, hello},
-            blt::gp::task_t{test::there, there}
-        )
-    };
+    // blt::gp::thread_manager_t threads{
+        // std::thread::hardware_concurrency(), blt::gp::task_builder_t<test>::make_callable(
+            // blt::gp::task_t{test::hello, hello},
+            // blt::gp::task_t{test::there, there}
+        // )
+    // };
 
-    threads.add_task(test::hello);
-    threads.add_task(test::hello);
-    threads.add_task(test::hello);
-    threads.add_task(test::there);
+    // threads.add_task(test::hello);
+    // threads.add_task(test::hello);
+    // threads.add_task(test::hello);
+    // threads.add_task(test::there);
 
-    while (threads.has_tasks_left())
-        threads.execute();
+    // while (threads.has_tasks_left())
+        // threads.execute();
 
-    // for (int i = 0; i < 1; i++)
-        // do_run();
+    for (int i = 0; i < 1; i++)
+        do_run();
     return 0;
 }

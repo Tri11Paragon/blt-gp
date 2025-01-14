@@ -61,7 +61,7 @@ namespace blt::gp
             
             auto& info = args.program.get_operator_info(top.id);
 
-            tree.get_operations().emplace_back(
+            tree.emplace_operator(
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,
                     args.program.is_operator_ephemeral(top.id));

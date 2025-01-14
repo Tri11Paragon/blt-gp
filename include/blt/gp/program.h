@@ -128,33 +128,9 @@ namespace blt::gp
                     largest_returns)), ...);
 
             //                largest = largest * largest_argc;
-            blt::size_t largest = largest_args * largest_argc * largest_returns * largest_argc;
+            size_t largest = largest_args * largest_argc * largest_returns * largest_argc;
 
-            storage.eval_func = [&operators..., largest](const tree_t& tree, void* context) -> evaluation_context& {
-                const auto& ops = tree.get_operations();
-                const auto& vals = tree.get_values();
-
-                static thread_local evaluation_context results{};
-                results.values.reset();
-                results.values.reserve(largest);
-
-                blt::size_t total_so_far = 0;
-                blt::size_t op_pos = 0;
-
-                for (const auto& operation : iterate(ops).rev())
-                {
-                    op_pos++;
-                    if (operation.is_value())
-                    {
-                        total_so_far += operation.type_size();
-                        results.values.copy_from(vals.from(total_so_far), operation.type_size());
-                        continue;
-                    }
-                    call_jmp_table(operation.id(), context, results.values, results.values, operators...);
-                }
-
-                return results;
-            };
+            storage.eval_func = tree_t::make_execution_lambda<Context>(largest, operators...);
 
             blt::hashset_t<type_id> has_terminals;
 
@@ -306,48 +282,7 @@ namespace blt::gp
                 types.push_back(storage.system.get_type<T>().id());
             }
         }
-
-        template <typename Operator>
-        static void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
-        {
-            if constexpr (std::is_same_v<detail::remove_cv_ref<typename Operator::First_Arg>, Context>)
-            {
-                write_stack.push(operation(context, read_stack));
-            }
-            else
-            {
-                write_stack.push(operation(read_stack));
-            }
-        }
-
-        template <blt::size_t id, typename Operator>
-        static bool call(blt::size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
-        {
-            if (id == op)
-            {
-                execute(context, write_stack, read_stack, operation);
-                return false;
-            }
-            return true;
-        }
-
-        template <typename... Operators, size_t... operator_ids>
-        static void call_jmp_table_internal(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                            std::integer_sequence<size_t, operator_ids...>, Operators&... operators)
-        {
-            if (op >= sizeof...(operator_ids))
-            {
-                BLT_UNREACHABLE;
-            }
-            (call<operator_ids>(op, context, write_stack, read_stack, operators) && ...);
-        }
-
-        template <typename... Operators>
-        static void call_jmp_table(size_t op, void* context, stack_allocator& write_stack, stack_allocator& read_stack,
-                                   Operators&... operators)
-        {
-            call_jmp_table_internal(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
-        }
+    private:
 
         program_operator_storage_t storage;
     };
