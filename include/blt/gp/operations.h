@@ -29,30 +29,29 @@
 
 namespace blt::gp
 {
-    
-    template<typename Return, typename... Args>
+    template <typename Return, typename... Args>
     struct call_with
     {
-        template<blt::u64 index>
-        [[nodiscard]] inline constexpr static blt::size_t getByteOffset()
+        template <u64 index>
+        [[nodiscard]] constexpr static size_t getByteOffset()
         {
-            blt::size_t offset = 0;
-            blt::size_t current_index = 0;
+            size_t offset = 0;
+            size_t current_index = 0;
             ((offset += (current_index++ > index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
-//            BLT_INFO("offset %ld for argument %ld", offset, index);
+            (void) current_index;
             return offset;
         }
-        
-        template<blt::u64... indices>
-        void print_args(std::integer_sequence<blt::u64, indices...>)
+
+        template <u64... indices>
+        void print_args(std::integer_sequence<u64, indices...>)
         {
             BLT_INFO("Arguments:");
             (BLT_INFO("%ld: %s", indices, blt::type_string<Args>().c_str()), ...);
         }
-        
-        template<typename Func, blt::u64... indices, typename... ExtraArgs>
-        inline static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<blt::u64, indices...>,
-                                                                ExtraArgs&& ... args)
+
+        template <typename Func, u64... indices, typename... ExtraArgs>
+        static constexpr Return exec_sequence_to_indices(Func&& func, stack_allocator& allocator, std::integer_sequence<u64, indices...>,
+                                                         ExtraArgs&&... args)
         {
             //blt::size_t arg_size = (stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...);
             //BLT_TRACE(arg_size);
@@ -60,8 +59,8 @@ namespace blt::gp
             return std::forward<Func>(func)(std::forward<ExtraArgs>(args)...,
                                             allocator.from<detail::remove_cv_ref<Args>>(getByteOffset<indices>())...);
         }
-        
-        template<typename context = void, typename... NoCtxArgs>
+
+        template <typename, typename... NoCtxArgs>
         void call_destructors_without_first(stack_allocator& read_allocator) const
         {
             if constexpr (sizeof...(NoCtxArgs) > 0)
@@ -69,9 +68,9 @@ namespace blt::gp
                 read_allocator.call_destructors<detail::remove_cv_ref<NoCtxArgs>...>();
             }
         }
-        
-        template<typename Func, typename... ExtraArgs>
-        Return operator()(const bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
+
+        template <typename Func, typename... ExtraArgs>
+        Return operator()(const bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&&... args)
         {
             constexpr auto seq = std::make_integer_sequence<u64, sizeof...(Args)>();
 #if BLT_DEBUG_LEVEL > 0
@@ -94,126 +93,132 @@ namespace blt::gp
 #endif
         }
     };
-    
-    template<typename Return, typename, typename... Args>
+
+    template <typename Return, typename, typename... Args>
     struct call_without_first : public call_with<Return, Args...>
     {
         using call_with<Return, Args...>::call_with;
     };
-    
-    template<typename, typename>
+
+    template <typename, typename>
     class operation_t;
-    
-    template<typename RawFunction, typename Return, typename... Args>
+
+    template <typename RawFunction, typename Return, typename... Args>
     class operation_t<RawFunction, Return(Args...)>
     {
-        public:
-            using function_t = RawFunction;
-            using First_Arg = typename blt::meta::arg_helper<Args...>::First;
-            
-            constexpr operation_t(const operation_t& copy) = default;
-            
-            constexpr operation_t(operation_t&& move) = default;
-            
-            template<typename Functor>
-            constexpr explicit operation_t(const Functor& functor, std::optional<std::string_view> name = {}): func(functor), name(name)
-            {}
-            
-            [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
-            {
-                if constexpr (sizeof...(Args) == 0)
-                {
-                    return func();
-                } else
-                {
-                    return call_with<Return, Args...>()(false, func, read_allocator);
-                }
-            }
-            
-            [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator) const
-            {
-                // should be an impossible state
-                if constexpr (sizeof...(Args) == 0)
-                {
-                    BLT_ABORT("Cannot pass context to function without arguments!");
-                }
-                auto& ctx_ref = *static_cast<detail::remove_cv_ref<typename detail::first_arg<Args...>::type>*>(context);
-                if constexpr (sizeof...(Args) == 1)
-                {
-                    return func(ctx_ref);
-                } else
-                {
-                    return call_without_first<Return, Args...>()(true, func, read_allocator, ctx_ref);
-                }
-            }
-            
-            template<typename Context>
-            [[nodiscard]] detail::operator_func_t make_callable() const
-            {
-                return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator) {
-                    if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
-                    {
-                        // first arg is context
-                        write_allocator.push(this->operator()(context, read_allocator));
-                    } else
-                    {
-                        // first arg isn't context
-                        write_allocator.push(this->operator()(read_allocator));
-                    }
-                };
-            }
-            
-            [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
-            {
-                return name;
-            }
-            
-            inline constexpr const auto& get_function() const
-            {
-                return func;
-            }
-            
-            auto set_ephemeral()
-            {
-                is_ephemeral_ = true;
-                return *this;
-            }
-            
-            bool is_ephemeral() const
-            {
-                return is_ephemeral_;
-            }
+    public:
+        using function_t = RawFunction;
+        using First_Arg = typename blt::meta::arg_helper<Args...>::First;
 
-            bool return_has_drop() const
+        constexpr operation_t(const operation_t& copy) = default;
+
+        constexpr operation_t(operation_t&& move) = default;
+
+        template <typename Functor>
+        constexpr explicit operation_t(const Functor& functor, std::optional<std::string_view> name = {}): func(functor), name(name)
+        {
+        }
+
+        [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
+        {
+            if constexpr (sizeof...(Args) == 0)
             {
-                return detail::has_func_drop_v<Return>;
+                return func();
             }
-            
-            operator_id id = -1;
-        private:
-            function_t func;
-            std::optional<std::string_view> name;
-            bool is_ephemeral_ = false;
+            else
+            {
+                return call_with<Return, Args...>()(false, func, read_allocator);
+            }
+        }
+
+        [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator) const
+        {
+            // should be an impossible state
+            if constexpr (sizeof...(Args) == 0)
+            {
+                BLT_ABORT("Cannot pass context to function without arguments!");
+            }
+            auto& ctx_ref = *static_cast<detail::remove_cv_ref<typename detail::first_arg<Args...>::type>*>(context);
+            if constexpr (sizeof...(Args) == 1)
+            {
+                return func(ctx_ref);
+            }
+            else
+            {
+                return call_without_first<Return, Args...>()(true, func, read_allocator, ctx_ref);
+            }
+        }
+
+        template <typename Context>
+        [[nodiscard]] detail::operator_func_t make_callable() const
+        {
+            return [this](void* context, stack_allocator& read_allocator, stack_allocator& write_allocator)
+            {
+                if constexpr (detail::is_same_v<Context, detail::remove_cv_ref<typename detail::first_arg<Args...>::type>>)
+                {
+                    // first arg is context
+                    write_allocator.push(this->operator()(context, read_allocator));
+                }
+                else
+                {
+                    // first arg isn't context
+                    write_allocator.push(this->operator()(read_allocator));
+                }
+            };
+        }
+
+        [[nodiscard]] inline constexpr std::optional<std::string_view> get_name() const
+        {
+            return name;
+        }
+
+        inline constexpr const auto& get_function() const
+        {
+            return func;
+        }
+
+        auto set_ephemeral()
+        {
+            is_ephemeral_ = true;
+            return *this;
+        }
+
+        bool is_ephemeral() const
+        {
+            return is_ephemeral_;
+        }
+
+        bool return_has_drop() const
+        {
+            return detail::has_func_drop_v<Return>;
+        }
+
+        operator_id id = -1;
+
+    private:
+        function_t func;
+        std::optional<std::string_view> name;
+        bool is_ephemeral_ = false;
     };
-    
-    template<typename RawFunction, typename Return, typename Class, typename... Args>
+
+    template <typename RawFunction, typename Return, typename Class, typename... Args>
     class operation_t<RawFunction, Return (Class::*)(Args...) const> : public operation_t<RawFunction, Return(Args...)>
     {
-        public:
-            using operation_t<RawFunction, Return(Args...)>::operation_t;
+    public:
+        using operation_t<RawFunction, Return(Args...)>::operation_t;
     };
-    
-    template<typename Lambda>
+
+    template <typename Lambda>
     operation_t(Lambda) -> operation_t<Lambda, decltype(&Lambda::operator())>;
-    
-    template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...)) -> operation_t<Return(*)(Args...), Return(Args...)>;
-    
-    template<typename Lambda>
+
+    template <typename Return, typename... Args>
+    operation_t(Return (*)(Args...)) -> operation_t<Return(*)(Args...), Return(Args...)>;
+
+    template <typename Lambda>
     operation_t(Lambda, std::optional<std::string_view>) -> operation_t<Lambda, decltype(&Lambda::operator())>;
-    
-    template<typename Return, typename... Args>
-    operation_t(Return(*)(Args...), std::optional<std::string_view>) -> operation_t<Return(*)(Args...), Return(Args...)>;
+
+    template <typename Return, typename... Args>
+    operation_t(Return (*)(Args...), std::optional<std::string_view>) -> operation_t<Return(*)(Args...), Return(Args...)>;
 }
 
 #endif //BLT_GP_OPERATIONS_H

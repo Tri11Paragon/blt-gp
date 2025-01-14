@@ -229,7 +229,8 @@ namespace blt::gp
             if constexpr (sizeof...(Args) > 0)
             {
                 size_t offset = (aligned_size<NO_REF_T<Args>>() + ...) - aligned_size<NO_REF_T<typename meta::arg_helper<Args...>::First>>();
-                ((call_drop<Args>(offset), offset -= aligned_size<NO_REF_T<Args>>()), ...);
+                ((call_drop<Args>(offset + (gp::detail::has_func_drop_v<Args> ? sizeof(u64*) : 0)), offset -= aligned_size<NO_REF_T<Args>>()), ...);
+                (void) offset;
             }
         }
 
