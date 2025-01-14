@@ -84,7 +84,10 @@ namespace blt::gp
     public:
         explicit tree_t(gp_program& program);
 
-        tree_t(const tree_t& copy) = default;
+        tree_t(const tree_t& copy): func(copy.func)
+        {
+            copy_fast(copy);
+        }
 
         tree_t& operator=(const tree_t& copy)
         {
@@ -97,14 +100,13 @@ namespace blt::gp
         /**
          * This function copies the data from the provided tree, will attempt to reserve and copy in one step.
          * will avoid reallocation if enough space is already present.
+         *
+         * This function is meant to copy into and replaces data inside the tree.
          */
         void copy_fast(const tree_t& copy)
         {
             if (this == &copy)
                 return;
-            values.reserve(copy.values.stored());
-            values.reset();
-            values.insert(copy.values);
 
             operations.reserve(copy.operations.size());
 
@@ -115,6 +117,7 @@ namespace blt::gp
             {
                 if (op_it->has_drop())
                 {
+
                 }
                 if (copy_it == copy.operations.end())
                     break;
@@ -134,6 +137,10 @@ namespace blt::gp
             operations.erase(op_it_cpy, operations.end());
             for (; copy_it != copy.operations.end(); ++copy_it)
                 operations.emplace_back(*copy_it);
+
+            values.reserve(copy.values.stored());
+            values.reset();
+            values.insert(copy.values);
         }
 
         tree_t(tree_t&& move) = default;

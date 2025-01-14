@@ -57,6 +57,29 @@
 
 namespace blt::gp
 {
+    struct operator_special_flags
+    {
+        explicit operator_special_flags(const bool is_ephemeral = false, const bool has_drop = false): m_ephemeral(is_ephemeral), m_drop(has_drop)
+        {
+        }
+
+        [[nodiscard]] bool is_ephemeral() const
+        {
+            return m_ephemeral;
+        }
+
+        [[nodiscard]] bool has_drop() const
+        {
+            return m_drop;
+        }
+
+    private:
+        bool m_ephemeral : 1;
+        bool m_drop : 1;
+    };
+
+    static_assert(sizeof(operator_special_flags) == 1, "Size of operator flags struct is expected to be 1 byte!");
+
     struct argc_t
     {
         blt::u32 argc = 0;
@@ -90,11 +113,12 @@ namespace blt::gp
     struct program_operator_storage_t
     {
         // indexed from return TYPE ID, returns index of operator
-        blt::expanding_buffer<tracked_vector<operator_id>> terminals;
-        blt::expanding_buffer<tracked_vector<operator_id>> non_terminals;
-        blt::expanding_buffer<tracked_vector<std::pair<operator_id, blt::size_t>>> operators_ordered_terminals;
-        // indexed from OPERATOR ID (operator number)
-        blt::hashset_t<operator_id> ephemeral_leaf_operators;
+        expanding_buffer<tracked_vector<operator_id>> terminals;
+        expanding_buffer<tracked_vector<operator_id>> non_terminals;
+        expanding_buffer<tracked_vector<std::pair<operator_id, size_t>>> operators_ordered_terminals;
+        // indexed from OPERATOR ID (operator number) to a bitfield of flags
+        hashmap_t<operator_id, operator_special_flags> operator_flags;
+
         tracked_vector<operator_info_t> operators;
         tracked_vector<operator_metadata_t> operator_metadata;
         tracked_vector<detail::print_func_t> print_funcs;
@@ -253,7 +277,7 @@ namespace blt::gp
                     out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
                 }
             });
-            storage.destroy_funcs.push_back([](detail::destroy_t type, stack_allocator& alloc)
+            storage.destroy_funcs.push_back([](const detail::destroy_t type, stack_allocator& alloc)
             {
                 switch (type)
                 {
@@ -269,8 +293,7 @@ namespace blt::gp
                 }
             });
             storage.names.push_back(op.get_name());
-            if (op.is_ephemeral())
-                storage.ephemeral_leaf_operators.insert(operator_id);
+            storage.operator_flags.emplace(operator_id, operator_special_flags{op.is_ephemeral(), op.return_has_drop()});
             return meta;
         }
 
@@ -282,8 +305,8 @@ namespace blt::gp
                 types.push_back(storage.system.get_type<T>().id());
             }
         }
-    private:
 
+    private:
         program_operator_storage_t storage;
     };
 
@@ -691,9 +714,14 @@ namespace blt::gp
             return current_stats;
         }
 
-        [[nodiscard]] bool is_operator_ephemeral(operator_id id)
+        [[nodiscard]] bool is_operator_ephemeral(const operator_id id) const
         {
-            return storage.ephemeral_leaf_operators.contains(static_cast<blt::size_t>(id));
+            return storage.operator_flags.find(static_cast<size_t>(id))->second.is_ephemeral();
+        }
+
+        [[nodiscard]] bool operator_has_drop(const operator_id id) const
+        {
+            return storage.operator_flags.find(static_cast<size_t>(id))->second.has_drop();
         }
 
         void set_operations(program_operator_storage_t op)

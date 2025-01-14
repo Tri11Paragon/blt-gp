@@ -30,108 +30,116 @@
 
 namespace blt::gp
 {
-    struct operator_id : integer_type<blt::u64>
+    struct operator_id : integer_type<u64>
     {
-        using integer_type<blt::u64>::integer_type;
+        using integer_type::integer_type;
     };
-    
-    struct type_id : integer_type<blt::u64>
+
+    struct type_id : integer_type<u64>
     {
-        using integer_type<blt::u64>::integer_type;
+        using integer_type::integer_type;
     };
-    
+
     class type
     {
-        public:
-            type() = default;
-            
-            template<typename T>
-            static type make_type(const type_id id)
-            {
-                return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>());
-            }
-            
-            [[nodiscard]] inline blt::size_t size() const
-            {
-                return size_;
-            }
-            
-            [[nodiscard]] inline type_id id() const
-            {
-                return id_;
-            }
-            
-            [[nodiscard]] inline std::string_view name() const
-            {
-                return name_;
-            }
-        
-        private:
-            type(size_t size, type_id id, std::string_view name): size_(size), id_(id), name_(name)
-            {}
-            
-            blt::size_t size_{};
-            type_id id_{};
-            std::string name_{};
+    public:
+        type() = default;
+
+        template <typename T>
+        static type make_type(const type_id id)
+        {
+            return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>(), detail::has_func_drop<T>::value);
+        }
+
+        [[nodiscard]] size_t size() const
+        {
+            return size_;
+        }
+
+        [[nodiscard]] type_id id() const
+        {
+            return id_;
+        }
+
+        [[nodiscard]] std::string_view name() const
+        {
+            return name_;
+        }
+
+        [[nodiscard]] bool has_drop() const
+        {
+            return has_drop_;
+        }
+    private:
+        type(const size_t size, const type_id id, const std::string_view name, const bool has_drop): size_(size), id_(id), name_(name),
+            has_drop_(has_drop)
+        {
+        }
+
+        size_t size_{};
+        type_id id_{};
+        std::string name_{};
+        bool has_drop_ = false;
     };
-    
+
     /**
      * Is a provider for the set of types possible in a GP program
      * also provides a set of functions for converting between C++ types and BLT GP types
      */
     class type_provider
     {
-        public:
-            type_provider() = default;
-            
-            template<typename T>
-            inline void register_type()
-            {
-                if (has_type<T>())
-                    return;
-                auto t = type::make_type<T>(types.size());
-                types.insert({blt::type_string_raw<T>(), t});
-                types_from_id[t.id()] = t;
-            }
-            
-            template<typename T>
-            inline type get_type()
-            {
-                return types[blt::type_string_raw<T>()];
-            }
-            
-            template<typename T>
-            inline bool has_type(){
-                return types.find(blt::type_string_raw<T>()) != types.end();
-            }
-            
-            inline type get_type(type_id id)
-            {
-                return types_from_id[id];
-            }
-            
-            /**
-             * This function is slow btw
-             * @param engine
-             * @return
-             */
-            inline type select_type(std::mt19937_64& engine)
-            {
-                std::uniform_int_distribution dist(0ul, types.size() - 1);
-                auto offset = dist(engine);
-                auto itr = types.begin();
-                for ([[maybe_unused]] auto _ : blt::range(0ul, offset))
-                    itr = itr++;
-                return itr->second;
-            }
-        
-        private:
-            blt::hashmap_t<std::string, type> types;
-            blt::expanding_buffer<type> types_from_id;
+    public:
+        type_provider() = default;
+
+        template <typename T>
+        void register_type()
+        {
+            if (has_type<T>())
+                return;
+            auto t = type::make_type<T>(types.size());
+            types.insert({blt::type_string_raw<T>(), t});
+            types_from_id[t.id()] = t;
+        }
+
+        template <typename T>
+        type get_type()
+        {
+            return types[blt::type_string_raw<T>()];
+        }
+
+        template <typename T>
+        bool has_type()
+        {
+            return types.find(blt::type_string_raw<T>()) != types.end();
+        }
+
+        type get_type(type_id id)
+        {
+            return types_from_id[id];
+        }
+
+        /**
+         * This function is slow btw
+         * @param engine
+         * @return
+         */
+        type select_type(std::mt19937_64& engine)
+        {
+            std::uniform_int_distribution dist(0ul, types.size() - 1);
+            auto offset = dist(engine);
+            auto itr = types.begin();
+            for ([[maybe_unused]] auto _ : blt::range(0ul, offset))
+                itr = itr++;
+            return itr->second;
+        }
+
+    private:
+        hashmap_t<std::string, type> types;
+        expanding_buffer<type> types_from_id;
     };
 }
 
-template<>
+template <>
 struct std::hash<blt::gp::operator_id>
 {
     std::size_t operator()(const blt::gp::operator_id& s) const noexcept
@@ -140,7 +148,7 @@ struct std::hash<blt::gp::operator_id>
     }
 };
 
-template<>
+template <>
 struct std::hash<blt::gp::type_id>
 {
     std::size_t operator()(const blt::gp::type_id& s) const noexcept

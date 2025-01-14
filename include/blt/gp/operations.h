@@ -62,7 +62,7 @@ namespace blt::gp
         }
         
         template<typename context = void, typename... NoCtxArgs>
-        void call_destructors_without_first(stack_allocator& read_allocator)
+        void call_destructors_without_first(stack_allocator& read_allocator) const
         {
             if constexpr (sizeof...(NoCtxArgs) > 0)
             {
@@ -71,9 +71,9 @@ namespace blt::gp
         }
         
         template<typename Func, typename... ExtraArgs>
-        Return operator()(bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
+        Return operator()(const bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&& ... args)
         {
-            constexpr auto seq = std::make_integer_sequence<blt::u64, sizeof...(Args)>();
+            constexpr auto seq = std::make_integer_sequence<u64, sizeof...(Args)>();
 #if BLT_DEBUG_LEVEL > 0
             try
             {
@@ -173,15 +173,20 @@ namespace blt::gp
                 return func;
             }
             
-            inline auto set_ephemeral()
+            auto set_ephemeral()
             {
                 is_ephemeral_ = true;
                 return *this;
             }
             
-            inline bool is_ephemeral()
+            bool is_ephemeral() const
             {
                 return is_ephemeral_;
+            }
+
+            bool return_has_drop() const
+            {
+                return detail::has_func_drop_v<Return>;
             }
             
             operator_id id = -1;

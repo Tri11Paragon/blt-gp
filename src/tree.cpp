@@ -308,6 +308,13 @@ namespace blt::gp
         auto* f = &program.get_eval_func();
         if (f != func)
             func = f;
+        for (const auto& op : operations)
+        {
+            if (op.has_drop())
+            {
+
+            }
+        }
         operations.clear();
         values.reset();
     }
