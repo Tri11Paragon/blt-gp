@@ -165,15 +165,46 @@ void do_run()
     std::cout << std::endl;
 }
 
-template<typename What, typename What2>
+template <typename What, typename What2>
 auto what(What addr, What2 addr2) -> decltype(addr + addr2)
 {
     return addr + addr2;
 }
 
+enum class test
+{
+    hello,
+    there
+};
+
+inline void hello(blt::size_t)
+{
+    BLT_TRACE("I did some parallel work!");
+}
+
+inline void there(blt::size_t)
+{
+    BLT_TRACE("Wow there");
+}
+
 int main()
 {
-    for (int i = 0; i < 1; i++)
-        do_run();
+    blt::gp::thread_manager_t threads{
+        std::thread::hardware_concurrency(), blt::gp::task_builder_t<test>::make_callable(
+            blt::gp::task_t{test::hello, hello},
+            blt::gp::task_t{test::there, there}
+        )
+    };
+
+    threads.add_task(test::hello);
+    threads.add_task(test::hello);
+    threads.add_task(test::hello);
+    threads.add_task(test::there);
+
+    while (threads.has_tasks_left())
+        threads.execute();
+
+    // for (int i = 0; i < 1; i++)
+        // do_run();
     return 0;
 }
