@@ -165,6 +165,12 @@ void do_run()
     std::cout << std::endl;
 }
 
+template<typename What, typename What2>
+auto what(What addr, What2 addr2) -> decltype(addr + addr2)
+{
+    return addr + addr2;
+}
+
 int main()
 {
     for (int i = 0; i < 1; i++)

@@ -52,6 +52,7 @@
 #include <blt/gp/stack.h>
 #include <blt/gp/config.h>
 #include <blt/gp/random.h>
+#include <blt/gp/threading.h>
 #include "blt/format/format.h"
 
 namespace blt::gp
