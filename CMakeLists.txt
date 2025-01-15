@@ -27,7 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-project(blt-gp VERSION 0.3.10)
+project(blt-gp VERSION 0.3.11)
 
 include(CTest)
 
@@ -120,5 +120,6 @@ if (${BUILD_GP_TESTS})
 #    blt_add_project(blt-gp7 tests/old/gp_test_7.cpp test)
 
     blt_add_project(blt-symbolic-regression tests/symbolic_regression_test.cpp test)
+    blt_add_project(blt-drop tests/drop_test.cpp test)
 
 endif ()

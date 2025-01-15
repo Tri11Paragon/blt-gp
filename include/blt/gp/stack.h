@@ -87,7 +87,7 @@ namespace blt::gp
         {
             const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
             if constexpr (blt::gp::detail::has_func_drop_v<T>)
-                return bytes + aligned_size<size_t*>();
+                return bytes + sizeof(std::atomic_uint64_t*);
             return bytes;
         }
 
@@ -164,8 +164,15 @@ namespace blt::gp
         {
             static_assert(std::is_trivially_copyable_v<NO_REF>, "Type must be bitwise copyable!");
             static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
-            const auto ptr = allocate_bytes_for_size(aligned_size<NO_REF>());
+            const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
             std::memcpy(ptr, &t, sizeof(NO_REF));
+            // what about non ephemeral values?
+            if constexpr (gp::detail::has_func_drop_v<T>)
+            {
+                BLT_TRACE("Hello!");
+                const auto* ref_counter_ptr = new std::atomic_uint64_t(1); // NOLINT
+                std::memcpy(ptr + sizeof(NO_REF), &ref_counter_ptr, sizeof(std::atomic_uint64_t*));
+            }
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>
