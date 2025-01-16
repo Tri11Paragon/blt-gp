@@ -94,10 +94,10 @@ namespace blt::gp
             {
                 // basic crossover
                 const auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
-                const auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(program, point->p1_crossover_point);
+                const auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(point->p1_crossover_point);
 
                 const auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
-                const auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(program, point->p2_crossover_point);
+                const auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(point->p2_crossover_point);
 
                 stack_allocator& c1_stack = c1.get_values();
                 stack_allocator& c2_stack = c2.get_values();
@@ -266,7 +266,7 @@ namespace blt::gp
                 point += 1;
                 // loop through all the children we wish to skip. The result will be the first node of the next child, becoming the new parent
                 for (size_t i = 0; i < argument; i++)
-                    point = t.find_endpoint(program, point);
+                    point = t.find_endpoint(point);
 
                 continue;
             }
@@ -298,7 +298,7 @@ namespace blt::gp
         auto& vals_r = c.get_values();
 
         auto begin_point = static_cast<blt::ptrdiff_t>(node);
-        auto end_point = c.find_endpoint(program, begin_point);
+        auto end_point = c.find_endpoint(begin_point);
         auto begin_operator_id = ops_r[begin_point].id();
         const auto& type_info = program.get_operator_info(begin_operator_id);
 
@@ -352,6 +352,8 @@ namespace blt::gp
                 auto copy = c;
                 try
                 {
+                    if (!copy.check(program, detail::debug::context_ptr))
+                        throw std::runtime_error("Tree check failed");
                     // TODO a work around for the whole needing to access a now private function
                     // const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
                     // blt::black_box(result);
@@ -434,7 +436,7 @@ namespace blt::gp
                         thread_local static tracked_vector<tree_t::child_t> children_data;
                         children_data.clear();
 
-                        c.find_child_extends(program, children_data, c_node, current_func_info.argument_types.size());
+                        c.find_child_extends(children_data, c_node, current_func_info.argument_types.size());
 
                         for (const auto& [index, val] : blt::enumerate(replacement_func_info.argument_types))
                         {
@@ -593,7 +595,7 @@ namespace blt::gp
                     auto& replacement_func_info = program.get_operator_info(random_replacement);
                     auto new_argc = replacement_func_info.argc.argc;
                     // replacement function should be valid. let's make a copy of us.
-                    auto current_end = c.find_endpoint(program, static_cast<blt::ptrdiff_t>(c_node));
+                    auto current_end = c.find_endpoint(static_cast<blt::ptrdiff_t>(c_node));
                     blt::size_t for_bytes = c.total_value_bytes(c_node, current_end);
                     blt::size_t after_bytes = c.total_value_bytes(current_end);
                     auto size = current_end - c_node;
@@ -677,7 +679,7 @@ namespace blt::gp
                     static thread_local tracked_vector<tree_t::child_t> child_data;
                     child_data.clear();
 
-                    c.find_child_extends(program, child_data, c_node, info.argument_types.size());
+                    c.find_child_extends(child_data, c_node, info.argument_types.size());
 
                     auto child_index = child_data.size() - 1 - argument_index;
                     auto child = child_data[child_index];
@@ -762,7 +764,7 @@ namespace blt::gp
                     static thread_local tracked_vector<tree_t::child_t> child_data;
                     child_data.clear();
 
-                    c.find_child_extends(program, child_data, c_node, info.argument_types.size());
+                    c.find_child_extends(child_data, c_node, info.argument_types.size());
 
                     auto from_index = child_data.size() - 1 - from;
                     auto to_index = child_data.size() - 1 - to;

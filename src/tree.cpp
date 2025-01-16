@@ -188,13 +188,78 @@ namespace blt::gp
         return depth;
     }
 
-    ptrdiff_t tree_t::find_endpoint(gp_program& program, ptrdiff_t start) const
+    tree_t::subtree_point_t tree_t::select_subtree(const double terminal_chance) const
+    {
+        do
+        {
+            const auto point = m_program->get_random().get_u64(0, operations.size());
+            const auto& info = m_program->get_operator_info(operations[point].id());
+            if (!info.argc.is_terminal())
+                return {static_cast<ptrdiff_t>(point), info.return_type};
+            if (m_program->get_random().choice(terminal_chance))
+                return {static_cast<ptrdiff_t>(point), info.return_type};
+        } while (true);
+    }
+
+    std::optional<tree_t::subtree_point_t> tree_t::select_subtree(const type_id type, const u32 max_tries, const double terminal_chance) const
+    {
+        for (u32 i = 0; i < max_tries; ++i)
+        {
+            if (const auto tree = select_subtree(terminal_chance); tree.type == type)
+                return tree;
+        }
+        return {};
+    }
+
+    tree_t::subtree_point_t tree_t::select_subtree_traverse(const double terminal_chance, const double depth_multiplier) const
+    {
+        size_t index = 0;
+        double depth = 0;
+        double exit_chance = 0;
+        while (true)
+        {
+            const auto& info = m_program->get_operator_info(operations[index].id());
+            if (info.argc.is_terminal())
+            {
+                if (m_program->get_random().choice(terminal_chance))
+                    return {static_cast<ptrdiff_t>(index), info.return_type};
+                index = 0;
+                depth = 0;
+                exit_chance = 0;
+                continue;
+            }
+            if (m_program->get_random().choice(exit_chance))
+                return {static_cast<ptrdiff_t>(index), info.return_type};
+
+            const auto child = m_program->get_random().get_u32(0, info.argc.argc);
+            index++;
+            for (u32 i = 0; i < child; i++)
+                index = find_endpoint(static_cast<ptrdiff_t>(index));
+
+            ++depth;
+            exit_chance = 1.0 - (1.0 / (1 + depth * depth_multiplier * 0.5));
+        }
+    }
+
+    std::optional<tree_t::subtree_point_t> tree_t::select_subtree_traverse(const type_id type, const u32 max_tries, const double terminal_chance,
+                                                                           const double depth_multiplier) const
+    {
+        for (u32 i = 0; i < max_tries; ++i)
+        {
+            if (const auto tree = select_subtree_traverse(terminal_chance, depth_multiplier); tree.type == type)
+                return tree;
+        }
+        return {};
+    }
+
+
+    ptrdiff_t tree_t::find_endpoint(ptrdiff_t start) const
     {
         i64 children_left = 0;
 
         do
         {
-            const auto& type = program.get_operator_info(operations[start].id());
+            const auto& type = m_program->get_operator_info(operations[start].id());
             // this is a child to someone
             if (children_left != 0)
                 children_left--;
@@ -203,27 +268,6 @@ namespace blt::gp
             start++;
         }
         while (children_left > 0);
-
-        return start;
-    }
-
-    // this function doesn't work!
-    ptrdiff_t tree_t::find_parent(gp_program& program, ptrdiff_t start) const
-    {
-        i64 children_left = 0;
-        do
-        {
-            if (start == 0)
-                return 0;
-            const auto& type = program.get_operator_info(operations[start].id());
-            if (type.argc.argc > 0)
-                children_left -= type.argc.argc;
-            children_left++;
-            if (children_left <= 0)
-                break;
-            --start;
-        }
-        while (true);
 
         return start;
     }
@@ -288,6 +332,8 @@ namespace blt::gp
 
         const auto v1 = results.values.bytes_in_head();
         const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
+
+        program.get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values);
         if (v1 != v2)
         {
             const auto vd = std::abs(v1 - v2);
@@ -299,24 +345,24 @@ namespace blt::gp
         return true;
     }
 
-    void tree_t::find_child_extends(gp_program& program, tracked_vector<child_t>& vec, const size_t parent_node, const size_t argc) const
+    void tree_t::find_child_extends(tracked_vector<child_t>& vec, const size_t parent_node, const size_t argc) const
     {
         while (vec.size() < argc)
         {
-            auto current_point = vec.size();
+            const auto current_point = vec.size();
             child_t prev{};
             if (current_point == 0)
             {
                 // first child.
                 prev = {
                     static_cast<ptrdiff_t>(parent_node + 1),
-                    find_endpoint(program, static_cast<ptrdiff_t>(parent_node + 1))
+                    find_endpoint(static_cast<ptrdiff_t>(parent_node + 1))
                 };
                 vec.push_back(prev);
                 continue;
             }
             prev = vec[current_point - 1];
-            child_t next = {prev.end, find_endpoint(program, prev.end)};
+            child_t next = {prev.end, find_endpoint(prev.end)};
             vec.push_back(next);
         }
     }

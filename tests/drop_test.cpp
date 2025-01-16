@@ -108,6 +108,7 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
     constexpr static double value_cutoff = 1.e15;
     for (auto& fitness_case : regression.get_training_cases())
     {
+        BLT_GP_UPDATE_CONTEXT(fitness_case);
         auto val = current_tree.get_evaluation_ref<drop_type>(fitness_case);
         const auto diff = std::abs(fitness_case.y - val.get().value);
         if (diff < value_cutoff)

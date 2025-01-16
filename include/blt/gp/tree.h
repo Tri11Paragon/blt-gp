@@ -169,6 +169,19 @@ namespace blt::gp
     class tree_t
     {
     public:
+        struct child_t
+        {
+            ptrdiff_t start;
+            // one past the end
+            ptrdiff_t end;
+        };
+
+        struct subtree_point_t
+        {
+            ptrdiff_t pos;
+            type_id type;
+        };
+
         explicit tree_t(gp_program& program);
 
         tree_t(const tree_t& copy): m_program(copy.m_program)
@@ -236,13 +249,6 @@ namespace blt::gp
 
         void clear(gp_program& program);
 
-        struct child_t
-        {
-            ptrdiff_t start;
-            // one past the end
-            ptrdiff_t end;
-        };
-
         void insert_operator(const op_container_t& container)
         {
             operations.emplace_back(container);
@@ -276,8 +282,13 @@ namespace blt::gp
             return values;
         }
 
-        blt::size_t get_depth(gp_program& program) const;
+        size_t get_depth(gp_program& program) const;
 
+        subtree_point_t select_subtree(double terminal_chance = 0.1) const;
+        std::optional<subtree_point_t> select_subtree(type_id type, u32 max_tries = 5, double terminal_chance = 0.1) const;
+        subtree_point_t select_subtree_traverse(double terminal_chance = 0.1, double depth_multiplier = 0.6) const;
+        std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
+                                                               double depth_multiplier = 0.6) const;
 
         /**
         *  User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
@@ -344,12 +355,10 @@ namespace blt::gp
 
         bool check(gp_program& program, void* context) const;
 
-        void find_child_extends(gp_program& program, tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
+        void find_child_extends(tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
 
         // places one past the end of the child. so it's [start, end)
-        blt::ptrdiff_t find_endpoint(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
-
-        blt::ptrdiff_t find_parent(blt::gp::gp_program& program, blt::ptrdiff_t start) const;
+        [[nodiscard]] ptrdiff_t find_endpoint(blt::ptrdiff_t start) const;
 
         // valid for [begin, end)
         static size_t total_value_bytes(const detail::const_op_iter_t begin, const detail::const_op_iter_t end)

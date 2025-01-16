@@ -27,8 +27,8 @@ namespace blt::gp
     
     struct stack
     {
-        blt::gp::operator_id id;
-        blt::size_t depth;
+        operator_id id;
+        size_t depth;
     };
     
     inline std::stack<stack> get_initial_stack(gp_program& program, type_id root_type)
@@ -49,10 +49,10 @@ namespace blt::gp
     }
     
     template<typename Func>
-    inline void create_tree(tree_t& tree, Func&& perChild, const generator_arguments& args)
+    void create_tree(tree_t& tree, Func&& perChild, const generator_arguments& args)
     {
         std::stack<stack> tree_generator = get_initial_stack(args.program, args.root_type);
-        blt::size_t max_depth = 0;
+        size_t max_depth = 0;
         
         while (!tree_generator.empty())
         {
