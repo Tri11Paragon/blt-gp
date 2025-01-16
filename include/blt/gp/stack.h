@@ -168,11 +168,11 @@ namespace blt::gp
             const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
             std::memcpy(ptr, &t, sizeof(NO_REF));
 
-            if constexpr (gp::detail::has_func_drop_ephemeral_v<T>)
-            {
-                const auto* ref_counter_ptr = new std::atomic_uint64_t(1); // NOLINT
-                std::memcpy(ptr + sizeof(NO_REF), &ref_counter_ptr, sizeof(std::atomic_uint64_t*));
-            }
+            // if constexpr (gp::detail::has_func_drop_ephemeral_v<T>)
+            // {
+                // const auto* ref_counter_ptr = new std::atomic_uint64_t(1); // NOLINT
+                // std::memcpy(ptr + sizeof(NO_REF), &ref_counter_ptr, sizeof(std::atomic_uint64_t*));
+            // }
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>

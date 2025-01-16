@@ -352,8 +352,9 @@ namespace blt::gp
                 auto copy = c;
                 try
                 {
-                    const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
-                    blt::black_box(result);
+                    // TODO a work around for the whole needing to access a now private function
+                    // const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
+                    // blt::black_box(result);
                 } catch (...)
                 {
                     std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";

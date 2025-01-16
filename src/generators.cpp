@@ -69,10 +69,7 @@ namespace blt::gp
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_operator_ephemeral(top.id))
-            {
-                info.func(nullptr, tree.get_values(), tree.get_values());
                 continue;
-            }
             
             for (const auto& child : info.argument_types)
                 std::forward<Func>(perChild)(args.program, tree_generator, child, top.depth + 1);

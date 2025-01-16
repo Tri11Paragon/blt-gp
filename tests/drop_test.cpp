@@ -47,7 +47,7 @@ struct drop_type
         ++ephemeral_construct;
     }
 
-    void drop()
+    void drop() const
     {
         if (!ephemeral)
             ++normal_drop;

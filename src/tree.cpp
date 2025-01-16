@@ -25,7 +25,7 @@
 namespace blt::gp
 {
     // this one will copy previous bytes over
-    template<typename T>
+    template <typename T>
     blt::span<blt::u8> get_pointer_for_size(blt::size_t size)
     {
         static blt::span<blt::u8> buffer{nullptr, 0};
@@ -36,7 +36,7 @@ namespace blt::gp
         }
         return buffer;
     }
-    
+
     std::ostream& create_indent(std::ostream& out, blt::size_t amount, bool pretty_print)
     {
         if (!pretty_print)
@@ -45,30 +45,30 @@ namespace blt::gp
             out << '\t';
         return out;
     }
-    
+
     std::string_view end_indent(bool pretty_print)
     {
         return pretty_print ? "\n" : "";
     }
-    
+
     std::string get_return_type(gp_program& program, type_id id, bool use_returns)
     {
         if (!use_returns)
             return "";
         return "(" + std::string(program.get_typesystem().get_type(id).name()) + ")";
     }
-    
+
     void tree_t::print(gp_program& program, std::ostream& out, bool print_literals, bool pretty_print, bool include_types) const
     {
         std::stack<blt::size_t> arguments_left;
         blt::size_t indent = 0;
-        
+
         stack_allocator reversed;
         if (print_literals)
         {
             // I hate this.
             stack_allocator copy = values;
-            
+
             // reverse the order of the stack
             for (const auto& v : operations)
             {
@@ -87,7 +87,8 @@ namespace blt::gp
                 indent++;
                 arguments_left.emplace(info.argc.argc);
                 out << name << return_type << end_indent(pretty_print);
-            } else
+            }
+            else
             {
                 if (print_literals)
                 {
@@ -96,13 +97,15 @@ namespace blt::gp
                     {
                         program.get_print_func(v.id())(out, reversed);
                         reversed.pop_bytes(v.type_size());
-                    } else
+                    }
+                    else
                         out << name;
                     out << return_type << end_indent(pretty_print);
-                } else
+                }
+                else
                     create_indent(out, indent, pretty_print) << name << return_type << end_indent(pretty_print);
             }
-            
+
             while (!arguments_left.empty())
             {
                 auto top = arguments_left.top();
@@ -112,7 +115,8 @@ namespace blt::gp
                     indent--;
                     create_indent(out, indent, pretty_print) << ")" << end_indent(pretty_print);
                     continue;
-                } else
+                }
+                else
                 {
                     if (!pretty_print)
                         out << " ";
@@ -130,20 +134,21 @@ namespace blt::gp
                 indent--;
                 create_indent(out, indent, pretty_print) << ")" << end_indent(pretty_print);
                 continue;
-            } else
+            }
+            else
             {
                 BLT_ERROR("Failed to print tree correctly!");
                 break;
             }
         }
-        
+
         out << '\n';
     }
-    
+
     size_t tree_t::get_depth(gp_program& program) const
     {
         size_t depth = 0;
-        
+
         auto operations_stack = operations;
         thread_local tracked_vector<size_t> values_process;
         thread_local tracked_vector<size_t> value_stack;
@@ -156,7 +161,7 @@ namespace blt::gp
             if (op.is_value())
                 value_stack.push_back(1);
         }
-        
+
         while (!operations_stack.empty())
         {
             auto operation = operations_stack.back();
@@ -179,14 +184,14 @@ namespace blt::gp
             value_stack.push_back(local_depth + 1);
             operations_stack.emplace_back(operation.type_size(), operation.id(), true, program.get_operator_flags(operation.id()));
         }
-        
+
         return depth;
     }
-    
+
     ptrdiff_t tree_t::find_endpoint(gp_program& program, ptrdiff_t start) const
     {
         i64 children_left = 0;
-        
+
         do
         {
             const auto& type = program.get_operator_info(operations[start].id());
@@ -196,11 +201,12 @@ namespace blt::gp
             if (type.argc.argc > 0)
                 children_left += type.argc.argc;
             start++;
-        } while (children_left > 0);
-        
+        }
+        while (children_left > 0);
+
         return start;
     }
-    
+
     // this function doesn't work!
     ptrdiff_t tree_t::find_parent(gp_program& program, ptrdiff_t start) const
     {
@@ -216,22 +222,37 @@ namespace blt::gp
             if (children_left <= 0)
                 break;
             --start;
-        } while (true);
-        
+        }
+        while (true);
+
         return start;
     }
-    
+
+    void tree_t::handle_operator_inserted(const op_container_t& op)
+    {
+        if (m_program->is_operator_ephemeral(op.id()))
+        {
+            // Ephemeral values have corresponding insertions into the stack
+            m_program->get_operator_info(op.id()).func(nullptr, values, values);
+        }
+    }
+
+    evaluation_context& tree_t::evaluate(void* ptr) const
+    {
+        return m_program->get_eval_func()(*this, ptr);
+    }
+
     bool tree_t::check(gp_program& program, void* context) const
     {
         blt::size_t bytes_expected = 0;
-        auto bytes_size = values.size().total_used_bytes;
-        
+        const auto bytes_size = values.size().total_used_bytes;
+
         for (const auto& op : get_operations())
         {
             if (op.is_value())
                 bytes_expected += op.type_size();
         }
-        
+
         if (bytes_expected != bytes_size)
         {
             BLT_WARN_STREAM << "Stack state: " << values.size() << "\n";
@@ -240,13 +261,13 @@ namespace blt::gp
             BLT_WARN("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
             return false;
         }
-        
+
         // copy the initial values
         evaluation_context results{};
-        
+
         auto value_stack = values;
         auto& values_process = results.values;
-        
+
         blt::size_t total_produced = 0;
         blt::size_t total_consumed = 0;
 
@@ -264,7 +285,7 @@ namespace blt::gp
             program.get_operator_info(operation.id()).func(context, values_process, values_process);
             total_produced += program.get_typesystem().get_type(info.return_type).size();
         }
-        
+
         const auto v1 = results.values.bytes_in_head();
         const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
         if (v1 != v2)
@@ -277,7 +298,7 @@ namespace blt::gp
         }
         return true;
     }
-    
+
     void tree_t::find_child_extends(gp_program& program, tracked_vector<child_t>& vec, const size_t parent_node, const size_t argc) const
     {
         while (vec.size() < argc)
@@ -287,32 +308,33 @@ namespace blt::gp
             if (current_point == 0)
             {
                 // first child.
-                prev = {static_cast<ptrdiff_t>(parent_node + 1),
-                        find_endpoint(program, static_cast<ptrdiff_t>(parent_node + 1))};
+                prev = {
+                    static_cast<ptrdiff_t>(parent_node + 1),
+                    find_endpoint(program, static_cast<ptrdiff_t>(parent_node + 1))
+                };
                 vec.push_back(prev);
                 continue;
-            } else
-                prev = vec[current_point - 1];
+            }
+            prev = vec[current_point - 1];
             child_t next = {prev.end, find_endpoint(program, prev.end)};
             vec.push_back(next);
         }
     }
 
-    tree_t::tree_t(gp_program& program): func(&program.get_eval_func())
+    tree_t::tree_t(gp_program& program): m_program(&program)
     {
-    
     }
-    
+
     void tree_t::clear(gp_program& program)
     {
-        auto* f = &program.get_eval_func();
-        if (f != func)
-            func = f;
+        auto* f = &program;
+        if (&program != m_program)
+            m_program = f;
         for (const auto& op : operations)
         {
             if (op.has_ephemeral_drop())
             {
-
+                // TODO:
             }
         }
         operations.clear();

@@ -171,7 +171,7 @@ namespace blt::gp
     public:
         explicit tree_t(gp_program& program);
 
-        tree_t(const tree_t& copy): func(copy.func)
+        tree_t(const tree_t& copy): m_program(copy.m_program)
         {
             copy_fast(copy);
         }
@@ -180,6 +180,7 @@ namespace blt::gp
         {
             if (this == &copy)
                 return *this;
+            m_program = copy.m_program;
             copy_fast(copy);
             return *this;
         }
@@ -245,12 +246,14 @@ namespace blt::gp
         void insert_operator(const op_container_t& container)
         {
             operations.emplace_back(container);
+            handle_operator_inserted(operations.back());
         }
 
         template <typename... Args>
         void emplace_operator(Args&&... args)
         {
             operations.emplace_back(std::forward<Args>(args)...);
+            handle_operator_inserted(operations.back());
         }
 
         [[nodiscard]] tracked_vector<op_container_t>& get_operations()
@@ -405,17 +408,26 @@ namespace blt::gp
         }
 
     private:
+        void handle_operator_inserted(const op_container_t& op);
+
         template <typename T, std::enable_if_t<!(std::is_pointer_v<T> || std::is_null_pointer_v<T>), bool>  = true>
         [[nodiscard]] evaluation_context& evaluate(const T& context) const
         {
-            return (*func)(*this, const_cast<void*>(static_cast<const void*>(&context)));
+            return evaluate(const_cast<void*>(static_cast<const void*>(&context)));
         }
 
         [[nodiscard]] evaluation_context& evaluate() const
         {
-            return (*func)(*this, nullptr);
+            return evaluate(nullptr);
         }
 
+        [[nodiscard]] evaluation_context& evaluate(void* ptr) const;
+
+        tracked_vector<op_container_t> operations;
+        stack_allocator values;
+        gp_program* m_program;
+
+    protected:
         template <typename Context, typename Operator>
         static void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
         {
@@ -457,10 +469,6 @@ namespace blt::gp
         {
             call_jmp_table_internal<Context>(op, context, write_stack, read_stack, std::index_sequence_for<Operators...>(), operators...);
         }
-
-        tracked_vector<op_container_t> operations;
-        stack_allocator values;
-        detail::eval_func_t* func;
     };
 
     struct fitness_t
