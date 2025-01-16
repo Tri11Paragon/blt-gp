@@ -58,7 +58,7 @@ namespace blt::gp
         return "(" + std::string(program.get_typesystem().get_type(id).name()) + ")";
     }
 
-    void tree_t::print(gp_program& program, std::ostream& out, bool print_literals, bool pretty_print, bool include_types) const
+    void tree_t::print(std::ostream& out, bool print_literals, bool pretty_print, bool include_types) const
     {
         std::stack<blt::size_t> arguments_left;
         blt::size_t indent = 0;
@@ -78,9 +78,9 @@ namespace blt::gp
         }
         for (const auto& v : operations)
         {
-            auto info = program.get_operator_info(v.id());
-            const auto name = program.get_name(v.id()) ? program.get_name(v.id()).value() : "NULL";
-            auto return_type = get_return_type(program, info.return_type, include_types);
+            auto info = m_program->get_operator_info(v.id());
+            const auto name = m_program->get_name(v.id()) ? m_program->get_name(v.id()).value() : "NULL";
+            auto return_type = get_return_type(*m_program, info.return_type, include_types);
             if (info.argc.argc > 0)
             {
                 create_indent(out, indent, pretty_print) << "(";
@@ -93,9 +93,9 @@ namespace blt::gp
                 if (print_literals)
                 {
                     create_indent(out, indent, pretty_print);
-                    if (program.is_operator_ephemeral(v.id()))
+                    if (m_program->is_operator_ephemeral(v.id()))
                     {
-                        program.get_print_func(v.id())(out, reversed);
+                        m_program->get_print_func(v.id())(out, reversed);
                         reversed.pop_bytes(v.type_size());
                     }
                     else
@@ -286,7 +286,7 @@ namespace blt::gp
         return m_program->get_eval_func()(*this, ptr);
     }
 
-    bool tree_t::check(gp_program& program, void* context) const
+    bool tree_t::check(void* context) const
     {
         blt::size_t bytes_expected = 0;
         const auto bytes_size = values.size().total_used_bytes;
@@ -312,8 +312,8 @@ namespace blt::gp
         auto value_stack = values;
         auto& values_process = results.values;
 
-        blt::size_t total_produced = 0;
-        blt::size_t total_consumed = 0;
+        size_t total_produced = 0;
+        size_t total_consumed = 0;
 
         for (const auto& operation : iterate(operations).rev())
         {
@@ -323,17 +323,17 @@ namespace blt::gp
                 total_produced += operation.type_size();
                 continue;
             }
-            auto& info = program.get_operator_info(operation.id());
+            auto& info = m_program->get_operator_info(operation.id());
             for (auto& arg : info.argument_types)
-                total_consumed += program.get_typesystem().get_type(arg).size();
-            program.get_operator_info(operation.id()).func(context, values_process, values_process);
-            total_produced += program.get_typesystem().get_type(info.return_type).size();
+                total_consumed += m_program->get_typesystem().get_type(arg).size();
+            m_program->get_operator_info(operation.id()).func(context, values_process, values_process);
+            total_produced += m_program->get_typesystem().get_type(info.return_type).size();
         }
 
         const auto v1 = results.values.bytes_in_head();
         const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
 
-        program.get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values);
+        m_program->get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values);
         if (v1 != v2)
         {
             const auto vd = std::abs(v1 - v2);
@@ -365,10 +365,6 @@ namespace blt::gp
             child_t next = {prev.end, find_endpoint(prev.end)};
             vec.push_back(next);
         }
-    }
-
-    tree_t::tree_t(gp_program& program): m_program(&program)
-    {
     }
 
     void tree_t::clear(gp_program& program)

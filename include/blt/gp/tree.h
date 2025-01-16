@@ -27,9 +27,6 @@
 
 #include <utility>
 #include <stack>
-#include <ostream>
-#include <atomic>
-#include <bits/locale_facets_nonio.h>
 
 namespace blt::gp
 {
@@ -182,7 +179,9 @@ namespace blt::gp
             type_id type;
         };
 
-        explicit tree_t(gp_program& program);
+        explicit tree_t(gp_program& program): m_program(&program)
+        {
+        }
 
         tree_t(const tree_t& copy): m_program(copy.m_program)
         {
@@ -216,27 +215,45 @@ namespace blt::gp
 
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->has_ephemeral_drop())
+                if (op_it->get_flags().is_ephemeral())
                 {
+                    if (op_it->has_ephemeral_drop())
+                    {
+                    }
                 }
                 if (copy_it == copy.operations.end())
                     break;
                 *op_it = *copy_it;
-                if (copy_it->has_ephemeral_drop())
+                if (op_it->get_flags().is_ephemeral())
                 {
+                    if (copy_it->has_ephemeral_drop())
+                    {
+                    }
                 }
                 ++copy_it;
             }
             const auto op_it_cpy = op_it;
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->has_ephemeral_drop())
+                if (op_it->get_flags().is_ephemeral())
                 {
+                    if (op_it->has_ephemeral_drop())
+                    {
+                    }
                 }
             }
             operations.erase(op_it_cpy, operations.end());
             for (; copy_it != copy.operations.end(); ++copy_it)
+            {
+                if (copy_it->get_flags().is_ephemeral())
+                {
+                    if (copy_it->has_ephemeral_drop())
+                    {
+
+                    }
+                }
                 operations.emplace_back(*copy_it);
+            }
 
             values.reserve(copy.values.stored());
             values.reset();
@@ -284,16 +301,40 @@ namespace blt::gp
 
         size_t get_depth(gp_program& program) const;
 
-        subtree_point_t select_subtree(double terminal_chance = 0.1) const;
-        std::optional<subtree_point_t> select_subtree(type_id type, u32 max_tries = 5, double terminal_chance = 0.1) const;
-        subtree_point_t select_subtree_traverse(double terminal_chance = 0.1, double depth_multiplier = 0.6) const;
-        std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
-                                                               double depth_multiplier = 0.6) const;
+        /**
+        *   Selects a random index inside this tree's operations stack
+        *   @param terminal_chance if we select a terminal this is the chance we will actually pick it, otherwise continue the loop.
+        */
+        [[nodiscard]] subtree_point_t select_subtree(double terminal_chance = 0.1) const;
+        /**
+         *  Selects a random index inside the tree's operations stack, with a limit on the max number of times we will attempt to select this point.
+         *  @param type type to find
+         *  @param max_tries maximum number of times we are allowed to select a tree without finding a corresponding type.
+         *  @param terminal_chance if we select a terminal this is the chance that we will actually pick it
+         */
+        [[nodiscard]] std::optional<subtree_point_t> select_subtree(type_id type, u32 max_tries = 5, double terminal_chance = 0.1) const;
+        /**
+        *   Select an index by traversing through the tree structure
+        *   @param terminal_chance if we select a terminal this is the chance that we will actually pick it.
+        *   @param depth_multiplier this controls how the depth contributes to the chance to exit.
+        *       By default, a depth of 3.5 will have a 50% chance of returning the current index.
+        */
+        [[nodiscard]] subtree_point_t select_subtree_traverse(double terminal_chance = 0.1, double depth_multiplier = 0.6) const;
+        /**
+         *  SSelect an index by traversing through the tree structure, with a limit on the max number of times we will attempt to select this point.
+         *  @param type type to find
+         *  @param max_tries maximum number of times we are allowed to select a tree without finding a corresponding type.
+         *  @param terminal_chance if we select a terminal this is the chance that we will actually pick it
+         *  @param depth_multiplier this controls how the depth contributes to the chance to exit.
+         *       By default, a depth of 3.5 will have a 50% chance of returning the current index.
+         */
+        [[nodiscard]] std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
+                                                                             double depth_multiplier = 0.6) const;
 
         /**
-        *  User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
-        *  This function returns a copy of your value, if it is too large for the stack, or you otherwise need a reference, please use the corresponding
-        *  get_evaluation_ref function!
+        *   User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
+        *   This function returns a copy of your value, if it is too large for the stack, or you otherwise need a reference, please use the corresponding
+        *   get_evaluation_ref function!
         */
         template <typename T, typename Context>
         T get_evaluation_value(const Context& context) const
@@ -350,10 +391,10 @@ namespace blt::gp
             return evaluation_ref<T>{val, ctx};
         }
 
-        void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false,
+        void print(std::ostream& output, bool print_literals = true, bool pretty_indent = false,
                    bool include_types = false) const;
 
-        bool check(gp_program& program, void* context) const;
+        bool check(void* context) const;
 
         void find_child_extends(tracked_vector<child_t>& vec, blt::size_t parent_node, blt::size_t argc) const;
 

@@ -146,7 +146,7 @@ namespace blt::gp
             break;
         default:
 #if BLT_DEBUG_LEVEL > 0
-                BLT_ABORT("This place should be unreachable!");
+            BLT_ABORT("This place should be unreachable!");
 #else
             BLT_UNREACHABLE;
 #endif
@@ -156,13 +156,15 @@ namespace blt::gp
         blt::size_t c1_found_bytes = c1.get_values().size().total_used_bytes;
         blt::size_t c2_found_bytes = c2.get_values().size().total_used_bytes;
         blt::size_t c1_expected_bytes = std::accumulate(c1.get_operations().begin(), c1.get_operations().end(), 0ul,
-                                                        [](const auto& v1, const auto& v2) {
+                                                        [](const auto& v1, const auto& v2)
+                                                        {
                                                             if (v2.is_value())
                                                                 return v1 + v2.type_size();
                                                             return v1;
                                                         });
         blt::size_t c2_expected_bytes = std::accumulate(c2.get_operations().begin(), c2.get_operations().end(), 0ul,
-                                                        [](const auto& v1, const auto& v2) {
+                                                        [](const auto& v1, const auto& v2)
+                                                        {
                                                             if (v2.is_value())
                                                                 return v1 + v2.type_size();
                                                             return v1;
@@ -331,48 +333,50 @@ namespace blt::gp
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
         //        BLT_ASSERT(new_vals_r.empty());
-                //BLT_ASSERT(stack_after.empty());
-                blt::size_t bytes_expected = 0;
-                auto bytes_size = vals_r.size().total_used_bytes;
+        //BLT_ASSERT(stack_after.empty());
+        blt::size_t bytes_expected = 0;
+        auto bytes_size = vals_r.size().total_used_bytes;
 
-                for (const auto& op : c.get_operations())
-                {
-                    if (op.is_value())
-                        bytes_expected += op.type_size();
-                }
+        for (const auto& op : c.get_operations())
+        {
+            if (op.is_value())
+                bytes_expected += op.type_size();
+        }
 
-                if (bytes_expected != bytes_size)
-                {
-                    BLT_WARN_STREAM << "Stack state: " << vals_r.size() << "\n";
-                    BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
-                             static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
-                    BLT_TRACE("Total bytes after: %ld", total_bytes_after);
-                    BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
-                }
-                auto copy = c;
-                try
-                {
-                    if (!copy.check(program, detail::debug::context_ptr))
-                        throw std::runtime_error("Tree check failed");
-                    // TODO a work around for the whole needing to access a now private function
-                    // const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
-                    // blt::black_box(result);
-                } catch (...)
-                {
-                    std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
-                    std::cout << "our root type is " << ops_r[begin_point].id() << " with size " << ops_r[begin_point].type_size()
-                              << "\n";
-                    std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id()) ? *program.get_name(ops_r[begin_point].id()) : "Unnamed") << "\n";
-                    std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
-                    //std::cout << "Parent:" << std::endl;
-                    //p.print(program, std::cout, false, true);
-                    std::cout << "Child:" << std::endl;
-                    c.print(program, std::cout, false, true);
-                    std::cout << std::endl;
-                    c.print(program, std::cout, true, true);
-                    std::cout << std::endl;
-                    throw std::exception();
-                }
+        if (bytes_expected != bytes_size)
+        {
+            BLT_WARN_STREAM << "Stack state: " << vals_r.size() << "\n";
+            BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
+                     static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
+            BLT_TRACE("Total bytes after: %ld", total_bytes_after);
+            BLT_ABORT("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+        }
+        auto copy = c;
+        try
+        {
+            if (!copy.check(detail::debug::context_ptr))
+                throw std::runtime_error("Tree check failed");
+            // TODO a work around for the whole needing to access a now private function
+            // const auto& result = copy.evaluate(*static_cast<char*>(detail::debug::context_ptr));
+            // blt::black_box(result);
+        }
+        catch (...)
+        {
+            std::cout << "This occurred at point " << begin_point << " ending at (old) " << end_point << "\n";
+            std::cout << "our root type is " << ops_r[begin_point].id() << " with size " << ops_r[begin_point].type_size()
+                << "\n";
+            std::cout << "now Named: " << (program.get_name(ops_r[begin_point].id()) ? *program.get_name(ops_r[begin_point].id()) : "Unnamed") <<
+                "\n";
+            std::cout << "Was named: " << (program.get_name(begin_operator_id) ? *program.get_name(begin_operator_id) : "Unnamed") << "\n";
+            //std::cout << "Parent:" << std::endl;
+            //p.print(program, std::cout, false, true);
+            std::cout << "Child:" << std::endl;
+            c.print(std::cout, false, true);
+            std::cout << std::endl;
+            c.print(std::cout, true, true);
+            std::cout << std::endl;
+            throw std::exception();
+        }
 #endif
         return begin_point + new_ops_r.size();
     }
@@ -485,7 +489,8 @@ namespace blt::gp
                                 blt::size_t found_bytes = vals.size().total_used_bytes;
                                 blt::size_t expected_bytes = std::accumulate(ops.begin(),
                                                                              ops.end(), 0ul,
-                                                                             [](const auto& v1, const auto& v2) {
+                                                                             [](const auto& v1, const auto& v2)
+                                                                             {
                                                                                  if (v2.is_value())
                                                                                      return v1 + v2.type_size();
                                                                                  return v1;
@@ -550,12 +555,12 @@ namespace blt::gp
                         };
                     }
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, detail::debug::context_ptr))
+                    if (!c.check(detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
-                        c_copy.print(program, std::cout, false, true);
+                        c_copy.print(std::cout, false, true);
                         std::cout << "Child Values:" << std::endl;
-                        c.print(program, std::cout, true, true);
+                        c.print(std::cout, true, true);
                         std::cout << std::endl;
                         BLT_ABORT("Tree Check Failed.");
                     }
@@ -647,14 +652,14 @@ namespace blt::gp
                                });
 
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, detail::debug::context_ptr))
+                    if (!c.check(detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
-                        p.print(program, std::cout, false, true);
+                        p.print(std::cout, false, true);
                         std::cout << "Child:" << std::endl;
-                        c.print(program, std::cout, false, true);
+                        c.print(std::cout, false, true);
                         std::cout << "Child Values:" << std::endl;
-                        c.print(program, std::cout, true, true);
+                        c.print(std::cout, true, true);
                         std::cout << std::endl;
                         BLT_ABORT("Tree Check Failed.");
                     }
@@ -710,12 +715,12 @@ namespace blt::gp
                     vals.copy_from(storage_ptr, for_bytes + after_bytes);
 
 #if BLT_DEBUG_LEVEL >= 2
-                    if (!c.check(program, detail::debug::context_ptr))
+                    if (!c.check(detail::debug::context_ptr))
                     {
                         std::cout << "Parent: " << std::endl;
-                        p.print(program, std::cout, false, true);
+                        p.print(std::cout, false, true);
                         std::cout << "Child Values:" << std::endl;
-                        c.print(program, std::cout, true, true);
+                        c.print(std::cout, true, true);
                         std::cout << std::endl;
                         BLT_ABORT("Tree Check Failed.");
                     }
@@ -802,7 +807,7 @@ namespace blt::gp
             case mutation_operator::END:
             default:
 #if BLT_DEBUG_LEVEL > 1
-                    BLT_ABORT("You shouldn't be able to get here!");
+                BLT_ABORT("You shouldn't be able to get here!");
 #else
                 BLT_UNREACHABLE;
 #endif
@@ -810,12 +815,12 @@ namespace blt::gp
         }
 
 #if BLT_DEBUG_LEVEL >= 2
-        if (!c.check(program, detail::debug::context_ptr))
+        if (!c.check(detail::debug::context_ptr))
         {
             std::cout << "Parent: " << std::endl;
-            p.print(program, std::cout, false, true);
+            p.print(std::cout, false, true);
             std::cout << "Child Values:" << std::endl;
-            c.print(program, std::cout, true, true);
+            c.print(std::cout, true, true);
             std::cout << std::endl;
             BLT_ABORT("Tree Check Failed.");
         }

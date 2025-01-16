@@ -164,7 +164,7 @@ namespace blt::gp::example
             {
                 auto& i = i_ref.get();
                 BLT_DEBUG("Fitness: %lf, stand: %lf, raw: %lf", i.fitness.adjusted_fitness, i.fitness.standardized_fitness, i.fitness.raw_fitness);
-                i.tree.print(program, std::cout);
+                i.tree.print(std::cout);
                 std::cout << "\n";
             }
 
