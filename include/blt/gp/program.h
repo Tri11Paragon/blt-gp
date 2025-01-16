@@ -57,29 +57,6 @@
 
 namespace blt::gp
 {
-    struct operator_special_flags
-    {
-        explicit operator_special_flags(const bool is_ephemeral = false, const bool has_drop = false): m_ephemeral(is_ephemeral), m_drop(has_drop)
-        {
-        }
-
-        [[nodiscard]] bool is_ephemeral() const
-        {
-            return m_ephemeral;
-        }
-
-        [[nodiscard]] bool has_drop() const
-        {
-            return m_drop;
-        }
-
-    private:
-        bool m_ephemeral : 1;
-        bool m_drop : 1;
-    };
-
-    static_assert(sizeof(operator_special_flags) == 1, "Size of operator flags struct is expected to be 1 byte!");
-
     struct argc_t
     {
         blt::u32 argc = 0;
@@ -247,7 +224,7 @@ namespace blt::gp
             info.return_type = return_type_id;
             info.func = op.template make_callable<Context>();
 
-            ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : (blt::size_t)nullptr), ...);
+            ((std::is_same_v<detail::remove_cv_ref<Args>, Context> ? info.argc.argc -= 1 : 0), ...);
 
             auto& operator_list = info.argc.argc == 0 ? storage.terminals : storage.non_terminals;
             operator_list[return_type_id].push_back(operator_id);
@@ -282,7 +259,8 @@ namespace blt::gp
                 switch (type)
                 {
                 case detail::destroy_t::ARGS:
-                    alloc.call_destructors<Args...>();
+                    // alloc.call_destructors<Args...>();
+                        BLT_ERROR("Unimplemented");
                     break;
                 case detail::destroy_t::RETURN:
                     if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
@@ -293,7 +271,7 @@ namespace blt::gp
                 }
             });
             storage.names.push_back(op.get_name());
-            storage.operator_flags.emplace(operator_id, operator_special_flags{op.is_ephemeral(), op.return_has_drop()});
+            storage.operator_flags.emplace(operator_id, operator_special_flags{op.is_ephemeral(), op.return_has_ephemeral_drop()});
             return meta;
         }
 
@@ -429,7 +407,7 @@ namespace blt::gp
                                  Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection,
                                  CreationFunc& func = default_next_pop_creator<Crossover, Mutation, Reproduction>, bool eval_fitness_now = true)
         {
-            using LambdaReturn = typename decltype(blt::meta::lambda_helper(fitness_function))::Return;
+            using LambdaReturn = std::invoke_result_t<decltype(fitness_function), const tree_t&, fitness_t&, size_t>;
             current_pop = config.pop_initializer.get().generate(
                 {*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size});
             next_pop = population_t(current_pop);
@@ -503,7 +481,7 @@ namespace blt::gp
                 BLT_INFO("Starting thread execution service!");
                 std::scoped_lock lock(thread_helper.thread_function_control);
                 thread_execution_service = std::unique_ptr<std::function<void(blt::size_t)>>(new std::function(
-                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t id)
+                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](size_t id)
                     {
                         thread_helper.barrier.wait();
 
@@ -719,9 +697,14 @@ namespace blt::gp
             return storage.operator_flags.find(static_cast<size_t>(id))->second.is_ephemeral();
         }
 
-        [[nodiscard]] bool operator_has_drop(const operator_id id) const
+        [[nodiscard]] bool operator_has_ephemeral_drop(const operator_id id) const
         {
-            return storage.operator_flags.find(static_cast<size_t>(id))->second.has_drop();
+            return storage.operator_flags.find(static_cast<size_t>(id))->second.has_ephemeral_drop();
+        }
+
+        [[nodiscard]] operator_special_flags get_operator_flags(const operator_id id) const
+        {
+            return storage.operator_flags.find(static_cast<size_t>(id))->second;
         }
 
         void set_operations(program_operator_storage_t op)

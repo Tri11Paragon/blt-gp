@@ -62,7 +62,7 @@ namespace blt::gp
         auto& i_ref = pop.get_individuals();
 
         u64 best = program.get_random().get_u64(0, pop.get_individuals().size());
-        for (size_t i = 0; i < selection_size; i++)
+        for (size_t i = 0; i < std::min(selection_size, pop.get_individuals().size()); i++)
         {
             u64 sel_point;
             do

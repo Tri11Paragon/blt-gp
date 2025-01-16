@@ -64,7 +64,8 @@ namespace blt::gp
             tree.emplace_operator(
                     args.program.get_typesystem().get_type(info.return_type).size(),
                     top.id,
-                    args.program.is_operator_ephemeral(top.id));
+                    args.program.is_operator_ephemeral(top.id),
+                    args.program.get_operator_flags(top.id));
             max_depth = std::max(max_depth, top.depth);
             
             if (args.program.is_operator_ephemeral(top.id))

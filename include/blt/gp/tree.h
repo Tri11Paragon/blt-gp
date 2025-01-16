@@ -29,18 +29,39 @@
 #include <stack>
 #include <ostream>
 #include <atomic>
+#include <bits/locale_facets_nonio.h>
 
 namespace blt::gp
 {
-    struct op_container_t
+    // TODO: i feel like this should be in its own class
+    struct operator_special_flags
     {
-        op_container_t(const size_t type_size, const operator_id id, const bool is_value):
-            m_type_size(type_size), m_id(id), m_is_value(is_value), m_has_drop(false)
+        explicit operator_special_flags(const bool is_ephemeral = false, const bool has_ephemeral_drop = false): m_ephemeral(is_ephemeral),
+            m_ephemeral_drop(has_ephemeral_drop)
         {
         }
 
-        op_container_t(const size_t type_size, const operator_id id, const bool is_value, const bool has_drop):
-            m_type_size(type_size), m_id(id), m_is_value(is_value), m_has_drop(has_drop)
+        [[nodiscard]] bool is_ephemeral() const
+        {
+            return m_ephemeral;
+        }
+
+        [[nodiscard]] bool has_ephemeral_drop() const
+        {
+            return m_ephemeral_drop;
+        }
+
+    private:
+        bool m_ephemeral : 1;
+        bool m_ephemeral_drop : 1;
+    };
+
+    static_assert(sizeof(operator_special_flags) == 1, "Size of operator flags struct is expected to be 1 byte!");
+
+    struct op_container_t
+    {
+        op_container_t(const size_t type_size, const operator_id id, const bool is_value, const operator_special_flags flags):
+            m_type_size(type_size), m_id(id), m_is_value(is_value), m_flags(flags)
         {
         }
 
@@ -59,16 +80,21 @@ namespace blt::gp
             return m_is_value;
         }
 
-        [[nodiscard]] bool has_drop() const
+        [[nodiscard]] bool has_ephemeral_drop() const
         {
-            return m_has_drop;
+            return m_flags.has_ephemeral_drop();
+        }
+
+        [[nodiscard]] operator_special_flags get_flags() const
+        {
+            return m_flags;
         }
 
     private:
         size_t m_type_size;
         operator_id m_id;
         bool m_is_value;
-        bool m_has_drop;
+        operator_special_flags m_flags;
     };
 
     class evaluation_context
@@ -76,7 +102,68 @@ namespace blt::gp
     public:
         explicit evaluation_context() = default;
 
-        blt::gp::stack_allocator values;
+        stack_allocator values;
+    };
+
+    template <typename T>
+    class evaluation_ref
+    {
+    public:
+        explicit evaluation_ref(T& value, evaluation_context& context): m_value(&value), m_context(&context)
+        {
+        }
+
+        evaluation_ref(const evaluation_ref& copy) = delete;
+        evaluation_ref& operator=(const evaluation_ref& copy) = delete;
+
+        evaluation_ref(evaluation_ref&& move) noexcept : m_value(move.m_value), m_context(move.m_context)
+        {
+            move.m_value = nullptr;
+            move.m_context = nullptr;
+        }
+
+        evaluation_ref& operator=(evaluation_ref&& move) noexcept
+        {
+            m_value = std::exchange(m_value, move.m_value);
+            m_context = std::exchange(m_context, move.m_context);
+            return *this;
+        }
+
+        T& get()
+        {
+            return *m_value;
+        }
+
+        const T& get() const
+        {
+            return *m_value;
+        }
+
+        explicit operator T&()
+        {
+            return *m_value;
+        }
+
+        explicit operator T&() const
+        {
+            return *m_value;
+        }
+
+        ~evaluation_ref()
+        {
+            if constexpr (detail::has_func_drop_v<T>)
+            {
+                if (m_value != nullptr)
+                {
+                    m_value->drop();
+                    m_context->values.reset();
+                }
+            }
+        }
+
+    private:
+        T* m_value;
+        evaluation_context* m_context;
     };
 
     class tree_t
@@ -115,14 +202,13 @@ namespace blt::gp
 
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->has_drop())
+                if (op_it->has_ephemeral_drop())
                 {
-
                 }
                 if (copy_it == copy.operations.end())
                     break;
                 *op_it = *copy_it;
-                if (copy_it->has_drop())
+                if (copy_it->has_ephemeral_drop())
                 {
                 }
                 ++copy_it;
@@ -130,7 +216,7 @@ namespace blt::gp
             const auto op_it_cpy = op_it;
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->has_drop())
+                if (op_it->has_ephemeral_drop())
                 {
                 }
             }
@@ -167,70 +253,87 @@ namespace blt::gp
             operations.emplace_back(std::forward<Args>(args)...);
         }
 
-        [[nodiscard]] inline tracked_vector<op_container_t>& get_operations()
+        [[nodiscard]] tracked_vector<op_container_t>& get_operations()
         {
             return operations;
         }
 
-        [[nodiscard]] inline const tracked_vector<op_container_t>& get_operations() const
+        [[nodiscard]] const tracked_vector<op_container_t>& get_operations() const
         {
             return operations;
         }
 
-        [[nodiscard]] inline stack_allocator& get_values()
+        [[nodiscard]] stack_allocator& get_values()
         {
             return values;
         }
 
-        [[nodiscard]] inline const blt::gp::stack_allocator& get_values() const
+        [[nodiscard]] const stack_allocator& get_values() const
         {
             return values;
-        }
-
-        template <typename T, std::enable_if_t<!(std::is_pointer_v<T> || std::is_null_pointer_v<T>), bool>  = true>
-        [[nodiscard]] evaluation_context& evaluate(const T& context) const
-        {
-            return (*func)(*this, const_cast<void*>(static_cast<const void*>(&context)));
-        }
-
-        [[nodiscard]] evaluation_context& evaluate() const
-        {
-            return (*func)(*this, nullptr);
         }
 
         blt::size_t get_depth(gp_program& program) const;
 
-        /**
-         * Helper template for returning the result of the last evaluation
-         */
-        template <typename T>
-        T get_evaluation_value(evaluation_context& context) const
-        {
-            return context.values.pop<T>();
-        }
 
         /**
-         * Helper template for returning the result of the last evaluation
-         */
-        template <typename T>
-        T& get_evaluation_ref(evaluation_context& context) const
-        {
-            return context.values.from<T>(0);
-        }
-
-        /**
-         * Helper template for returning the result of evaluation (this calls it)
-         */
+        *  User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
+        *  This function returns a copy of your value, if it is too large for the stack, or you otherwise need a reference, please use the corresponding
+        *  get_evaluation_ref function!
+        */
         template <typename T, typename Context>
         T get_evaluation_value(const Context& context) const
         {
-            return evaluate(context).values.template pop<T>();
+            auto& ctx = evaluate(context);
+            auto val = ctx.values.template from<T>(0);
+            if constexpr (detail::has_func_drop_v<T>)
+            {
+                ctx.values.template from<T>(0).drop();
+            }
+            ctx.values.reset();
+            return val;
         }
 
+        /**
+        *  User function for evaluating this tree without a context reference. This function should only be used if the tree is expecting the context value
+        *  This function returns a copy of your value, if it is too large for the stack, or you otherwise need a reference, please use the corresponding
+        *  get_evaluation_ref function!
+        */
         template <typename T>
         T get_evaluation_value() const
         {
-            return evaluate().values.pop<T>();
+            auto& ctx = evaluate();
+            auto val = ctx.values.from<T>(0);
+            if constexpr (detail::has_func_drop_v<T>)
+            {
+                ctx.values.from<T>(0).drop();
+            }
+            ctx.values.reset();
+            return val;
+        }
+
+        /**
+        * User function for evaluating the tree with context returning a reference to the value.
+        * The class returned is used to automatically drop the value when you are done using it
+        */
+        template <typename T, typename Context>
+        evaluation_ref<T> get_evaluation_ref(const Context& context) const
+        {
+            auto& ctx = evaluate(context);
+            auto& val = ctx.values.template from<T>(0);
+            return evaluation_ref<T>{val, ctx};
+        }
+
+        /**
+        * User function for evaluating the tree without context returning a reference to the value.
+        * The class returned is used to automatically drop the value when you are done using it
+        */
+        template <typename T>
+        evaluation_ref<T> get_evaluation_ref() const
+        {
+            auto& ctx = evaluate();
+            auto& val = ctx.values.from<T>(0);
+            return evaluation_ref<T>{val, ctx};
         }
 
         void print(gp_program& program, std::ostream& output, bool print_literals = true, bool pretty_indent = false,
@@ -302,6 +405,17 @@ namespace blt::gp
         }
 
     private:
+        template <typename T, std::enable_if_t<!(std::is_pointer_v<T> || std::is_null_pointer_v<T>), bool>  = true>
+        [[nodiscard]] evaluation_context& evaluate(const T& context) const
+        {
+            return (*func)(*this, const_cast<void*>(static_cast<const void*>(&context)));
+        }
+
+        [[nodiscard]] evaluation_context& evaluate() const
+        {
+            return (*func)(*this, nullptr);
+        }
+
         template <typename Context, typename Operator>
         static void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
         {

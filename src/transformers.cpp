@@ -522,7 +522,7 @@ namespace blt::gp
                             vals.copy_to(data, total_bytes_after);
                             vals.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after));
 
-                            for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(replacement_func_info.argc.argc) - 1;
+                            for (ptrdiff_t i = static_cast<ptrdiff_t>(replacement_func_info.argc.argc) - 1;
                                  i >= current_func_info.argc.argc; i--)
                             {
                                 auto& tree = get_static_tree_tl(program);
@@ -540,8 +540,10 @@ namespace blt::gp
                         }
                         // now finally update the type.
                         ops[c_node] = {
-                            program.get_typesystem().get_type(replacement_func_info.return_type).size(), random_replacement,
-                            program.is_operator_ephemeral(random_replacement)
+                            program.get_typesystem().get_type(replacement_func_info.return_type).size(),
+                            random_replacement,
+                            program.is_operator_ephemeral(random_replacement),
+                            program.get_operator_flags(random_replacement)
                         };
                     }
 #if BLT_DEBUG_LEVEL >= 2
@@ -636,7 +638,9 @@ namespace blt::gp
                     ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(c_node),
                                {
                                    program.get_typesystem().get_type(replacement_func_info.return_type).size(),
-                                   random_replacement, program.is_operator_ephemeral(random_replacement)
+                                   random_replacement,
+                                   program.is_operator_ephemeral(random_replacement),
+                                   program.get_operator_flags(random_replacement)
                                });
 
 #if BLT_DEBUG_LEVEL >= 2

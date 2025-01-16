@@ -91,7 +91,7 @@ namespace blt::gp::example
             static operation_t op_sin([](const float a) { return std::sin(a); }, "sin");
             static operation_t op_cos([](const float a) { return std::cos(a); }, "cos");
             static operation_t op_exp([](const float a) { return std::exp(a); }, "exp");
-            static operation_t op_log([](const float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
+            static operation_t op_log([](const float a) { return a <= 0.0f ? 0.0f : std::log(a); }, "log");
             static auto lit = operation_t([this]()
             {
                 return program.get_random().get_float(-1.0f, 1.0f);
@@ -193,6 +193,11 @@ namespace blt::gp::example
             get_and_print_best();
 
             print_stats();
+        }
+
+        [[nodiscard]] const auto& get_training_cases() const
+        {
+            return training_cases;
         }
 
     private:

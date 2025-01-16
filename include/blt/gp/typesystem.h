@@ -48,7 +48,7 @@ namespace blt::gp
         template <typename T>
         static type make_type(const type_id id)
         {
-            return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>(), detail::has_func_drop<T>::value);
+            return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>(), detail::has_func_drop_ephemeral_v<T>);
         }
 
         [[nodiscard]] size_t size() const
@@ -66,20 +66,20 @@ namespace blt::gp
             return name_;
         }
 
-        [[nodiscard]] bool has_drop() const
+        [[nodiscard]] bool has_ephemeral_drop() const
         {
-            return has_drop_;
+            return has_ephemeral_drop_;
         }
     private:
-        type(const size_t size, const type_id id, const std::string_view name, const bool has_drop): size_(size), id_(id), name_(name),
-            has_drop_(has_drop)
+        type(const size_t size, const type_id id, const std::string_view name, const bool has_ephemeral_drop): size_(size), id_(id), name_(name),
+            has_ephemeral_drop_(has_ephemeral_drop)
         {
         }
 
         size_t size_{};
         type_id id_{};
         std::string name_{};
-        bool has_drop_ = false;
+        bool has_ephemeral_drop_ = false;
     };
 
     /**

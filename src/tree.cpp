@@ -177,7 +177,7 @@ namespace blt::gp
                 values_process.pop_back();
             }
             value_stack.push_back(local_depth + 1);
-            operations_stack.emplace_back(operation.type_size(), operation.id(), true);
+            operations_stack.emplace_back(operation.type_size(), operation.id(), true, program.get_operator_flags(operation.id()));
         }
         
         return depth;
@@ -297,7 +297,7 @@ namespace blt::gp
             vec.push_back(next);
         }
     }
-    
+
     tree_t::tree_t(gp_program& program): func(&program.get_eval_func())
     {
     
@@ -310,7 +310,7 @@ namespace blt::gp
             func = f;
         for (const auto& op : operations)
         {
-            if (op.has_drop())
+            if (op.has_ephemeral_drop())
             {
 
             }

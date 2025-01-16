@@ -73,7 +73,7 @@ void blt::gp::example::rice_classification_t::make_operators()
     static operation_t mul([](const float a, const float b) { return a * b; }, "mul");
     static operation_t pro_div([](const float a, const float b) { return b == 0.0f ? 0.0f : a / b; }, "div");
     static operation_t op_exp([](const float a) { return std::exp(a); }, "exp");
-    static operation_t op_log([](const float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
+    static operation_t op_log([](const float a) { return a <= 0.0f ? 0.0f : std::log(a); }, "log");
     static auto lit = operation_t([this]()
     {
         return program.get_random().get_float(-32000.0f, 32000.0f);

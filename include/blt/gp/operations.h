@@ -38,7 +38,7 @@ namespace blt::gp
             size_t offset = 0;
             size_t current_index = 0;
             ((offset += (current_index++ > index ? stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() : 0)), ...);
-            (void) current_index;
+            (void)current_index;
             return offset;
         }
 
@@ -60,17 +60,28 @@ namespace blt::gp
                                             allocator.from<detail::remove_cv_ref<Args>>(getByteOffset<indices>())...);
         }
 
-        template <typename, typename... NoCtxArgs>
-        void call_destructors_without_first(stack_allocator& read_allocator) const
+        template<typename T>
+        static void call_drop(stack_allocator& read_allocator, const size_t offset)
         {
-            if constexpr (sizeof...(NoCtxArgs) > 0)
+            if constexpr (blt::gp::detail::has_func_drop_v<T>)
             {
-                read_allocator.call_destructors<detail::remove_cv_ref<NoCtxArgs>...>();
+                read_allocator.from<detail::remove_cv_ref<T>>(offset).drop();
+            }
+        }
+
+        static void call_destructors(stack_allocator& read_allocator)
+        {
+            if constexpr (sizeof...(Args) > 0)
+            {
+                size_t offset = (stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...) - stack_allocator::aligned_size<
+                    detail::remove_cv_ref<typename meta::arg_helper<Args...>::First>>();
+                ((call_drop<Args>(read_allocator, offset), offset -= stack_allocator::aligned_size<detail::remove_cv_ref<Args>>()), ...);
+                (void)offset;
             }
         }
 
         template <typename Func, typename... ExtraArgs>
-        Return operator()(const bool has_context, Func&& func, stack_allocator& read_allocator, ExtraArgs&&... args)
+        Return operator()(const bool, Func&& func, stack_allocator& read_allocator, ExtraArgs&&... args)
         {
             constexpr auto seq = std::make_integer_sequence<u64, sizeof...(Args)>();
 #if BLT_DEBUG_LEVEL > 0
@@ -78,10 +89,7 @@ namespace blt::gp
             {
 #endif
             Return ret = exec_sequence_to_indices(std::forward<Func>(func), read_allocator, seq, std::forward<ExtraArgs>(args)...);
-            if (has_context)
-                call_destructors_without_first<Args...>(read_allocator);
-            else
-                read_allocator.call_destructors<detail::remove_cv_ref<Args>...>();
+            call_destructors(read_allocator);
             read_allocator.pop_bytes((stack_allocator::aligned_size<detail::remove_cv_ref<Args>>() + ...));
             return ret;
 #if BLT_DEBUG_LEVEL > 0
@@ -115,11 +123,11 @@ namespace blt::gp
         constexpr operation_t(operation_t&& move) = default;
 
         template <typename Functor>
-        constexpr explicit operation_t(const Functor& functor, std::optional<std::string_view> name = {}): func(functor), name(name)
+        constexpr explicit operation_t(const Functor& functor, const std::optional<std::string_view> name = {}): func(functor), name(name)
         {
         }
 
-        [[nodiscard]] constexpr inline Return operator()(stack_allocator& read_allocator) const
+        [[nodiscard]] constexpr Return operator()(stack_allocator& read_allocator) const
         {
             if constexpr (sizeof...(Args) == 0)
             {
@@ -131,7 +139,7 @@ namespace blt::gp
             }
         }
 
-        [[nodiscard]] constexpr inline Return operator()(void* context, stack_allocator& read_allocator) const
+        [[nodiscard]] constexpr Return operator()(void* context, stack_allocator& read_allocator) const
         {
             // should be an impossible state
             if constexpr (sizeof...(Args) == 0)
@@ -183,14 +191,14 @@ namespace blt::gp
             return *this;
         }
 
-        bool is_ephemeral() const
+        [[nodiscard]] bool is_ephemeral() const
         {
             return is_ephemeral_;
         }
 
-        bool return_has_drop() const
+        [[nodiscard]] bool return_has_ephemeral_drop() const
         {
-            return detail::has_func_drop_v<Return>;
+            return detail::has_func_drop_ephemeral_v<Return>;
         }
 
         operator_id id = -1;

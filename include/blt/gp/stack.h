@@ -42,11 +42,12 @@ namespace blt::gp
     namespace detail
     {
         BLT_META_MAKE_FUNCTION_CHECK(drop);
+        BLT_META_MAKE_FUNCTION_CHECK(drop_ephemeral);
     }
 
     class stack_allocator
     {
-        constexpr static blt::size_t PAGE_SIZE = 0x100;
+        constexpr static size_t PAGE_SIZE = 0x100;
         template <typename T>
         using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
         using Allocator = aligned_allocator;
@@ -86,7 +87,7 @@ namespace blt::gp
         static constexpr size_t aligned_size() noexcept
         {
             const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
-            if constexpr (blt::gp::detail::has_func_drop_v<T>)
+            if constexpr (blt::gp::detail::has_func_drop_ephemeral_v<T>)
                 return bytes + sizeof(std::atomic_uint64_t*);
             return bytes;
         }
@@ -166,10 +167,9 @@ namespace blt::gp
             static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
             const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
             std::memcpy(ptr, &t, sizeof(NO_REF));
-            // what about non ephemeral values?
-            if constexpr (gp::detail::has_func_drop_v<T>)
+
+            if constexpr (gp::detail::has_func_drop_ephemeral_v<T>)
             {
-                BLT_TRACE("Hello!");
                 const auto* ref_counter_ptr = new std::atomic_uint64_t(1); // NOLINT
                 std::memcpy(ptr + sizeof(NO_REF), &ref_counter_ptr, sizeof(std::atomic_uint64_t*));
             }
@@ -230,16 +230,16 @@ namespace blt::gp
             pop_bytes(aligned_bytes);
         }
 
-        template <typename... Args>
-        void call_destructors()
-        {
-            if constexpr (sizeof...(Args) > 0)
-            {
-                size_t offset = (aligned_size<NO_REF_T<Args>>() + ...) - aligned_size<NO_REF_T<typename meta::arg_helper<Args...>::First>>();
-                ((call_drop<Args>(offset + (gp::detail::has_func_drop_v<Args> ? sizeof(u64*) : 0)), offset -= aligned_size<NO_REF_T<Args>>()), ...);
-                (void) offset;
-            }
-        }
+        // template <typename... Args>
+        // void call_destructors()
+        // {
+        //     if constexpr (sizeof...(Args) > 0)
+        //     {
+        //         size_t offset = (aligned_size<NO_REF_T<Args>>() + ...) - aligned_size<NO_REF_T<typename meta::arg_helper<Args...>::First>>();
+        //         ((call_drop<Args>(offset + (gp::detail::has_func_drop_v<Args> ? sizeof(u64*) : 0)), offset -= aligned_size<NO_REF_T<Args>>()), ...);
+        //         (void) offset;
+        //     }
+        // }
 
         [[nodiscard]] bool empty() const noexcept
         {
@@ -338,14 +338,14 @@ namespace blt::gp
             return aligned_ptr;
         }
 
-        template <typename T>
-        void call_drop(const size_t offset)
-        {
-            if constexpr (blt::gp::detail::has_func_drop_v<T>)
-            {
-                from<NO_REF_T<T>>(offset).drop();
-            }
-        }
+        // template <typename T>
+        // void call_drop(const size_t offset)
+        // {
+        //     if constexpr (blt::gp::detail::has_func_drop_v<T>)
+        //     {
+        //         from<NO_REF_T<T>>(offset).drop();
+        //     }
+        // }
 
         u8* data_ = nullptr;
         // place in the data_ array which has a free spot.

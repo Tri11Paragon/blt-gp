@@ -21,13 +21,48 @@
 
 using namespace blt::gp;
 
+std::atomic_uint64_t normal_construct = 0;
+std::atomic_uint64_t ephemeral_construct = 0;
+std::atomic_uint64_t normal_drop = 0;
+std::atomic_uint64_t ephemeral_drop = 0;
+
 struct drop_type
 {
-    float silly_type;
+    float value;
+    bool ephemeral = false;
 
-    void drop() const
+    drop_type() : value(0)
     {
-        BLT_TRACE("Wow silly type of value %f was dropped!", silly_type);
+        ++normal_construct;
+    }
+
+    explicit drop_type(const float silly) : value(silly)
+    {
+        ++normal_construct;
+    }
+
+    explicit drop_type(const float silly, bool) : value(silly), ephemeral(true)
+    {
+        // BLT_TRACE("Constructor with value %f", silly);
+        ++ephemeral_construct;
+    }
+
+    void drop()
+    {
+        if (!ephemeral)
+            ++normal_drop;
+    }
+
+    void drop_ephemeral() const
+    {
+        // BLT_TRACE("Wow silly type of value %f was dropped!", value);
+        ++ephemeral_drop;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const drop_type& dt)
+    {
+        os << dt.value;
+        return os;
     }
 };
 
@@ -44,30 +79,50 @@ prog_config_t config = prog_config_t()
                        .set_mutation_chance(0.1)
                        .set_reproduction_chance(0.1)
                        .set_max_generations(50)
-                       .set_pop_size(500)
+                       .set_pop_size(50)
                        .set_thread_count(0);
 
 
 example::symbolic_regression_t regression{691ul, config};
 
-operation_t add{[](const float a, const float b) { return a + b; }, "add"};
-operation_t sub([](const float a, const float b) { return a - b; }, "sub");
-operation_t mul([](const float a, const float b) { return a * b; }, "mul");
-operation_t pro_div([](const float a, const float b) { return b == 0.0f ? 0.0f : a / b; }, "div");
-operation_t op_sin([](const float a) { return std::sin(a); }, "sin");
-operation_t op_cos([](const float a) { return std::cos(a); }, "cos");
-operation_t op_exp([](const float a) { return std::exp(a); }, "exp");
-operation_t op_log([](const float a) { return a == 0.0f ? 0.0f : std::log(a); }, "log");
-operation_t op_conv([](const drop_type d) { return d.silly_type; }, "conv");
+operation_t add{[](const drop_type a, const drop_type b) { return drop_type{a.value + b.value}; }, "add"};
+operation_t sub([](const drop_type a, const drop_type b) { return drop_type{a.value - b.value}; }, "sub");
+operation_t mul([](const drop_type a, const drop_type b) { return drop_type{a.value * b.value}; }, "mul");
+operation_t pro_div([](const drop_type a, const drop_type b) { return drop_type{b.value == 0.0f ? 0.0f : a.value / b.value}; }, "div");
+operation_t op_sin([](const drop_type a) { return drop_type{std::sin(a.value)}; }, "sin");
+operation_t op_cos([](const drop_type a) { return drop_type{std::cos(a.value)}; }, "cos");
+operation_t op_exp([](const drop_type a) { return drop_type{std::exp(a.value)}; }, "exp");
+operation_t op_log([](const drop_type a) { return drop_type{a.value <= 0.0f ? 0.0f : std::log(a.value)}; }, "log");
 auto lit = operation_t([]()
 {
-    return drop_type{regression.get_program().get_random().get_float(-1.0f, 1.0f)};
+    return drop_type{regression.get_program().get_random().get_float(-1.0f, 1.0f), true};
 }, "lit").set_ephemeral();
 
 operation_t op_x([](const context& context)
 {
-    return context.x;
+    return drop_type{context.x};
 }, "x");
+
+bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
+{
+    constexpr static double value_cutoff = 1.e15;
+    for (auto& fitness_case : regression.get_training_cases())
+    {
+        auto val = current_tree.get_evaluation_ref<drop_type>(fitness_case);
+        const auto diff = std::abs(fitness_case.y - val.get().value);
+        if (diff < value_cutoff)
+        {
+            fitness.raw_fitness += diff;
+            if (diff <= 0.01)
+                fitness.hits++;
+        }
+        else
+            fitness.raw_fitness += value_cutoff;
+    }
+    fitness.standardized_fitness = fitness.raw_fitness;
+    fitness.adjusted_fitness = (1.0 / (1.0 + fitness.standardized_fitness));
+    return static_cast<size_t>(fitness.hits) == regression.get_training_cases().size();
+}
 
 int main()
 {
@@ -75,8 +130,9 @@ int main()
     builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x);
     regression.get_program().set_operations(builder.grab());
 
-    regression.generate_initial_population();
     auto& program = regression.get_program();
+    static auto sel = select_tournament_t{};
+    program.generate_population(program.get_typesystem().get_type<drop_type>().id(), fitness_function, sel, sel, sel);
     while (!program.should_terminate())
     {
         BLT_TRACE("Creating next generation");
@@ -86,4 +142,11 @@ int main()
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
     }
+
+    // program.get_best_individuals<1>()[0].get().tree.print(program, std::cout, true, true);
+
+    BLT_TRACE("Created %ld times", normal_construct.load());
+    BLT_TRACE("Dropped %ld times", normal_drop.load());
+    BLT_TRACE("Ephemeral created %ld times", ephemeral_construct.load());
+    BLT_TRACE("Ephemeral dropped %ld times", ephemeral_drop.load());
 }
