@@ -27,7 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-project(blt-gp VERSION 0.3.17)
+project(blt-gp VERSION 0.3.18)
 
 include(CTest)
 

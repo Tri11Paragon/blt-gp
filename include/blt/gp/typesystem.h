@@ -48,7 +48,7 @@ namespace blt::gp
         template <typename T>
         static type make_type(const type_id id)
         {
-            return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>(), detail::has_func_drop_ephemeral_v<T>);
+            return type(stack_allocator::aligned_size<T>(), id, blt::type_string<T>(), detail::has_func_drop_v<T>);
         }
 
         [[nodiscard]] size_t size() const

@@ -198,7 +198,7 @@ namespace blt::gp
 
         [[nodiscard]] bool return_has_ephemeral_drop() const
         {
-            return detail::has_func_drop_ephemeral_v<Return>;
+            return detail::has_func_drop_v<Return>;
         }
 
         operator_id id = -1;
