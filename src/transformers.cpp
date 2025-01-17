@@ -35,19 +35,9 @@ namespace blt::gp
         return new_tree;
     }
 
-    inline size_t accumulate_type_sizes(detail::op_iter_t begin, detail::op_iter_t end)
-    {
-        size_t total = 0;
-        for (auto it = begin; it != end; ++it)
-        {
-            if (it->is_value())
-                total += it->type_size();
-        }
-        return total;
-    }
-
+    // TODO: consolidate the two copies of this. other is in tree.cpp
     template <typename>
-    u8* get_thread_pointer_for_size(size_t bytes)
+    static u8* get_thread_pointer_for_size(const size_t bytes)
     {
         thread_local expanding_buffer<u8> buffer;
         if (bytes > buffer.size())
@@ -64,9 +54,6 @@ namespace blt::gp
         if (p1.get_operations().size() < config.min_tree_size || p2.get_operations().size() < config.min_tree_size)
             return false;
 
-        auto& c1_ops = c1.get_operations();
-        auto& c2_ops = c2.get_operations();
-
         std::optional<crossover_point_t> point;
 
         if (config.traverse)
@@ -77,72 +64,13 @@ namespace blt::gp
         if (!point)
             return false;
 
-        const auto selection = program.get_random().get_u32(0, 2);
-
-        // Used to make copies of operators. Statically stored for memory caching purposes.
-        // Thread local as this function cannot have external modifications / will be called from multiple threads.
-        thread_local tracked_vector<op_container_t> c1_operators;
-        thread_local tracked_vector<op_container_t> c2_operators;
-        c1_operators.clear();
-        c2_operators.clear();
-
         // TODO: more crossover!
-        switch (selection)
+        switch (program.get_random().get_u32(0, 2))
         {
         case 0:
         case 1:
-            {
-                // basic crossover
-                const auto crossover_point_begin_itr = c1_ops.begin() + point->p1_crossover_point;
-                const auto crossover_point_end_itr = c1_ops.begin() + c1.find_endpoint(point->p1_crossover_point);
-
-                const auto found_point_begin_itr = c2_ops.begin() + point->p2_crossover_point;
-                const auto found_point_end_itr = c2_ops.begin() + c2.find_endpoint(point->p2_crossover_point);
-
-                stack_allocator& c1_stack = c1.get_values();
-                stack_allocator& c2_stack = c2.get_values();
-
-                for (const auto& op : iterate(crossover_point_begin_itr, crossover_point_end_itr))
-                    c1_operators.push_back(op);
-                for (const auto& op : iterate(found_point_begin_itr, found_point_end_itr))
-                    c2_operators.push_back(op);
-
-                const size_t c1_stack_after_bytes = accumulate_type_sizes(crossover_point_end_itr, c1_ops.end());
-                const size_t c1_stack_for_bytes = accumulate_type_sizes(crossover_point_begin_itr, crossover_point_end_itr);
-                const size_t c2_stack_after_bytes = accumulate_type_sizes(found_point_end_itr, c2_ops.end());
-                const size_t c2_stack_for_bytes = accumulate_type_sizes(found_point_begin_itr, found_point_end_itr);
-                const auto c1_total = static_cast<blt::ptrdiff_t>(c1_stack_after_bytes + c1_stack_for_bytes);
-                const auto c2_total = static_cast<blt::ptrdiff_t>(c2_stack_after_bytes + c2_stack_for_bytes);
-                const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
-                const auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
-
-                c1_stack.reserve(c1_stack.bytes_in_head() - c1_stack_for_bytes + c2_stack_for_bytes);
-                c2_stack.reserve(c2_stack.bytes_in_head() - c2_stack_for_bytes + c1_stack_for_bytes);
-
-                c1_stack.copy_to(copy_ptr_c1, c1_total);
-                c1_stack.pop_bytes(c1_total);
-
-                c2_stack.copy_to(copy_ptr_c2, c2_total);
-                c2_stack.pop_bytes(c2_total);
-
-                c2_stack.copy_from(copy_ptr_c1, c1_stack_for_bytes);
-                c2_stack.copy_from(copy_ptr_c2 + c2_stack_for_bytes, c2_stack_after_bytes);
-
-                c1_stack.copy_from(copy_ptr_c2, c2_stack_for_bytes);
-                c1_stack.copy_from(copy_ptr_c1 + c1_stack_for_bytes, c1_stack_after_bytes);
-
-                // now swap the operators
-                auto insert_point_c1 = crossover_point_begin_itr - 1;
-                auto insert_point_c2 = found_point_begin_itr - 1;
-
-                // invalidates [begin, end()) so the insert points should be fine
-                c1_ops.erase(crossover_point_begin_itr, crossover_point_end_itr);
-                c2_ops.erase(found_point_begin_itr, found_point_end_itr);
-
-                c1_ops.insert(++insert_point_c1, c2_operators.begin(), c2_operators.end());
-                c2_ops.insert(++insert_point_c2, c1_operators.begin(), c1_operators.end());
-            }
-            break;
+            // TODO: use the tree's selector methods!
+            c1.swap_subtrees({point->p1_crossover_point, 0}, c2, {point->p2_crossover_point, 0});
             break;
         default:
 #if BLT_DEBUG_LEVEL > 0

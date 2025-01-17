@@ -102,6 +102,17 @@ namespace blt::gp
         stack_allocator values;
     };
 
+    inline size_t accumulate_type_sizes(const detail::op_iter_t begin, const detail::op_iter_t end)
+    {
+        size_t total = 0;
+        for (auto it = begin; it != end; ++it)
+        {
+            if (it->is_value())
+                total += it->type_size();
+        }
+        return total;
+    }
+
     template <typename T>
     class evaluation_ref
     {
@@ -347,6 +358,22 @@ namespace blt::gp
          */
         [[nodiscard]] std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
                                                                              double depth_multiplier = 0.6) const;
+
+        /**
+         * Copies the subtree found at point into the provided out params
+         * @param point subtree point
+         * @param operators vector for storing subtree operators
+         * @param stack stack for storing subtree values
+         */
+        void copy_subtree(subtree_point_t point, std::vector<op_container_t>& operators, stack_allocator& stack);
+
+        /**
+         * Swaps the subtrees between this tree and the other tree
+         * @param our_subtree
+         * @param other_tree
+         * @param other_subtree
+         */
+        void swap_subtrees(subtree_point_t our_subtree, tree_t& other_tree, subtree_point_t other_subtree);
 
         /**
         *   User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
@@ -614,12 +641,12 @@ namespace blt::gp
                 return {ind, ++pos};
             }
 
-            tree_t& operator*()
+            tree_t& operator*() const
             {
                 return ind[pos].tree;
             }
 
-            tree_t& operator->()
+            tree_t& operator->() const
             {
                 return ind[pos].tree;
             }
