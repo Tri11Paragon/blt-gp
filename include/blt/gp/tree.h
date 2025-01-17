@@ -213,44 +213,61 @@ namespace blt::gp
             auto copy_it = copy.operations.begin();
             auto op_it = operations.begin();
 
+            size_t total_op_bytes = 0;
+            size_t total_copy_bytes = 0;
+
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->get_flags().is_ephemeral())
-                {
-                    if (op_it->has_ephemeral_drop())
-                    {
-                    }
-                }
                 if (copy_it == copy.operations.end())
                     break;
-                *op_it = *copy_it;
-                if (op_it->get_flags().is_ephemeral())
+                if (op_it->is_value())
                 {
-                    if (copy_it->has_ephemeral_drop())
+                    if (op_it->get_flags().is_ephemeral() && op_it->has_ephemeral_drop())
                     {
+                        // BLT_TRACE("%lu %lu %lu", total_op_bytes, values.bytes_in_head(), values.bytes_in_head() - total_op_bytes);
+                        auto& ptr = values.access_pointer_forward(total_op_bytes, op_it->type_size());
+                        --*ptr;
+                        // if (*ptr == 0)
+                        // delete *ptr;
                     }
+                    total_op_bytes += op_it->type_size();
+                }
+                *op_it = *copy_it;
+                if (copy_it->is_value())
+                {
+                    if (copy_it->get_flags().is_ephemeral() && copy_it->has_ephemeral_drop())
+                    {
+                        auto& ptr = copy.values.access_pointer_forward(total_copy_bytes, copy_it->type_size());
+                        ++*ptr;
+                    }
+                    total_copy_bytes += copy_it->type_size();
                 }
                 ++copy_it;
             }
             const auto op_it_cpy = op_it;
             for (; op_it != operations.end(); ++op_it)
             {
-                if (op_it->get_flags().is_ephemeral())
+                if (op_it->is_value())
                 {
-                    if (op_it->has_ephemeral_drop())
+                    if (op_it->get_flags().is_ephemeral() && op_it->has_ephemeral_drop())
                     {
+                        auto& ptr = values.access_pointer_forward(total_op_bytes, op_it->type_size());
+                        --*ptr;
                     }
+                    total_op_bytes += op_it->type_size();
                 }
             }
             operations.erase(op_it_cpy, operations.end());
             for (; copy_it != copy.operations.end(); ++copy_it)
             {
-                if (copy_it->get_flags().is_ephemeral())
+                if (copy_it->is_value())
                 {
-                    if (copy_it->has_ephemeral_drop())
+                    if (copy_it->get_flags().is_ephemeral() && copy_it->has_ephemeral_drop())
                     {
-
+                        auto& ptr = copy.values.access_pointer_forward(total_copy_bytes, copy_it->type_size());
+                        ++*ptr;
                     }
+                    total_copy_bytes += copy_it->type_size();
                 }
                 operations.emplace_back(*copy_it);
             }
@@ -455,6 +472,11 @@ namespace blt::gp
 
                 return results;
             };
+        }
+
+        ~tree_t()
+        {
+            clear(*m_program);
         }
 
     private:

@@ -88,7 +88,7 @@ namespace blt::gp
         {
             const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
             if constexpr (blt::gp::detail::has_func_drop_v<T>)
-                return bytes + sizeof(std::atomic_uint64_t*);
+                return bytes + detail::aligned_size(sizeof(std::atomic_uint64_t*));
             return bytes;
         }
 
@@ -168,11 +168,10 @@ namespace blt::gp
             const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
             std::memcpy(ptr, &t, sizeof(NO_REF));
 
-            // if constexpr (gp::detail::has_func_drop_ephemeral_v<T>)
-            // {
-                // const auto* ref_counter_ptr = new std::atomic_uint64_t(1); // NOLINT
-                // std::memcpy(ptr + sizeof(NO_REF), &ref_counter_ptr, sizeof(std::atomic_uint64_t*));
-            // }
+            if constexpr (gp::detail::has_func_drop_v<T>)
+            {
+                new(ptr + sizeof(NO_REF)) mem::pointer_storage<std::atomic_uint64_t>{nullptr};
+            }
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>
@@ -205,6 +204,30 @@ namespace blt::gp
             static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
             static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
             return *reinterpret_cast<NO_REF*>(from(aligned_size<NO_REF>() + bytes));
+        }
+
+        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer(const size_t bytes, const size_t type_size) const
+        {
+            const auto type_ref = from(bytes);
+            return *std::launder(
+                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
+                    sizeof(std::atomic_uint64_t*)))));
+        }
+
+        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer_forward(const size_t bytes, const size_t type_size) const
+        {
+            const auto type_ref = data_ + bytes;
+            return *std::launder(
+                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
+                    sizeof(std::atomic_uint64_t*)))));
+        }
+
+        template <typename T>
+        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer(const size_t bytes) const
+        {
+            auto& type_ref = from<T>(bytes);
+            return *std::launder(
+                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) + detail::aligned_size(sizeof(T))));
         }
 
         void pop_bytes(const size_t bytes)

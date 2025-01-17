@@ -278,6 +278,12 @@ namespace blt::gp
         {
             // Ephemeral values have corresponding insertions into the stack
             m_program->get_operator_info(op.id()).func(nullptr, values, values);
+            if (m_program->operator_has_ephemeral_drop(op.id()))
+            {
+                auto& ptr = values.access_pointer(op.type_size(), op.type_size());
+                ptr = new std::atomic_uint64_t(1);
+                ptr.bit(0, true);
+            }
         }
     }
 
@@ -372,11 +378,23 @@ namespace blt::gp
         auto* f = &program;
         if (&program != m_program)
             m_program = f;
-        for (const auto& op : operations)
+        size_t total_bytes = 0;
+        for (const auto& op : iterate(operations))
         {
-            if (op.has_ephemeral_drop())
+            if (op.is_value())
             {
-                // TODO:
+                if (op.get_flags().is_ephemeral() && op.has_ephemeral_drop())
+                {
+                    auto& ptr = values.access_pointer_forward(total_bytes, op.type_size());
+                    --*ptr;
+                    BLT_TRACE(ptr->load());
+                    if (*ptr == 0)
+                    {
+                        // BLT_TRACE("Deleting pointers!");
+                        delete ptr.get();
+                    }
+                }
+                total_bytes += op.type_size();
             }
         }
         operations.clear();
