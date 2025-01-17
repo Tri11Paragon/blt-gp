@@ -42,7 +42,7 @@ namespace blt::gp
     namespace detail
     {
         BLT_META_MAKE_FUNCTION_CHECK(drop);
-        BLT_META_MAKE_FUNCTION_CHECK(drop_ephemeral);
+        // BLT_META_MAKE_FUNCTION_CHECK(drop_ephemeral);
     }
 
     class stack_allocator
@@ -87,7 +87,7 @@ namespace blt::gp
         static constexpr size_t aligned_size() noexcept
         {
             const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
-            if constexpr (blt::gp::detail::has_func_drop_ephemeral_v<T>)
+            if constexpr (blt::gp::detail::has_func_drop_v<T>)
                 return bytes + sizeof(std::atomic_uint64_t*);
             return bytes;
         }

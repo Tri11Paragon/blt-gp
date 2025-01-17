@@ -49,14 +49,10 @@ struct drop_type
 
     void drop() const
     {
-        if (!ephemeral)
+        if (ephemeral)
+            ++ephemeral_drop;
+        else
             ++normal_drop;
-    }
-
-    void drop_ephemeral() const
-    {
-        // BLT_TRACE("Wow silly type of value %f was dropped!", value);
-        ++ephemeral_drop;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const drop_type& dt)
@@ -127,11 +123,6 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
 
 int main()
 {
-    int hello = 32;
-    int* silly = &hello;
-    blt::mem::print_bytes(std::cout, silly);
-    return 0;
-
     operator_builder<context> builder{};
     builder.build(add, sub, mul, pro_div, op_sin, op_cos, op_exp, op_log, lit, op_x);
     regression.get_program().set_operations(builder.grab());
