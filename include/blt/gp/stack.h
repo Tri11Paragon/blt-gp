@@ -133,13 +133,24 @@ namespace blt::gp
             bytes_stored += stack.bytes_stored;
         }
 
-        void copy_from(const stack_allocator& stack, blt::size_t bytes)
+        void copy_from(const stack_allocator& stack, const size_t bytes)
         {
+            // TODO: add debug checks to these functions! (check for out of bounds copy)
             if (bytes == 0)
                 return;
             if (bytes + bytes_stored > size_)
                 expand(bytes + size_);
             std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes), bytes);
+            bytes_stored += bytes;
+        }
+
+        void copy_from(const stack_allocator& stack, const size_t bytes, const size_t offset)
+        {
+            if (bytes == 0)
+                return;
+            if (bytes + bytes_stored > size_)
+                expand(bytes + size_);
+            std::memcpy(data_ + bytes_stored, stack.data_ + (stack.bytes_stored - bytes - offset), bytes);
             bytes_stored += bytes;
         }
 

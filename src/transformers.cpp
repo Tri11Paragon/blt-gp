@@ -51,15 +51,15 @@ namespace blt::gp
 
     bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
-        if (p1.get_operations().size() < config.min_tree_size || p2.get_operations().size() < config.min_tree_size)
+        if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
             return false;
 
         std::optional<crossover_point_t> point;
 
         if (config.traverse)
-            point = get_crossover_point_traverse(program, p1, p2);
+            point = get_crossover_point_traverse(p1, p2);
         else
-            point = get_crossover_point(program, p1, p2);
+            point = get_crossover_point(p1, p2);
 
         if (!point)
             return false;
@@ -69,8 +69,7 @@ namespace blt::gp
         {
         case 0:
         case 1:
-            // TODO: use the tree's selector methods!
-            c1.swap_subtrees({point->p1_crossover_point, 0}, c2, {point->p2_crossover_point, 0});
+            c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
             break;
         default:
 #if BLT_DEBUG_LEVEL > 0
@@ -110,153 +109,50 @@ namespace blt::gp
         return true;
     }
 
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(gp_program& program, const tree_t& c1,
+    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(const tree_t& c1,
                                                                                    const tree_t& c2) const
     {
-        auto& c1_ops = c1.get_operations();
-        auto& c2_ops = c2.get_operations();
+        auto first = c1.select_subtree(config.terminal_chance);
+        auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
 
-        size_t crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
+        if (!second)
+            return {};
 
-        const bool allow_terminal_selection = program.get_random().choice(config.terminal_chance);
-
-        blt::size_t counter = 0;
-        while (!allow_terminal_selection && program.get_operator_info(c1_ops[crossover_point].id()).argc.is_terminal())
-        {
-            if (counter >= config.max_crossover_tries)
-                return {};
-            crossover_point = program.get_random().get_size_t(1ul, c1_ops.size());
-            counter++;
-        }
-
-        size_t attempted_point = 0;
-
-        const auto& crossover_point_type = program.get_operator_info(c1_ops[crossover_point].id());
-        const operator_info_t* attempted_point_type = nullptr;
-
-        for (counter = 0; counter < config.max_crossover_tries; counter++)
-        {
-            attempted_point = program.get_random().get_size_t(1ul, c2_ops.size());
-            attempted_point_type = &program.get_operator_info(c2_ops[attempted_point].id());
-            if (!allow_terminal_selection && attempted_point_type->argc.is_terminal())
-                continue;
-            if (crossover_point_type.return_type == attempted_point_type->return_type)
-                return crossover_point_t{static_cast<blt::ptrdiff_t>(crossover_point), static_cast<blt::ptrdiff_t>(attempted_point)};
-        }
-        return {};
+        return {{first, *second}};
     }
 
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(gp_program& program, const tree_t& c1,
+    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(const tree_t& c1,
                                                                                             const tree_t& c2) const
     {
-        const auto c1_point_o = get_point_traverse_retry(program, c1, {});
+        auto c1_point_o = get_point_traverse_retry(c1, {});
         if (!c1_point_o)
             return {};
-        const auto c2_point_o = get_point_traverse_retry(program, c2, c1_point_o->type_operator_info.return_type);
+        auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
         if (!c2_point_o)
             return {};
-        return {{c1_point_o->point, c2_point_o->point}};
+        return {{*c1_point_o, *c2_point_o}};
     }
 
-    std::optional<crossover_t::point_info_t> crossover_t::get_point_from_traverse_raw(gp_program& program, const tree_t& t,
-                                                                                      std::optional<type_id> type) const
+    std::optional<tree_t::subtree_point_t> crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
     {
-        auto& random = program.get_random();
-
-        bool should_select_terminal = program.get_random().choice(config.terminal_chance);
-
-        ptrdiff_t parent = -1;
-        ptrdiff_t point = 0;
-        while (true)
-        {
-            auto& current_op_type = program.get_operator_info(t.get_operations()[point].id());
-            if (current_op_type.argc.is_terminal())
-            {
-                if (!should_select_terminal)
-                {
-                    if (parent == -1)
-                        return {};
-                    auto& parent_type = program.get_operator_info(t.get_operations()[parent].id());
-                    if (type && *type != parent_type.return_type)
-                        return {};
-                    return {{parent, parent_type}};
-                }
-                if (type && *type != current_op_type.return_type)
-                    return {};
-                return {{point, current_op_type}};
-            }
-            // traverse to a child
-            if (random.choice(config.traverse_chance))
-            {
-                const auto args = current_op_type.argc.argc;
-                const auto argument = random.get_size_t(0, args);
-
-                parent = point;
-                // move to the first child
-                point += 1;
-                // loop through all the children we wish to skip. The result will be the first node of the next child, becoming the new parent
-                for (size_t i = 0; i < argument; i++)
-                    point = t.find_endpoint(point);
-
-                continue;
-            }
-            if (!type || (type && *type == current_op_type.return_type))
-                return {{point, current_op_type}};
-        }
-    }
-
-    std::optional<crossover_t::point_info_t> crossover_t::get_point_traverse_retry(gp_program& program, const tree_t& t,
-                                                                                   std::optional<type_id> type) const
-    {
-        for (size_t i = 0; i < config.max_crossover_tries; i++)
-        {
-            if (auto found = get_point_from_traverse_raw(program, t, type))
-                return found;
-        }
-        return {};
+        if (type)
+            return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
+        return t.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
     }
 
     bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)
     {
-        mutate_point(program, c, program.get_random().get_size_t(0ul, c.get_operations().size()));
+        // TODO: options for this?
+        mutate_point(program, c, c.select_subtree());
         return true;
     }
 
-    blt::size_t mutation_t::mutate_point(gp_program& program, tree_t& c, blt::size_t node) const
+    size_t mutation_t::mutate_point(gp_program& program, tree_t& c, const tree_t::subtree_point_t node) const
     {
-        auto& ops_r = c.get_operations();
-        auto& vals_r = c.get_values();
-
-        auto begin_point = static_cast<blt::ptrdiff_t>(node);
-        auto end_point = c.find_endpoint(begin_point);
-        auto begin_operator_id = ops_r[begin_point].id();
-        const auto& type_info = program.get_operator_info(begin_operator_id);
-
-        auto begin_itr = ops_r.begin() + begin_point;
-        auto end_itr = ops_r.begin() + end_point;
-
         auto& new_tree = get_static_tree_tl(program);
-        config.generator.get().generate(new_tree, {program, type_info.return_type, config.replacement_min_depth, config.replacement_max_depth});
+        config.generator.get().generate(new_tree, {program, node.type, config.replacement_min_depth, config.replacement_max_depth});
 
-        auto& new_ops_r = new_tree.get_operations();
-        auto& new_vals_r = new_tree.get_values();
-
-        blt::size_t total_bytes_after = accumulate_type_sizes(end_itr, ops_r.end());
-        auto* stack_after_data = get_thread_pointer_for_size<struct mutation>(total_bytes_after);
-
-        // make a copy of any stack data after the mutation point / children.
-        vals_r.copy_to(stack_after_data, total_bytes_after);
-
-        // remove the bytes of the data after the mutation point and the data for the children of the mutation node.
-        vals_r.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after + accumulate_type_sizes(begin_itr, end_itr)));
-
-        // insert the new tree then move back the data from after the original mutation point.
-        vals_r.insert(new_vals_r);
-        vals_r.copy_from(stack_after_data, total_bytes_after);
-
-        auto before = begin_itr - 1;
-        ops_r.erase(begin_itr, end_itr);
-        ops_r.insert(++before, new_ops_r.begin(), new_ops_r.end());
+        c.replace_subtree(node, new_tree);
 
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
@@ -306,19 +202,14 @@ namespace blt::gp
             throw std::exception();
         }
 #endif
-        return begin_point + new_ops_r.size();
+        return node.pos + new_tree.size();
     }
 
-    bool advanced_mutation_t::apply(gp_program& program, const tree_t& p, tree_t& c)
+    bool advanced_mutation_t::apply(gp_program& program, [[maybe_unused]] const tree_t& p, tree_t& c)
     {
-        (void)p;
-        auto& ops = c.get_operations();
-        auto& vals = c.get_values();
-
-        for (blt::size_t c_node = 0; c_node < ops.size(); c_node++)
+        for (size_t c_node = 0; c_node < c.size(); c_node++)
         {
-            double node_mutation_chance = per_node_mutation_chance / static_cast<double>(ops.size());
-            if (!program.get_random().choice(node_mutation_chance))
+            if (!program.get_random().choice(per_node_mutation_chance / static_cast<double>(c.size())))
                 continue;
 
 #if BLT_DEBUG_LEVEL >= 2
@@ -326,7 +217,7 @@ namespace blt::gp
 #endif
 
             // select an operator to apply
-            auto selected_point = static_cast<blt::i32>(mutation_operator::COPY);
+            auto selected_point = static_cast<i32>(mutation_operator::COPY);
             auto choice = program.get_random().get_double();
             for (const auto& [index, value] : blt::enumerate(mutation_operator_chances))
             {
@@ -351,21 +242,21 @@ namespace blt::gp
             switch (static_cast<mutation_operator>(selected_point))
             {
             case mutation_operator::EXPRESSION:
-                c_node += mutate_point(program, c, c_node);
+                c_node += mutate_point(program, c, c.subtree_from_point(static_cast<ptrdiff_t>(c_node)));
                 break;
             case mutation_operator::ADJUST:
                 {
                     // this is going to be evil >:3
-                    const auto& node = ops[c_node];
+                    const auto& node = c.get_operator(c_node);
                     if (!node.is_value())
                     {
-                        auto& current_func_info = program.get_operator_info(ops[c_node].id());
+                        auto& current_func_info = program.get_operator_info(node.id());
                         operator_id random_replacement = program.get_random().select(
                             program.get_type_non_terminals(current_func_info.return_type.id));
                         auto& replacement_func_info = program.get_operator_info(random_replacement);
 
                         // cache memory used for offset data.
-                        thread_local static tracked_vector<tree_t::child_t> children_data;
+                        thread_local tracked_vector<tree_t::child_t> children_data;
                         children_data.clear();
 
                         c.find_child_extends(children_data, c_node, current_func_info.argument_types.size());
@@ -380,38 +271,25 @@ namespace blt::gp
                                 config.generator.get().generate(tree,
                                                                 {program, val.id, config.replacement_min_depth, config.replacement_max_depth});
 
-                                auto& child = children_data[children_data.size() - 1 - index];
-                                blt::size_t total_bytes_for = c.total_value_bytes(child.start, child.end);
-                                blt::size_t total_bytes_after = c.total_value_bytes(child.end);
-
-                                auto after_ptr = get_thread_pointer_for_size<struct mutation_func>(total_bytes_after);
-                                vals.copy_to(after_ptr, total_bytes_after);
-                                vals.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after + total_bytes_for));
-
-                                blt::size_t total_child_bytes = tree.total_value_bytes();
-
-                                vals.copy_from(tree.get_values(), total_child_bytes);
-                                vals.copy_from(after_ptr, total_bytes_after);
-
-                                ops.erase(ops.begin() + child.start, ops.begin() + child.end);
-                                ops.insert(ops.begin() + child.start, tree.get_operations().begin(), tree.get_operations().end());
+                                auto& [child_start, child_end] = children_data[children_data.size() - 1 - index];
+                                c.replace_subtree(c.subtree_from_point(child_start), child_end, tree);
 
                                 // shift over everybody after.
                                 if (index > 0)
                                 {
                                     // don't need to update if the index is the last
-                                    for (auto& new_child : blt::iterate(children_data.end() - static_cast<blt::ptrdiff_t>(index),
+                                    for (auto& new_child : iterate(children_data.end() - static_cast<ptrdiff_t>(index),
                                                                         children_data.end()))
                                     {
                                         // remove the old tree size, then add the new tree size to get the correct positions.
                                         new_child.start =
-                                            new_child.start - (child.end - child.start) +
-                                            static_cast<blt::ptrdiff_t>(tree.get_operations().size());
+                                            new_child.start - (child_end - child_start) +
+                                            static_cast<ptrdiff_t>(tree.size());
                                         new_child.end =
-                                            new_child.end - (child.end - child.start) + static_cast<blt::ptrdiff_t>(tree.get_operations().size());
+                                            new_child.end - (child_end - child_start) + static_cast<ptrdiff_t>(tree.size());
                                     }
                                 }
-                                child.end = static_cast<blt::ptrdiff_t>(child.start + tree.get_operations().size());
+                                child_end = static_cast<ptrdiff_t>(child_start + tree.size());
 
 #if BLT_DEBUG_LEVEL >= 2
                                 blt::size_t found_bytes = vals.size().total_used_bytes;
@@ -434,15 +312,9 @@ namespace blt::gp
 
                         if (current_func_info.argc.argc > replacement_func_info.argc.argc)
                         {
-                            blt::size_t end_index = children_data[(current_func_info.argc.argc - replacement_func_info.argc.argc) - 1].end;
-                            blt::size_t start_index = children_data.begin()->start;
-                            blt::size_t total_bytes_for = c.total_value_bytes(start_index, end_index);
-                            blt::size_t total_bytes_after = c.total_value_bytes(end_index);
-                            auto* data = get_thread_pointer_for_size<struct mutation_func>(total_bytes_after);
-                            vals.copy_to(data, total_bytes_after);
-                            vals.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after + total_bytes_for));
-                            vals.copy_from(data, total_bytes_after);
-                            ops.erase(ops.begin() + static_cast<blt::ptrdiff_t>(start_index), ops.begin() + static_cast<blt::ptrdiff_t>(end_index));
+                            auto end_index = children_data[(current_func_info.argc.argc - replacement_func_info.argc.argc) - 1].end;
+                            auto start_index = children_data.begin()->start;
+                            c.delete_subtree(tree_t::subtree_point_t(start_index), end_index);
                         }
                         else if (current_func_info.argc.argc == replacement_func_info.argc.argc)
                         {
@@ -452,11 +324,9 @@ namespace blt::gp
                         else
                         {
                             // not enough args
-                            blt::size_t start_index = c_node + 1;
-                            blt::size_t total_bytes_after = c.total_value_bytes(start_index);
-                            auto* data = get_thread_pointer_for_size<struct mutation_func>(total_bytes_after);
-                            vals.copy_to(data, total_bytes_after);
-                            vals.pop_bytes(static_cast<blt::ptrdiff_t>(total_bytes_after));
+                            size_t start_index = c_node + 1;
+                            size_t total_bytes_after = c.total_value_bytes(start_index);
+                            auto move = c.temporary_move(total_bytes_after);
 
                             for (ptrdiff_t i = static_cast<ptrdiff_t>(replacement_func_info.argc.argc) - 1;
                                  i >= current_func_info.argc.argc; i--)
@@ -467,20 +337,11 @@ namespace blt::gp
                                                                     program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                                                     config.replacement_max_depth
                                                                 });
-                                vals.insert(tree.get_values());
-                                ops.insert(ops.begin() + static_cast<blt::ptrdiff_t>(start_index), tree.get_operations().begin(),
-                                           tree.get_operations().end());
-                                start_index += tree.get_operations().size();
+                                start_index = c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
                             }
-                            vals.copy_from(data, total_bytes_after);
                         }
                         // now finally update the type.
-                        ops[c_node] = {
-                            program.get_typesystem().get_type(replacement_func_info.return_type).size(),
-                            random_replacement,
-                            program.is_operator_ephemeral(random_replacement),
-                            program.get_operator_flags(random_replacement)
-                        };
+                        c.modify_operator(c_node, random_replacement, replacement_func_info.return_type);
                     }
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(detail::debug::context_ptr))
@@ -497,7 +358,7 @@ namespace blt::gp
                 break;
             case mutation_operator::SUB_FUNC:
                 {
-                    auto& current_func_info = program.get_operator_info(ops[c_node].id());
+                    auto& current_func_info = program.get_operator_info(c.get_operator(c_node).id());
 
                     // need to:
                     // mutate the current function.
@@ -509,7 +370,7 @@ namespace blt::gp
                     if (non_terminals.empty())
                         continue;
                     operator_id random_replacement = program.get_random().select(non_terminals);
-                    blt::size_t arg_position = 0;
+                    size_t arg_position = 0;
                     do
                     {
                         auto& replacement_func_info = program.get_operator_info(random_replacement);

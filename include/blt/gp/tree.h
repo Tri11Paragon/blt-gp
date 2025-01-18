@@ -188,6 +188,45 @@ namespace blt::gp
         {
             ptrdiff_t pos;
             type_id type;
+
+            explicit subtree_point_t(const ptrdiff_t pos): pos(pos), type(0)
+            {
+            }
+
+            subtree_point_t(const ptrdiff_t pos, const type_id type): pos(pos), type(type)
+            {
+            }
+        };
+
+        struct after_bytes_data_t
+        {
+            after_bytes_data_t(tree_t& tree, u8* data, const size_t bytes): tree(tree), data(data), bytes(bytes)
+            {
+            }
+
+            after_bytes_data_t(const after_bytes_data_t& copy) = delete;
+            after_bytes_data_t& operator=(const after_bytes_data_t& copy) = delete;
+
+            after_bytes_data_t(after_bytes_data_t&& move) noexcept: tree(move.tree), data(std::exchange(move.data, nullptr)),
+                                                                    bytes(std::exchange(move.bytes, 0))
+            {
+            }
+
+            after_bytes_data_t& operator=(after_bytes_data_t&& move) noexcept = delete;
+
+            ~after_bytes_data_t()
+            {
+                if (bytes > 0)
+                {
+                    tree.values.copy_from(data, bytes);
+                    bytes = 0;
+                }
+            }
+
+        private:
+            tree_t& tree;
+            u8* data;
+            size_t bytes;
         };
 
         explicit tree_t(gp_program& program): m_program(&program)
@@ -288,26 +327,6 @@ namespace blt::gp
             handle_operator_inserted(operations.back());
         }
 
-        [[nodiscard]] tracked_vector<op_container_t>& get_operations()
-        {
-            return operations;
-        }
-
-        [[nodiscard]] const tracked_vector<op_container_t>& get_operations() const
-        {
-            return operations;
-        }
-
-        [[nodiscard]] stack_allocator& get_values()
-        {
-            return values;
-        }
-
-        [[nodiscard]] const stack_allocator& get_values() const
-        {
-            return values;
-        }
-
         size_t get_depth(gp_program& program) const;
 
         /**
@@ -355,6 +374,60 @@ namespace blt::gp
          * @param other_subtree
          */
         void swap_subtrees(subtree_point_t our_subtree, tree_t& other_tree, subtree_point_t other_subtree);
+
+        /**
+         * Replaces the point inside our tree with a new tree provided to this function.
+         * Uses the extent instead of calculating it for removing the existing subtree
+         * This can be used if you already have child tree information, such as when using @code find_child_extends@endcode
+         * @param point point to replace at
+         * @param extent extend of the subtree (child tree)
+         * @param other_tree other tree to replace with
+         */
+        void replace_subtree(subtree_point_t point, ptrdiff_t extent, tree_t& other_tree);
+
+        /**
+         * Replaces the point inside our tree with a new tree provided to this function
+         * @param point point to replace at
+         * @param other_tree other tree to replace with
+         */
+        void replace_subtree(const subtree_point_t point, tree_t& other_tree)
+        {
+            replace_subtree(point, find_endpoint(point.pos), other_tree);
+        }
+
+        /**
+         * Deletes the subtree at a point, bounded by extent. This is useful if you already know the size of the child tree
+         * Note: if you provide an incorrectly sized extent this will create UB within the GP program
+         * extent must be one past the last element in the subtree, as returned by all helper functions here.
+         * @param point point to delete from
+         * @param extent end point of the tree
+         */
+        void delete_subtree(subtree_point_t point, ptrdiff_t extent);
+
+        /**
+         * Deletes the subtree at a point
+         * @param point point of subtree to recursively delete
+         */
+        void delete_subtree(const subtree_point_t point)
+        {
+            delete_subtree(point, find_endpoint(point.pos));
+        }
+
+        /**
+         * Insert a subtree before the specified point
+         * @param point point to insert into
+         * @param other_tree the tree to insert
+         * @return point + other_tree.size()
+         */
+        ptrdiff_t insert_subtree(subtree_point_t point, tree_t& other_tree);
+
+        /**
+         * temporarily moves the last bytes amount of data from the current stack. this can be useful for if you are going to do a lot
+         * of consecutive operations on the tree as this will avoid extra copy + reinsert.
+         * The object returned by this function will automatically move the data back in when it goes out of scope.
+         * @param bytes amount of bytes to remove.
+         */
+        after_bytes_data_t temporary_move(size_t bytes);
 
         /**
         *   User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
@@ -440,19 +513,33 @@ namespace blt::gp
 
         [[nodiscard]] size_t total_value_bytes(const size_t begin, const size_t end) const
         {
-            return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin),
-                                     operations.begin() + static_cast<blt::ptrdiff_t>(end));
+            return total_value_bytes(operations.begin() + static_cast<ptrdiff_t>(begin),
+                                     operations.begin() + static_cast<ptrdiff_t>(end));
         }
 
         [[nodiscard]] size_t total_value_bytes(const size_t begin) const
         {
-            return total_value_bytes(operations.begin() + static_cast<blt::ptrdiff_t>(begin), operations.end());
+            return total_value_bytes(operations.begin() + static_cast<ptrdiff_t>(begin), operations.end());
         }
 
         [[nodiscard]] size_t total_value_bytes() const
         {
             return total_value_bytes(operations.begin(), operations.end());
         }
+
+        [[nodiscard]] size_t size() const
+        {
+            return operations.size();
+        }
+
+        [[nodiscard]] const op_container_t& get_operator(const size_t point) const
+        {
+            return operations[point];
+        }
+
+        void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {});
+
+        [[nodiscard]] subtree_point_t subtree_from_point(ptrdiff_t point) const;
 
         template <typename Context, typename... Operators>
         static auto make_execution_lambda(size_t call_reserve_size, Operators&... operators)
@@ -490,21 +577,23 @@ namespace blt::gp
     private:
         void handle_operator_inserted(const op_container_t& op);
 
-        template<typename Iter>
+        template <typename Iter>
         void handle_refcount_decrement(const Iter iter, const size_t forward_bytes) const
         {
             if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
             {
+                // TODO
                 auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
                 --*ptr;
             }
         }
 
-        template<typename Iter>
+        template <typename Iter>
         void handle_refcount_increment(const Iter iter, const size_t forward_bytes) const
         {
             if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
             {
+                // TODO
                 auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
                 --*ptr;
             }

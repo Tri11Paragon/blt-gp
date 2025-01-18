@@ -65,8 +65,8 @@ namespace blt::gp
             };
             struct crossover_point_t
             {
-                ptrdiff_t p1_crossover_point;
-                ptrdiff_t p2_crossover_point;
+                tree_t::subtree_point_t p1_crossover_point;
+                tree_t::subtree_point_t p2_crossover_point;
             };
             struct config_t
             {
@@ -80,7 +80,7 @@ namespace blt::gp
                 // used by the traverse version of get_crossover_point
                 // at each depth level, what chance do we have to exit with this as our point? or in other words what's the chance we continue traversing
                 // this is what this option configures.
-                f32 traverse_chance = 0.5;
+                f32 depth_multiplier = 0.5;
                 // how often should we select terminals over functions. By default, we only allow selection of terminals 10% of the time
                 // this applies to both types of crossover point functions. Traversal will use the parent if it should not pick a terminal.
                 f32 terminal_chance = 0.1;
@@ -98,11 +98,9 @@ namespace blt::gp
                 return config;
             }
             
-            std::optional<crossover_point_t> get_crossover_point(gp_program& program, const tree_t& c1, const tree_t& c2) const;
+            std::optional<crossover_point_t> get_crossover_point(const tree_t& c1, const tree_t& c2) const;
             
-            std::optional<crossover_point_t> get_crossover_point_traverse(gp_program& program, const tree_t& c1, const tree_t& c2) const;
-            
-            std::optional<point_info_t> get_point_from_traverse_raw(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
+            std::optional<crossover_point_t> get_crossover_point_traverse(const tree_t& c1, const tree_t& c2) const;
             
             /**
              * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -117,7 +115,7 @@ namespace blt::gp
             virtual ~crossover_t() = default;
         
         protected:
-            std::optional<point_info_t> get_point_traverse_retry(gp_program& program, const tree_t& t, std::optional<type_id> type) const;
+            [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
             
             config_t config;
     };
@@ -146,7 +144,7 @@ namespace blt::gp
             virtual bool apply(gp_program& program, const tree_t& p, tree_t& c);
             
             // returns the point after the mutation
-            blt::size_t mutate_point(gp_program& program, tree_t& c, blt::size_t node) const;
+            size_t mutate_point(gp_program& program, tree_t& c, tree_t::subtree_point_t node) const;
             
             virtual ~mutation_t() = default;
         
