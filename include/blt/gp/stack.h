@@ -199,7 +199,7 @@ namespace blt::gp
         }
 
         template <typename T, typename NO_REF = NO_REF_T<T>>
-        T& from(const size_t bytes)
+        T& from(const size_t bytes) const
         {
             static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
             static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
@@ -223,11 +223,11 @@ namespace blt::gp
         }
 
         template <typename T>
-        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer(const size_t bytes) const
+        [[nodiscard]] std::pair<T&, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer(const size_t bytes) const
         {
             auto& type_ref = from<T>(bytes);
-            return *std::launder(
-                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) + detail::aligned_size(sizeof(T))));
+            return {type_ref, *std::launder(
+                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) + detail::aligned_size(sizeof(T))))};
         }
 
         void pop_bytes(const size_t bytes)

@@ -65,7 +65,9 @@ namespace blt::gp
         {
             if constexpr (blt::gp::detail::has_func_drop_v<T>)
             {
-                read_allocator.from<detail::remove_cv_ref<T>>(offset).drop();
+                auto [type, ptr] = read_allocator.access_pointer<detail::remove_cv_ref<T>>(offset);
+                if (!ptr.bit(0))
+                    type.drop();
             }
         }
 

@@ -233,24 +233,13 @@ namespace blt::gp
                     break;
                 if (op_it->is_value())
                 {
-                    if (op_it->get_flags().is_ephemeral() && op_it->has_ephemeral_drop())
-                    {
-                        // BLT_TRACE("%lu %lu %lu", total_op_bytes, values.bytes_in_head(), values.bytes_in_head() - total_op_bytes);
-                        auto& ptr = values.access_pointer_forward(total_op_bytes, op_it->type_size());
-                        --*ptr;
-                        // if (*ptr == 0)
-                        // delete *ptr;
-                    }
+                    handle_refcount_decrement(op_it, total_op_bytes);
                     total_op_bytes += op_it->type_size();
                 }
                 *op_it = *copy_it;
                 if (copy_it->is_value())
                 {
-                    if (copy_it->get_flags().is_ephemeral() && copy_it->has_ephemeral_drop())
-                    {
-                        auto& ptr = copy.values.access_pointer_forward(total_copy_bytes, copy_it->type_size());
-                        ++*ptr;
-                    }
+                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
                     total_copy_bytes += copy_it->type_size();
                 }
                 ++copy_it;
@@ -260,11 +249,7 @@ namespace blt::gp
             {
                 if (op_it->is_value())
                 {
-                    if (op_it->get_flags().is_ephemeral() && op_it->has_ephemeral_drop())
-                    {
-                        auto& ptr = values.access_pointer_forward(total_op_bytes, op_it->type_size());
-                        --*ptr;
-                    }
+                    handle_refcount_decrement(op_it, total_op_bytes);
                     total_op_bytes += op_it->type_size();
                 }
             }
@@ -273,11 +258,7 @@ namespace blt::gp
             {
                 if (copy_it->is_value())
                 {
-                    if (copy_it->get_flags().is_ephemeral() && copy_it->has_ephemeral_drop())
-                    {
-                        auto& ptr = copy.values.access_pointer_forward(total_copy_bytes, copy_it->type_size());
-                        ++*ptr;
-                    }
+                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
                     total_copy_bytes += copy_it->type_size();
                 }
                 operations.emplace_back(*copy_it);
@@ -508,6 +489,26 @@ namespace blt::gp
 
     private:
         void handle_operator_inserted(const op_container_t& op);
+
+        template<typename Iter>
+        void handle_refcount_decrement(const Iter iter, const size_t forward_bytes) const
+        {
+            if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
+            {
+                auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
+                --*ptr;
+            }
+        }
+
+        template<typename Iter>
+        void handle_refcount_increment(const Iter iter, const size_t forward_bytes) const
+        {
+            if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
+            {
+                auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
+                --*ptr;
+            }
+        }
 
         template <typename T, std::enable_if_t<!(std::is_pointer_v<T> || std::is_null_pointer_v<T>), bool>  = true>
         [[nodiscard]] evaluation_context& evaluate(const T& context) const

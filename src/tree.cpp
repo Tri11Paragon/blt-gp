@@ -500,11 +500,11 @@ namespace blt::gp
                     auto& ptr = values.access_pointer_forward(total_bytes, op.type_size());
                     --*ptr;
                     // BLT_TRACE(ptr->load());
-                    if (*ptr == 0)
-                    {
+                    // if (*ptr == 0)
+                    // {
                         // BLT_TRACE("Deleting pointers!");
                         // delete ptr.get();
-                    }
+                    // }
                 }
                 total_bytes += op.type_size();
             }
