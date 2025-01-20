@@ -54,7 +54,16 @@ namespace blt::gp
         return "(" + std::string(program.get_typesystem().get_type(id).name()) + ")";
     }
 
-    void tree_t::print(std::ostream& out, bool print_literals, bool pretty_print, bool include_types) const
+    void tree_t::byte_only_transaction_t::move(const size_t bytes_to_move)
+    {
+        bytes = bytes_to_move;
+        data = get_thread_pointer_for_size<struct move_tempoary_bytes>(bytes);
+        tree.values.copy_to(data, bytes);
+        tree.values.pop_bytes(bytes);
+    }
+
+    void tree_t::print(std::ostream& out, const bool print_literals, const bool pretty_print, const bool include_types,
+                       const ptrdiff_t marked_index) const
     {
         std::stack<blt::size_t> arguments_left;
         blt::size_t indent = 0;
@@ -72,11 +81,15 @@ namespace blt::gp
                     copy.transfer_bytes(reversed, v.type_size());
             }
         }
-        for (const auto& v : operations)
+        for (const auto& [i, v] : enumerate(operations))
         {
             auto info = m_program->get_operator_info(v.id());
             const auto name = m_program->get_name(v.id()) ? m_program->get_name(v.id()).value() : "NULL";
             auto return_type = get_return_type(*m_program, info.return_type, include_types);
+            if (static_cast<ptrdiff_t>(i) == marked_index)
+            {
+                out << "[ERROR OCCURRED HERE] -> ";
+            }
             if (info.argc.argc > 0)
             {
                 create_indent(out, indent, pretty_print) << "(";
@@ -249,10 +262,10 @@ namespace blt::gp
         return {};
     }
 
-    void tree_t::copy_subtree(const subtree_point_t point, std::vector<op_container_t>& operators, stack_allocator& stack)
+    void tree_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack)
     {
         const auto point_begin_itr = operations.begin() + point.pos;
-        const auto point_end_itr = operations.begin() + find_endpoint(point.pos);
+        const auto point_end_itr = operations.begin() + extent;
 
         const size_t after_bytes = accumulate_type_sizes(point_end_itr, operations.end());
 
@@ -395,8 +408,8 @@ namespace blt::gp
             {
                 if (v.get_flags().is_ephemeral() && v.has_ephemeral_drop())
                 {
-                    auto& pointer = other_tree.values.access_pointer(copy_bytes, v.type_size());
-                    --*pointer;
+                    auto& pointer = other_tree.values.access_pointer_forward(copy_bytes, v.type_size());
+                    ++*pointer;
                 }
                 copy_bytes += v.type_size();
             }
@@ -442,7 +455,7 @@ namespace blt::gp
     ptrdiff_t tree_t::insert_subtree(const subtree_point_t point, tree_t& other_tree)
     {
         const size_t after_bytes = accumulate_type_sizes(operations.begin() + point.pos, operations.end());
-        auto move = temporary_move(after_bytes);
+        byte_only_transaction_t transaction{*this, after_bytes};
 
         auto insert = operations.begin() + point.pos;
         size_t bytes = 0;
@@ -462,14 +475,6 @@ namespace blt::gp
         values.insert(other_tree.values);
 
         return static_cast<ptrdiff_t>(point.pos + other_tree.size());
-    }
-
-    tree_t::after_bytes_data_t tree_t::temporary_move(const size_t bytes)
-    {
-        const auto data = get_thread_pointer_for_size<struct temporary_move>(bytes);
-        values.copy_to(data, bytes);
-        values.pop_bytes(bytes);
-        return after_bytes_data_t{*this, data, bytes};
     }
 
 
@@ -514,7 +519,7 @@ namespace blt::gp
 
     bool tree_t::check(void* context) const
     {
-        blt::size_t bytes_expected = 0;
+        size_t bytes_expected = 0;
         const auto bytes_size = values.size().total_used_bytes;
 
         for (const auto& op : operations)
@@ -525,47 +530,60 @@ namespace blt::gp
 
         if (bytes_expected != bytes_size)
         {
-            BLT_WARN_STREAM << "Stack state: " << values.size() << "\n";
-            BLT_WARN("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
-                     static_cast<blt::ptrdiff_t>(bytes_expected) - static_cast<blt::ptrdiff_t>(bytes_size));
-            BLT_WARN("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
+            BLT_ERROR_STREAM << "Stack state: " << values.size() << "\n";
+            BLT_ERROR("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
+                      static_cast<ptrdiff_t>(bytes_expected) - static_cast<ptrdiff_t>(bytes_size));
+            BLT_ERROR("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
             return false;
         }
 
-        // copy the initial values
-        evaluation_context results{};
-
-        auto value_stack = values;
-        auto& values_process = results.values;
-
         size_t total_produced = 0;
         size_t total_consumed = 0;
+        size_t index = 0;
 
-        for (const auto& operation : iterate(operations).rev())
+        try
         {
-            if (operation.is_value())
+            // copy the initial values
+            evaluation_context results{};
+
+            auto value_stack = values;
+            auto& values_process = results.values;
+
+            for (const auto& operation : iterate(operations).rev())
             {
-                value_stack.transfer_bytes(values_process, operation.type_size());
-                total_produced += operation.type_size();
-                continue;
+                ++index;
+                if (operation.is_value())
+                {
+                    value_stack.transfer_bytes(values_process, operation.type_size());
+                    total_produced += operation.type_size();
+                    continue;
+                }
+                auto& info = m_program->get_operator_info(operation.id());
+                for (auto& arg : info.argument_types)
+                    total_consumed += m_program->get_typesystem().get_type(arg).size();
+                m_program->get_operator_info(operation.id()).func(context, values_process, values_process);
+                total_produced += m_program->get_typesystem().get_type(info.return_type).size();
             }
-            auto& info = m_program->get_operator_info(operation.id());
-            for (auto& arg : info.argument_types)
-                total_consumed += m_program->get_typesystem().get_type(arg).size();
-            m_program->get_operator_info(operation.id()).func(context, values_process, values_process);
-            total_produced += m_program->get_typesystem().get_type(info.return_type).size();
+
+            const auto v1 = results.values.bytes_in_head();
+            const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
+
+            m_program->get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values);
+            if (v1 != v2)
+            {
+                const auto vd = std::abs(v1 - v2);
+                BLT_ERROR("found %ld bytes expected %ld bytes, total difference: %ld", v1, v2, vd);
+                BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
+                          std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
+                return false;
+            }
         }
-
-        const auto v1 = results.values.bytes_in_head();
-        const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
-
-        m_program->get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values);
-        if (v1 != v2)
+        catch (std::exception& e)
         {
-            const auto vd = std::abs(v1 - v2);
-            BLT_ERROR("found %ld bytes expected %ld bytes, total difference: %ld", v1, v2, vd);
+            BLT_ERROR("Exception occurred \"%s\"", e.what());
             BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
                       std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
+            BLT_ERROR("We failed at index %lu", index);
             return false;
         }
         return true;
@@ -611,8 +629,8 @@ namespace blt::gp
                     // BLT_TRACE(ptr->load());
                     // if (*ptr == 0)
                     // {
-                        // BLT_TRACE("Deleting pointers!");
-                        // delete ptr.get();
+                    // BLT_TRACE("Deleting pointers!");
+                    // delete ptr.get();
                     // }
                 }
                 total_bytes += op.type_size();
@@ -620,6 +638,16 @@ namespace blt::gp
         }
         operations.clear();
         values.reset();
+    }
+
+    void tree_t::insert_operator(const size_t index, const op_container_t& container)
+    {
+        if (container.get_flags().is_ephemeral())
+        {
+            byte_only_transaction_t move{*this, total_value_bytes(index)};
+            handle_operator_inserted(container);
+        }
+        operations.insert(operations.begin() + static_cast<ptrdiff_t>(index), container);
     }
 
     tree_t::subtree_point_t tree_t::subtree_from_point(ptrdiff_t point) const
@@ -631,11 +659,29 @@ namespace blt::gp
     {
         if (!return_type)
             return_type = m_program->get_operator_info(new_id).return_type;
+        byte_only_transaction_t move_data{*this};
+        if (operations[point].is_value())
+        {
+            const size_t after_bytes = accumulate_type_sizes(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+            move_data.move(after_bytes);
+            if (operations[point].get_flags().is_ephemeral() && operations[point].has_ephemeral_drop())
+            {
+                const auto& ptr = values.access_pointer(operations[point].type_size(), operations[point].type_size());
+                --*ptr;
+                if (*ptr == 0)
+                {
+                    // TODO:
+                }
+            }
+            values.pop_bytes(operations[point].type_size());
+        }
         operations[point] = {
             m_program->get_typesystem().get_type(*return_type).size(),
             new_id,
             m_program->is_operator_ephemeral(new_id),
             m_program->get_operator_flags(new_id)
         };
+        if (operations[point].get_flags().is_ephemeral())
+            handle_operator_inserted(operations[point]);
     }
 }

@@ -193,7 +193,7 @@ namespace blt::gp
             constexpr auto size = aligned_size<NO_REF>();
 #if BLT_DEBUG_LEVEL > 0
             if (bytes_stored < size)
-                BLT_ABORT("Not enough bytes left to pop!");
+                throw std::runtime_error(("Not enough bytes left to pop!" __FILE__ ":") + std::to_string(__LINE__));
 #endif
             bytes_stored -= size;
             return *reinterpret_cast<T*>(data_ + bytes_stored);
@@ -203,8 +203,9 @@ namespace blt::gp
         {
 #if BLT_DEBUG_LEVEL > 0
             if (bytes_stored < bytes)
-                BLT_ABORT(("Not enough bytes in stack to reference " + std::to_string(bytes) + " bytes requested but " + std::to_string(bytes) +
-                " bytes stored!").c_str());
+                throw std::runtime_error(
+                    "Not enough bytes in stack! " + std::to_string(bytes) + " bytes requested but only " + std::to_string(bytes_stored) +
+                    (" bytes stored! (at " __FILE__ ":") + std::to_string(__LINE__));
 #endif
             return data_ + (bytes_stored - bytes);
         }
@@ -237,8 +238,11 @@ namespace blt::gp
         [[nodiscard]] std::pair<T&, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer(const size_t bytes) const
         {
             auto& type_ref = from<T>(bytes);
-            return {type_ref, *std::launder(
-                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) + detail::aligned_size(sizeof(T))))};
+            return {
+                type_ref, *std::launder(
+                    reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) +
+                        detail::aligned_size(sizeof(T))))
+            };
         }
 
         void pop_bytes(const size_t bytes)
@@ -256,8 +260,9 @@ namespace blt::gp
         {
 #if BLT_DEBUG_LEVEL > 0
             if (bytes_stored < aligned_bytes)
-                BLT_ABORT(("Not enough bytes in stack to transfer " + std::to_string(aligned_bytes) + " bytes requested but " + std::to_string(aligned_bytes) +
-                " bytes stored!").c_str());
+                BLT_ABORT(
+                ("Not enough bytes in stack to transfer " + std::to_string(aligned_bytes) + " bytes requested but " + std::to_string(aligned_bytes) +
+                    " bytes stored!").c_str());
             gp::detail::check_alignment(aligned_bytes);
 #endif
             to.copy_from(*this, aligned_bytes);

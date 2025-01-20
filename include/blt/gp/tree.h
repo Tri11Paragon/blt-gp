@@ -198,23 +198,30 @@ namespace blt::gp
             }
         };
 
-        struct after_bytes_data_t
+        struct byte_only_transaction_t
         {
-            after_bytes_data_t(tree_t& tree, u8* data, const size_t bytes): tree(tree), data(data), bytes(bytes)
+            byte_only_transaction_t(tree_t& tree, const size_t bytes): tree(tree), data(nullptr), bytes(bytes)
+            {
+                move(bytes);
+            }
+
+            explicit byte_only_transaction_t(tree_t& tree): tree(tree), data(nullptr), bytes(0)
             {
             }
 
-            after_bytes_data_t(const after_bytes_data_t& copy) = delete;
-            after_bytes_data_t& operator=(const after_bytes_data_t& copy) = delete;
+            byte_only_transaction_t(const byte_only_transaction_t& copy) = delete;
+            byte_only_transaction_t& operator=(const byte_only_transaction_t& copy) = delete;
 
-            after_bytes_data_t(after_bytes_data_t&& move) noexcept: tree(move.tree), data(std::exchange(move.data, nullptr)),
-                                                                    bytes(std::exchange(move.bytes, 0))
+            byte_only_transaction_t(byte_only_transaction_t&& move) noexcept: tree(move.tree), data(std::exchange(move.data, nullptr)),
+                                                                              bytes(std::exchange(move.bytes, 0))
             {
             }
 
-            after_bytes_data_t& operator=(after_bytes_data_t&& move) noexcept = delete;
+            byte_only_transaction_t& operator=(byte_only_transaction_t&& move) noexcept = delete;
 
-            ~after_bytes_data_t()
+            void move(size_t bytes_to_move);
+
+            ~byte_only_transaction_t()
             {
                 if (bytes > 0)
                 {
@@ -314,6 +321,8 @@ namespace blt::gp
 
         void clear(gp_program& program);
 
+        void insert_operator(size_t index, const op_container_t& container);
+
         void insert_operator(const op_container_t& container)
         {
             operations.emplace_back(container);
@@ -360,12 +369,34 @@ namespace blt::gp
                                                                              double depth_multiplier = 0.6) const;
 
         /**
+                 * Copies the subtree found at point into the provided out params
+                 * @param point subtree point
+                 * @param extent how far the subtree extends
+                 * @param operators vector for storing subtree operators
+                 * @param stack stack for storing subtree values
+                 */
+        void copy_subtree(subtree_point_t point, ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack);
+
+        /**
          * Copies the subtree found at point into the provided out params
          * @param point subtree point
          * @param operators vector for storing subtree operators
          * @param stack stack for storing subtree values
          */
-        void copy_subtree(subtree_point_t point, std::vector<op_container_t>& operators, stack_allocator& stack);
+        void copy_subtree(const subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack)
+        {
+            copy_subtree(point, find_endpoint(point.pos), operators, stack);
+        }
+
+        void copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& out_tree)
+        {
+            copy_subtree(point, extent, out_tree.operations, out_tree.values);
+        }
+
+        void copy_subtree(const subtree_point_t point, tree_t& out_tree)
+        {
+            copy_subtree(point, find_endpoint(point.pos), out_tree);
+        }
 
         /**
          * Swaps the subtrees between this tree and the other tree
@@ -425,9 +456,14 @@ namespace blt::gp
          * temporarily moves the last bytes amount of data from the current stack. this can be useful for if you are going to do a lot
          * of consecutive operations on the tree as this will avoid extra copy + reinsert.
          * The object returned by this function will automatically move the data back in when it goes out of scope.
-         * @param bytes amount of bytes to remove.
+         * @param operator_index operator index to move from. this is inclusive
          */
-        after_bytes_data_t temporary_move(size_t bytes);
+        void temporary_move(const size_t operator_index)
+        {
+            // return obt_move_t{*this, operator_index};
+        }
+
+        void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {});
 
         /**
         *   User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
@@ -489,8 +525,8 @@ namespace blt::gp
             return evaluation_ref<T>{val, ctx};
         }
 
-        void print(std::ostream& output, bool print_literals = true, bool pretty_indent = false,
-                   bool include_types = false) const;
+        void print(std::ostream& out, bool print_literals = true, bool pretty_indent = false, bool include_types = false,
+                   ptrdiff_t marked_index = -1) const;
 
         bool check(void* context) const;
 
@@ -536,8 +572,6 @@ namespace blt::gp
         {
             return operations[point];
         }
-
-        void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {});
 
         [[nodiscard]] subtree_point_t subtree_from_point(ptrdiff_t point) const;
 
@@ -616,6 +650,10 @@ namespace blt::gp
         stack_allocator values;
         gp_program* m_program;
 
+        /*
+         * Static members
+         * --------------
+         */
     protected:
         template <typename Context, typename Operator>
         static void execute(void* context, stack_allocator& write_stack, stack_allocator& read_stack, Operator& operation)
