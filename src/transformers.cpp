@@ -404,6 +404,11 @@ namespace blt::gp
                     thread_local tree_t child_tree{program};
 
                     c.copy_subtree(tree_t::subtree_point_t(child.start), child.end, child_tree);
+                    if (!child_tree.check(detail::debug::context_ptr))
+                    {
+                        child_tree.print(std::cout, false, true);
+                        BLT_ABORT("We found an error");
+                    }
                     c.delete_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)));
                     c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)), child_tree);
                     child_tree.clear(program);
