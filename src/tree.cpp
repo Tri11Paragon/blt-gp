@@ -269,8 +269,13 @@ namespace blt::gp
 
         const size_t after_bytes = accumulate_type_sizes(point_end_itr, operations.end());
 
-        operators.reserve(operators.size() + std::distance(point_begin_itr, point_end_itr));
+        const size_t ops = std::distance(point_begin_itr, point_end_itr);
+        operators.reserve(operators.size() + ops);
+        // TODO something better!
+        for (size_t i = 0; i < ops; ++i)
+            operators.emplace_back(0,0,false, operator_special_flags{});
         size_t for_bytes = 0;
+        size_t pos = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
         {
             if (it.is_value())
@@ -282,7 +287,7 @@ namespace blt::gp
                     ++*ptr;
                 }
             }
-            operators.emplace_back(it);
+            operators[operators.size() - 1 - (pos++)] = it;
         }
 
         stack.copy_from(values, for_bytes, after_bytes);
@@ -682,6 +687,13 @@ namespace blt::gp
             m_program->get_operator_flags(new_id)
         };
         if (operations[point].get_flags().is_ephemeral())
+        {
+            if (move_data.empty())
+            {
+                const size_t after_bytes = accumulate_type_sizes(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+                move_data.move(after_bytes);
+            }
             handle_operator_inserted(operations[point]);
+        }
     }
 }

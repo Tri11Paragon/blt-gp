@@ -221,9 +221,14 @@ namespace blt::gp
 
             void move(size_t bytes_to_move);
 
+            [[nodiscard]] bool empty() const
+            {
+                return bytes == 0;
+            }
+
             ~byte_only_transaction_t()
             {
-                if (bytes > 0)
+                if (!empty())
                 {
                     tree.values.copy_from(data, bytes);
                     bytes = 0;
@@ -458,7 +463,7 @@ namespace blt::gp
          * The object returned by this function will automatically move the data back in when it goes out of scope.
          * @param operator_index operator index to move from. this is inclusive
          */
-        void temporary_move(const size_t operator_index)
+        void temporary_move(const size_t)
         {
             // return obt_move_t{*this, operator_index};
         }

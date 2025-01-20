@@ -26,6 +26,26 @@
 
 namespace blt::gp
 {
+#if BLT_DEBUG_LEVEL >= 2
+    std::atomic_uint64_t mutate_point_counter = 0;
+    std::atomic_uint64_t mutate_expression_counter = 0;
+    std::atomic_uint64_t mutate_adjust_counter = 0;
+    std::atomic_uint64_t mutate_sub_func_counter = 0;
+    std::atomic_uint64_t mutate_jump_counter = 0;
+    std::atomic_uint64_t mutate_copy_counter = 0;
+
+    inline void print_mutate_stats()
+    {
+        std::cerr << "Mutation statistics:" << std::endl;
+        std::cerr << "\tSuccessful Point Mutations: " << mutate_point_counter << std::endl;
+        std::cerr << "\tSuccessful Expression Mutations: " << mutate_expression_counter << std::endl;
+        std::cerr << "\tSuccessful Adjust Mutations: " << mutate_adjust_counter << std::endl;
+        std::cerr << "\tSuccessful Sub Func Mutations: " << mutate_sub_func_counter << std::endl;
+        std::cerr << "\tSuccessful Func Jump Mutations: " << mutate_jump_counter << std::endl;
+        std::cerr << "\tSuccessful Copy Mutations: " << mutate_copy_counter << std::endl;
+    }
+#endif
+
     grow_generator_t grow_generator;
 
     inline tree_t& get_static_tree_tl(gp_program& program)
@@ -84,8 +104,6 @@ namespace blt::gp
             throw std::runtime_error("Tree check failed");
 #endif
 
-        c1.get_depth(program);
-
         return true;
     }
 
@@ -137,7 +155,11 @@ namespace blt::gp
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
         if (!c.check(detail::debug::context_ptr))
+        {
+            print_mutate_stats();
             throw std::runtime_error("Mutate Point tree check failed");
+        }
+        ++mutate_point_counter;
 #endif
         return node.pos + new_tree.size();
     }
@@ -146,21 +168,11 @@ namespace blt::gp
     {
         for (size_t c_node = 0; c_node < c.size(); c_node++)
         {
+#if BLT_DEBUG_LEVEL >= 2
+            auto c_copy = c;
+#endif
             if (!program.get_random().choice(per_node_mutation_chance / static_cast<double>(c.size())))
                 continue;
-
-#if BLT_DEBUG_LEVEL >= 2
-            tree_t c_copy = c;
-            if (!c.check(detail::debug::context_ptr))
-            {
-                std::cout << "Parent: " << std::endl;
-                p.print(std::cout, false, false);
-                std::cout << "Child Values:" << std::endl;
-                c.print(std::cout, false, false);
-                std::cout << std::endl;
-                BLT_ABORT("Pre-check Tree Check Failed.");
-            }
-#endif
 
             // select an operator to apply
             auto selected_point = static_cast<i32>(mutation_operator::COPY);
@@ -189,6 +201,9 @@ namespace blt::gp
             {
             case mutation_operator::EXPRESSION:
                 c_node += mutate_point(program, c, c.subtree_from_point(static_cast<ptrdiff_t>(c_node)));
+#if BLT_DEBUG_LEVEL >= 2
+                ++mutate_expression_counter;
+#endif
                 break;
             case mutation_operator::ADJUST:
                 {
@@ -239,7 +254,11 @@ namespace blt::gp
 
 #if BLT_DEBUG_LEVEL >= 2
                                 if (!c.check(detail::debug::context_ptr))
+                                {
+                                    print_mutate_stats();
                                     throw std::runtime_error("Adjust Tree check failed");
+                                }
+                                ++mutate_adjust_counter;
 #endif
                             }
                         }
@@ -286,8 +305,10 @@ namespace blt::gp
                         std::cout << "Child Values:" << std::endl;
                         c.print(std::cout, false, false);
                         std::cout << std::endl;
+                        print_mutate_stats();
                         BLT_ABORT("Adjust Tree Check Failed.");
                     }
+                    ++mutate_adjust_counter;
 #endif
                 }
                 break;
@@ -373,8 +394,10 @@ namespace blt::gp
                         std::cout << "Child:" << std::endl;
                         c.print(std::cout, false, false);
                         std::cout << std::endl;
+                        print_mutate_stats();
                         BLT_ABORT("SUB_FUNC Tree Check Failed.");
                     }
+                    ++mutate_sub_func_counter;
 #endif
                 }
                 break;
@@ -404,11 +427,6 @@ namespace blt::gp
                     thread_local tree_t child_tree{program};
 
                     c.copy_subtree(tree_t::subtree_point_t(child.start), child.end, child_tree);
-                    if (!child_tree.check(detail::debug::context_ptr))
-                    {
-                        child_tree.print(std::cout, false, true);
-                        BLT_ABORT("We found an error");
-                    }
                     c.delete_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)));
                     c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)), child_tree);
                     child_tree.clear(program);
@@ -448,8 +466,10 @@ namespace blt::gp
                         c.print(std::cout, false, false);
                         std::cout << std::endl;
                         BLT_ERROR("Failed at mutation index %lu/%lu", c_node, c.size());
+                        print_mutate_stats();
                         BLT_ABORT("JUMP_FUNC Tree Check Failed.");
                     }
+                    ++mutate_jump_counter;
 #endif
                 }
                 break;
@@ -515,8 +535,10 @@ namespace blt::gp
                         std::cout << "Child Values:" << std::endl;
                         c.print(std::cout, false, false);
                         std::cout << std::endl;
+                        print_mutate_stats();
                         BLT_ABORT("COPY Tree Check Failed.");
                     }
+                    ++mutate_copy_counter;
 #endif
 
                     // size_t from_bytes = c.total_value_bytes(from_child.start, from_child.end);
