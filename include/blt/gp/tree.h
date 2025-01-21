@@ -290,17 +290,17 @@ namespace blt::gp
             {
                 if (copy_it == copy.operations.end())
                     break;
+                if (copy_it->is_value())
+                {
+                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
+                    total_copy_bytes += copy_it->type_size();
+                }
                 if (op_it->is_value())
                 {
                     handle_refcount_decrement(op_it, total_op_bytes);
                     total_op_bytes += op_it->type_size();
                 }
                 *op_it = *copy_it;
-                if (copy_it->is_value())
-                {
-                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
-                    total_copy_bytes += copy_it->type_size();
-                }
                 ++copy_it;
             }
             const auto op_it_cpy = op_it;

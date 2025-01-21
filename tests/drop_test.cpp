@@ -28,23 +28,28 @@ std::atomic_uint64_t ephemeral_drop = 0;
 
 struct drop_type
 {
-    float value;
+    float* m_value;
     bool ephemeral = false;
 
-    drop_type() : value(0)
+    drop_type() : m_value(new float(0))
     {
         ++normal_construct;
     }
 
-    explicit drop_type(const float silly) : value(silly)
+    explicit drop_type(const float silly) : m_value(new float(silly))
     {
         ++normal_construct;
     }
 
-    explicit drop_type(const float silly, bool) : value(silly), ephemeral(true)
+    explicit drop_type(const float silly, bool) : m_value(new float(silly)), ephemeral(true)
     {
         // BLT_TRACE("Constructor with value %f", silly);
         ++ephemeral_construct;
+    }
+
+    [[nodiscard]] float value() const
+    {
+        return *m_value;
     }
 
     void drop() const
@@ -55,11 +60,12 @@ struct drop_type
             ++ephemeral_drop;
         }else
             ++normal_drop;
+        delete m_value;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const drop_type& dt)
     {
-        os << dt.value;
+        os << dt.m_value;
         return os;
     }
 };
@@ -83,14 +89,14 @@ prog_config_t config = prog_config_t()
 
 example::symbolic_regression_t regression{691ul, config};
 
-operation_t add{[](const drop_type a, const drop_type b) { return drop_type{a.value + b.value}; }, "add"};
-operation_t sub([](const drop_type a, const drop_type b) { return drop_type{a.value - b.value}; }, "sub");
-operation_t mul([](const drop_type a, const drop_type b) { return drop_type{a.value * b.value}; }, "mul");
-operation_t pro_div([](const drop_type a, const drop_type b) { return drop_type{b.value == 0.0f ? 0.0f : a.value / b.value}; }, "div");
-operation_t op_sin([](const drop_type a) { return drop_type{std::sin(a.value)}; }, "sin");
-operation_t op_cos([](const drop_type a) { return drop_type{std::cos(a.value)}; }, "cos");
-operation_t op_exp([](const drop_type a) { return drop_type{std::exp(a.value)}; }, "exp");
-operation_t op_log([](const drop_type a) { return drop_type{a.value <= 0.0f ? 0.0f : std::log(a.value)}; }, "log");
+operation_t add{[](const drop_type a, const drop_type b) { return drop_type{a.value() + b.value()}; }, "add"};
+operation_t sub([](const drop_type a, const drop_type b) { return drop_type{a.value() - b.value()}; }, "sub");
+operation_t mul([](const drop_type a, const drop_type b) { return drop_type{a.value() * b.value()}; }, "mul");
+operation_t pro_div([](const drop_type a, const drop_type b) { return drop_type{b.value() == 0.0f ? 0.0f : a.value() / b.value()}; }, "div");
+operation_t op_sin([](const drop_type a) { return drop_type{std::sin(a.value())}; }, "sin");
+operation_t op_cos([](const drop_type a) { return drop_type{std::cos(a.value())}; }, "cos");
+operation_t op_exp([](const drop_type a) { return drop_type{std::exp(a.value())}; }, "exp");
+operation_t op_log([](const drop_type a) { return drop_type{a.value() <= 0.0f ? 0.0f : std::log(a.value())}; }, "log");
 auto lit = operation_t([]()
 {
     return drop_type{regression.get_program().get_random().get_float(-1.0f, 1.0f), true};
@@ -108,7 +114,7 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
     {
         BLT_GP_UPDATE_CONTEXT(fitness_case);
         auto val = current_tree.get_evaluation_ref<drop_type>(fitness_case);
-        const auto diff = std::abs(fitness_case.y - val.get().value);
+        const auto diff = std::abs(fitness_case.y - val.get().value());
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;

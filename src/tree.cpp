@@ -273,7 +273,7 @@ namespace blt::gp
         operators.reserve(operators.size() + ops);
         // TODO something better!
         for (size_t i = 0; i < ops; ++i)
-            operators.emplace_back(0,0,false, operator_special_flags{});
+            operators.emplace_back(0, 0, false, operator_special_flags{});
         size_t for_bytes = 0;
         size_t pos = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
@@ -576,7 +576,9 @@ namespace blt::gp
             const auto v1 = results.values.bytes_in_head();
             const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
 
-            m_program->get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values.from(operations.front().type_size()));
+            // ephemeral don't need to be dropped as there are no copies which matter when checking the tree
+            if (!operations.front().get_flags().is_ephemeral())
+                m_program->get_destroy_func(operations.front().id())(detail::destroy_t::RETURN, results.values.from(operations.front().type_size()));
             if (v1 != v2)
             {
                 const auto vd = std::abs(v1 - v2);
