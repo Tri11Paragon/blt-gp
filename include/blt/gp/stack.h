@@ -218,20 +218,20 @@ namespace blt::gp
             return *reinterpret_cast<NO_REF*>(from(aligned_size<NO_REF>() + bytes));
         }
 
-        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer(const size_t bytes, const size_t type_size) const
+        [[nodiscard]] std::pair<u8*, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer(const size_t bytes, const size_t type_size) const
         {
             const auto type_ref = from(bytes);
-            return *std::launder(
+            return {type_ref, *std::launder(
                 reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
-                    sizeof(std::atomic_uint64_t*)))));
+                    sizeof(std::atomic_uint64_t*)))))};
         }
 
-        [[nodiscard]] mem::pointer_storage<std::atomic_uint64_t>& access_pointer_forward(const size_t bytes, const size_t type_size) const
+        [[nodiscard]] std::pair<u8*, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer_forward(const size_t bytes, const size_t type_size) const
         {
             const auto type_ref = data_ + bytes;
-            return *std::launder(
+            return {type_ref, *std::launder(
                 reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
-                    sizeof(std::atomic_uint64_t*)))));
+                    sizeof(std::atomic_uint64_t*)))))};
         }
 
         template <typename T>

@@ -254,18 +254,15 @@ namespace blt::gp
                     out << "[Printing Value on '" << (op.get_name() ? *op.get_name() : "") << "' Not Supported!]";
                 }
             });
-            storage.destroy_funcs.push_back([](const detail::destroy_t type, stack_allocator& alloc)
+            storage.destroy_funcs.push_back([](const detail::destroy_t type, u8* data)
             {
                 switch (type)
                 {
-                case detail::destroy_t::ARGS:
-                    // alloc.call_destructors<Args...>();
-                        BLT_ERROR("Unimplemented");
-                    break;
+                case detail::destroy_t::PTR:
                 case detail::destroy_t::RETURN:
                     if constexpr (detail::has_func_drop_v<remove_cvref_t<Return>>)
                     {
-                        alloc.from<detail::remove_cv_ref<Return>>(0).drop();
+                        reinterpret_cast<detail::remove_cv_ref<Return>*>(data)->drop();
                     }
                     break;
                 }

@@ -117,8 +117,10 @@ namespace blt::gp
     class evaluation_ref
     {
     public:
-        explicit evaluation_ref(T& value, evaluation_context& context): m_value(&value), m_context(&context)
+        explicit evaluation_ref(const bool ephemeral, T& value, evaluation_context& context): m_value(&value), m_context(&context)
         {
+            if (ephemeral)
+                m_value.bit(0, true);
         }
 
         evaluation_ref(const evaluation_ref& copy) = delete;
@@ -157,20 +159,26 @@ namespace blt::gp
             return *m_value;
         }
 
+        T* operator->()
+        {
+            return m_value.get();
+        }
+
         ~evaluation_ref()
         {
             if constexpr (detail::has_func_drop_v<T>)
             {
-                if (m_value != nullptr)
+                if (m_value.get() != nullptr)
                 {
-                    m_value->drop();
+                    if (!m_value.bit(0))
+                        m_value->drop();
                     m_context->values.reset();
                 }
             }
         }
 
     private:
-        T* m_value;
+        mem::pointer_storage<T> m_value;
         evaluation_context* m_context;
     };
 
@@ -480,12 +488,8 @@ namespace blt::gp
         {
             auto& ctx = evaluate(context);
             auto val = ctx.values.template from<T>(0);
-            if constexpr (detail::has_func_drop_v<T>)
-            {
-                ctx.values.template from<T>(0).drop();
-            }
-            ctx.values.reset();
-            return val;
+            evaluation_ref<T> ref{operations.front().get_flags().is_ephemeral(), val, ctx};
+            return ref.get();
         }
 
         /**
@@ -498,12 +502,8 @@ namespace blt::gp
         {
             auto& ctx = evaluate();
             auto val = ctx.values.from<T>(0);
-            if constexpr (detail::has_func_drop_v<T>)
-            {
-                ctx.values.from<T>(0).drop();
-            }
-            ctx.values.reset();
-            return val;
+            evaluation_ref<T> ref{operations.front().get_flags().is_ephemeral(), val, ctx};
+            return ref.get();
         }
 
         /**
@@ -515,7 +515,7 @@ namespace blt::gp
         {
             auto& ctx = evaluate(context);
             auto& val = ctx.values.template from<T>(0);
-            return evaluation_ref<T>{val, ctx};
+            return evaluation_ref<T>{operations.front().get_flags().is_ephemeral(), val, ctx};
         }
 
         /**
@@ -527,7 +527,7 @@ namespace blt::gp
         {
             auto& ctx = evaluate();
             auto& val = ctx.values.from<T>(0);
-            return evaluation_ref<T>{val, ctx};
+            return evaluation_ref<T>{operations.front().get_flags().is_ephemeral(), val, ctx};
         }
 
         void print(std::ostream& out, bool print_literals = true, bool pretty_indent = false, bool include_types = false,
@@ -616,14 +616,17 @@ namespace blt::gp
     private:
         void handle_operator_inserted(const op_container_t& op);
 
+        void handle_ptr_empty(const mem::pointer_storage<std::atomic_uint64_t>& ptr, u8* data, operator_id id) const;
+
         template <typename Iter>
         void handle_refcount_decrement(const Iter iter, const size_t forward_bytes) const
         {
             if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
             {
-                // TODO
-                auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
+                auto [val, ptr] = values.access_pointer_forward(forward_bytes, iter->type_size());
                 --*ptr;
+                if (*ptr == 0)
+                    handle_ptr_empty(ptr, val, iter->id());
             }
         }
 
@@ -632,9 +635,8 @@ namespace blt::gp
         {
             if (iter->get_flags().is_ephemeral() && iter->has_ephemeral_drop())
             {
-                // TODO
-                auto& ptr = values.access_pointer_forward(forward_bytes, iter->type_size());
-                --*ptr;
+                auto [_, ptr] = values.access_pointer_forward(forward_bytes, iter->type_size());
+                ++*ptr;
             }
         }
 

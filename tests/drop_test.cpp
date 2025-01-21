@@ -50,8 +50,10 @@ struct drop_type
     void drop() const
     {
         if (ephemeral)
+        {
+            std::cout << ("Ephemeral drop") << std::endl;
             ++ephemeral_drop;
-        else
+        }else
             ++normal_drop;
     }
 
@@ -73,7 +75,7 @@ prog_config_t config = prog_config_t()
                        .set_elite_count(2)
                        .set_crossover_chance(0.8)
                        .set_mutation_chance(0.0)
-                       .set_reproduction_chance(0.0)
+                       .set_reproduction_chance(0.1)
                        .set_max_generations(50)
                        .set_pop_size(50)
                        .set_thread_count(1);
@@ -132,6 +134,7 @@ int main()
     program.generate_population(program.get_typesystem().get_type<drop_type>().id(), fitness_function, sel, sel, sel);
     while (!program.should_terminate())
     {
+        BLT_TRACE("---------------{Begin Generation %lu}---------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
         program.create_next_generation();
         BLT_TRACE("Move to next generation");
@@ -142,8 +145,13 @@ int main()
 
     // program.get_best_individuals<1>()[0].get().tree.print(program, std::cout, true, true);
 
+    regression.get_program().get_current_pop().clear();
+    regression.get_program().next_generation();
+    regression.get_program().get_current_pop().clear();
+
     BLT_TRACE("Created %ld times", normal_construct.load());
     BLT_TRACE("Dropped %ld times", normal_drop.load());
     BLT_TRACE("Ephemeral created %ld times", ephemeral_construct.load());
     BLT_TRACE("Ephemeral dropped %ld times", ephemeral_drop.load());
+
 }

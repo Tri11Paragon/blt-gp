@@ -76,11 +76,11 @@ namespace blt::gp
         
         enum class destroy_t
         {
-            ARGS,
+            PTR,
             RETURN
         };
         
-        using destroy_func_t = std::function<void(destroy_t, stack_allocator&)>;
+        using destroy_func_t = std::function<void(destroy_t, u8*)>;
         
         using const_op_iter_t = tracked_vector<op_container_t>::const_iterator;
         using op_iter_t = tracked_vector<op_container_t>::iterator;
