@@ -25,6 +25,7 @@ std::atomic_uint64_t normal_construct = 0;
 std::atomic_uint64_t ephemeral_construct = 0;
 std::atomic_uint64_t normal_drop = 0;
 std::atomic_uint64_t ephemeral_drop = 0;
+std::atomic_uint64_t max_allocated = 0;
 
 struct drop_type
 {
@@ -109,6 +110,8 @@ operation_t op_x([](const context& context)
 
 bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
 {
+    if (normal_construct - normal_drop > max_allocated)
+        max_allocated = normal_construct - normal_drop;
     constexpr static double value_cutoff = 1.e15;
     for (auto& fitness_case : regression.get_training_cases())
     {
@@ -159,5 +162,6 @@ int main()
     BLT_TRACE("Dropped %ld times", normal_drop.load());
     BLT_TRACE("Ephemeral created %ld times", ephemeral_construct.load());
     BLT_TRACE("Ephemeral dropped %ld times", ephemeral_drop.load());
+    BLT_TRACE("Max allocated %ld times", max_allocated.load());
 
 }
