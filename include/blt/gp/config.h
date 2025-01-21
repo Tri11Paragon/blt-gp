@@ -52,9 +52,9 @@ namespace blt::gp
         std::reference_wrapper<crossover_t> crossover;
         std::reference_wrapper<population_initializer_t> pop_initializer;
 
-        blt::size_t threads = std::thread::hardware_concurrency();
+        size_t threads = std::thread::hardware_concurrency();
         // number of elements each thread should pull per execution. this is for granularity performance and can be optimized for better results!
-        blt::size_t evaluation_size = 4;
+        size_t evaluation_size = 4;
 
         // default config (ramped half-and-half init) or for buildering
         prog_config_t();

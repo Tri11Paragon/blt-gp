@@ -297,11 +297,13 @@ namespace blt::gp
         explicit gp_program(blt::u64 seed): seed_func([seed] { return seed; })
         {
             create_threads();
+            selection_probabilities.update(config);
         }
 
         explicit gp_program(blt::u64 seed, const prog_config_t& config): seed_func([seed] { return seed; }), config(config)
         {
             create_threads();
+            selection_probabilities.update(config);
         }
 
         /**
@@ -312,11 +314,13 @@ namespace blt::gp
         explicit gp_program(std::function<blt::u64()> seed_func): seed_func(std::move(seed_func))
         {
             create_threads();
+            selection_probabilities.update(config);
         }
 
         explicit gp_program(std::function<blt::u64()> seed_func, const prog_config_t& config): seed_func(std::move(seed_func)), config(config)
         {
             create_threads();
+            selection_probabilities.update(config);
         }
 
         ~gp_program()
@@ -398,11 +402,10 @@ namespace blt::gp
          *
          * NOTE: 0 is considered the best, in terms of standardized fitness
          */
-        template <typename FitnessFunc, typename Crossover, typename Mutation, typename Reproduction, typename CreationFunc = decltype(
-                      default_next_pop_creator<Crossover, Mutation, Reproduction>)>
+        template <typename FitnessFunc, typename Crossover, typename Mutation, typename Reproduction>
         void generate_population(type_id root_type, FitnessFunc& fitness_function,
                                  Crossover& crossover_selection, Mutation& mutation_selection, Reproduction& reproduction_selection,
-                                 CreationFunc& func = default_next_pop_creator<Crossover, Mutation, Reproduction>, bool eval_fitness_now = true)
+                                 bool eval_fitness_now = true)
         {
             using LambdaReturn = std::invoke_result_t<decltype(fitness_function), const tree_t&, fitness_t&, size_t>;
             current_pop = config.pop_initializer.get().generate(
@@ -415,8 +418,8 @@ namespace blt::gp
             if (config.threads == 1)
             {
                 BLT_INFO("Starting with single thread variant!");
-                thread_execution_service = std::unique_ptr<std::function<void(blt::size_t)>>(new std::function(
-                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](blt::size_t)
+                thread_execution_service = std::unique_ptr<std::function<void(size_t)>>(new std::function(
+                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection](size_t)
                     {
                         if (thread_helper.evaluation_left > 0)
                         {
@@ -427,8 +430,7 @@ namespace blt::gp
                                 ind.fitness = {};
                                 if constexpr (std::is_same_v<LambdaReturn, bool> || std::is_convertible_v<LambdaReturn, bool>)
                                 {
-                                    auto result = fitness_function(ind.tree, ind.fitness, index);
-                                    if (result)
+                                    if (fitness_function(ind.tree, ind.fitness, index))
                                         fitness_should_exit = true;
                                 }
                                 else
@@ -458,7 +460,7 @@ namespace blt::gp
                             mutation_selection.pre_process(*this, current_pop);
                             reproduction_selection.pre_process(*this, current_pop);
 
-                            blt::size_t start = perform_elitism(args, next_pop);
+                            size_t start = detail::perform_elitism(args, next_pop);
 
                             while (start < config.population_size)
                             {
@@ -466,7 +468,7 @@ namespace blt::gp
                                 tree_t* c2 = nullptr;
                                 if (start + 1 < config.population_size)
                                     c2 = &next_pop.get_individuals()[start + 1].tree;
-                                start += func(args, crossover_selection, mutation_selection, reproduction_selection, c1, c2, fitness_function);
+                                start += perform_selection(crossover_selection, mutation_selection, reproduction_selection, c1, c2);
                             }
 
                             thread_helper.next_gen_left = 0;
@@ -478,7 +480,7 @@ namespace blt::gp
                 BLT_INFO("Starting thread execution service!");
                 std::scoped_lock lock(thread_helper.thread_function_control);
                 thread_execution_service = std::unique_ptr<std::function<void(blt::size_t)>>(new std::function(
-                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection, &func](size_t id)
+                    [this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection](size_t id)
                     {
                         thread_helper.barrier.wait();
 
@@ -559,7 +561,7 @@ namespace blt::gp
                                     mutation_selection.pre_process(*this, current_pop);
                                 if (&crossover_selection != &reproduction_selection)
                                     reproduction_selection.pre_process(*this, current_pop);
-                                const auto elite_amount = perform_elitism(args, next_pop);
+                                const auto elite_amount = detail::perform_elitism(args, next_pop);
                                 thread_helper.next_gen_left -= elite_amount;
                             }
                             thread_helper.barrier.wait();
@@ -585,7 +587,7 @@ namespace blt::gp
                                     tree_t* c2 = nullptr;
                                     if (begin + 1 < end)
                                         c2 = &next_pop.get_individuals()[index + 1].tree;
-                                    begin += func(args, crossover_selection, mutation_selection, reproduction_selection, c1, c2, fitness_function);
+                                    begin += perform_selection(crossover_selection, mutation_selection, reproduction_selection, c1, c2);
                                 }
                             }
                         }
@@ -638,6 +640,11 @@ namespace blt::gp
         }
 
         [[nodiscard]] random_t& get_random() const;
+
+        [[nodiscard]] const prog_config_t& get_config() const
+        {
+            return config;
+        }
 
         [[nodiscard]] type_provider& get_typesystem()
         {
@@ -754,6 +761,101 @@ namespace blt::gp
         }
 
     private:
+        template <typename Crossover, typename Mutation, typename Reproduction>
+        size_t perform_selection(Crossover& crossover, Mutation& mutation, Reproduction& reproduction, tree_t& c1, tree_t* c2)
+        {
+            if (get_random().choice(selection_probabilities.crossover_chance))
+            {
+                thread_local tree_t tree{*this};
+                tree.clear(*this);
+                auto ptr = c2;
+                if (ptr == nullptr)
+                    ptr = &tree;
+#ifdef BLT_TRACK_ALLOCATIONS
+                auto state = tracker.start_measurement_thread_local();
+#endif
+                const tree_t* p1;
+                const tree_t* p2;
+                size_t runs = 0;
+                // double parent_val = 0;
+                do
+                {
+                    p1 = &crossover.select(*this, current_pop);
+                    p2 = &crossover.select(*this, current_pop);
+
+                    c1.copy_fast(*p1);
+                    ptr->copy_fast(*p2);
+
+                    if (++runs >= config.crossover.get().get_config().max_crossover_iterations)
+                        return 0;
+#ifdef BLT_TRACK_ALLOCATIONS
+                    crossover_calls.value(1);
+#endif
+                }
+                while (!config.crossover.get().apply(*this, *p1, *p2, c1, *ptr));
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.stop_measurement_thread_local(state);
+                crossover_calls.call();
+                if (state.getAllocatedByteDifference() != 0)
+                {
+                    crossover_allocations.call(state.getAllocatedByteDifference());
+                    crossover_allocations.set_value(std::max(crossover_allocations.get_value(), state.getAllocatedByteDifference()));
+                }
+#endif
+                if (c2 == nullptr)
+                    tree.clear(*this);
+                return 2;
+            }
+            if (get_random().choice(selection_probabilities.mutation_chance))
+            {
+#ifdef BLT_TRACK_ALLOCATIONS
+                auto state = tracker.start_measurement_thread_local();
+#endif
+                // mutation
+                const tree_t* p;
+                do
+                {
+                    p = &mutation.select(*this, current_pop);
+                    c1.copy_fast(*p);
+#ifdef BLT_TRACK_ALLOCATIONS
+                    mutation_calls.value(1);
+#endif
+                }
+                while (!config.mutator.get().apply(*this, *p, c1));
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.stop_measurement_thread_local(state);
+                mutation_calls.call();
+                if (state.getAllocationDifference() != 0)
+                {
+                    mutation_allocations.call(state.getAllocatedByteDifference());
+                    mutation_allocations.set_value(std::max(mutation_allocations.get_value(), state.getAllocatedByteDifference()));
+                }
+#endif
+                return 1;
+            }
+            if (selection_probabilities.reproduction_chance > 0)
+            {
+#ifdef BLT_TRACK_ALLOCATIONS
+                auto state = tracker.start_measurement_thread_local();
+#endif
+                // reproduction
+                c1.copy_fast(reproduction.select(*this, current_pop));
+#ifdef BLT_TRACK_ALLOCATIONS
+                tracker.stop_measurement_thread_local(state);
+                reproduction_calls.call();
+                reproduction_calls.value(1);
+                if (state.getAllocationDifference() != 0)
+                {
+                    reproduction_allocations.call(state.getAllocatedByteDifference());
+                    reproduction_allocations.set_value(std::max(reproduction_allocations.get_value(), state.getAllocatedByteDifference()));
+                }
+#endif
+                return 1;
+            }
+
+            return 0;
+        }
+
         selector_args get_selector_args()
         {
             return {*this, current_pop, current_stats, config, get_random()};
@@ -782,6 +884,22 @@ namespace blt::gp
         program_operator_storage_t storage;
         std::function<u64()> seed_func;
         prog_config_t config{};
+
+        // internal cache which stores already calculated probability values
+        struct
+        {
+            double crossover_chance = 0;
+            double mutation_chance = 0;
+            double reproduction_chance = 0;
+
+            void update(const prog_config_t& config)
+            {
+                const auto total = config.crossover_chance + config.mutation_chance + config.reproduction_chance;
+                crossover_chance = config.crossover_chance / total;
+                mutation_chance = config.mutation_chance / total;
+                reproduction_chance = config.reproduction_chance / total;
+            }
+        } selection_probabilities;
 
         population_t current_pop;
         population_t next_pop;

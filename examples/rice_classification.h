@@ -131,7 +131,7 @@ namespace blt::gp::example
                 BLT_INFO("Hits %ld, Total Cases %ld, Percent Hit: %lf", record.get_hits(), record.get_total(), record.get_percent_hit());
                 std::cout << record.pretty_print() << std::endl;
                 BLT_DEBUG("Fitness: %lf, stand: %lf, raw: %lf", i.fitness.adjusted_fitness, i.fitness.standardized_fitness, i.fitness.raw_fitness);
-                i.tree.print(program, std::cout);
+                i.tree.print(std::cout);
 
                 std::cout << "\n";
             }
