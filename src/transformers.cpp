@@ -26,7 +26,7 @@
 
 namespace blt::gp
 {
-#if BLT_DEBUG_LEVEL >= 2
+#if BLT_DEBUG_LEVEL >= 2 || defined(BLT_TRACK_ALLOCATIONS)
     std::atomic_uint64_t mutate_point_counter = 0;
     std::atomic_uint64_t mutate_expression_counter = 0;
     std::atomic_uint64_t mutate_adjust_counter = 0;
@@ -36,34 +36,30 @@ namespace blt::gp
 
     inline void print_mutate_stats()
     {
-        std::cerr << "Mutation statistics:" << std::endl;
+        std::cerr << "Mutation statistics (Total: " << (mutate_point_counter + mutate_expression_counter + mutate_adjust_counter +
+            mutate_sub_func_counter + mutate_jump_counter + mutate_copy_counter) << "):" << std::endl;
         std::cerr << "\tSuccessful Point Mutations: " << mutate_point_counter << std::endl;
         std::cerr << "\tSuccessful Expression Mutations: " << mutate_expression_counter << std::endl;
         std::cerr << "\tSuccessful Adjust Mutations: " << mutate_adjust_counter << std::endl;
         std::cerr << "\tSuccessful Sub Func Mutations: " << mutate_sub_func_counter << std::endl;
-        std::cerr << "\tSuccessful Func Jump Mutations: " << mutate_jump_counter << std::endl;
+        std::cerr << "\tSuccessful Jump Mutations: " << mutate_jump_counter << std::endl;
         std::cerr << "\tSuccessful Copy Mutations: " << mutate_copy_counter << std::endl;
     }
+#ifdef BLT_TRACK_ALLOCATIONS
+
+    struct run_me_baby
+    {
+        ~run_me_baby()
+        {
+            print_mutate_stats();
+        }
+    };
+
+    run_me_baby this_will_run_when_program_exits;
+#endif
 #endif
 
     grow_generator_t grow_generator;
-
-    inline tree_t& get_static_tree_tl(gp_program& program)
-    {
-        thread_local tree_t new_tree{program};
-        new_tree.clear(program);
-        return new_tree;
-    }
-
-    // TODO: consolidate the two copies of this. other is in tree.cpp
-    template <typename>
-    static u8* get_thread_pointer_for_size(const size_t bytes)
-    {
-        thread_local expanding_buffer<u8> buffer;
-        if (bytes > buffer.size())
-            buffer.resize(bytes);
-        return buffer.data();
-    }
 
     mutation_t::config_t::config_t(): generator(grow_generator)
     {
@@ -147,7 +143,7 @@ namespace blt::gp
 
     size_t mutation_t::mutate_point(gp_program& program, tree_t& c, const tree_t::subtree_point_t node) const
     {
-        auto& new_tree = get_static_tree_tl(program);
+        auto& new_tree = tree_t::get_thread_local(program);
         config.generator.get().generate(new_tree, {program, node.type, config.replacement_min_depth, config.replacement_max_depth});
 
         c.replace_subtree(node, new_tree);
@@ -159,6 +155,8 @@ namespace blt::gp
             print_mutate_stats();
             throw std::runtime_error("Mutate Point tree check failed");
         }
+#endif
+#if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
         ++mutate_point_counter;
 #endif
         return node.pos + new_tree.size();
@@ -177,23 +175,13 @@ namespace blt::gp
             // select an operator to apply
             auto selected_point = static_cast<i32>(mutation_operator::COPY);
             auto choice = program.get_random().get_double();
-            for (const auto& [index, value] : blt::enumerate(mutation_operator_chances))
+
+            for (const auto& [index, value] : enumerate(mutation_operator_chances))
             {
-                if (index == 0)
+                if (choice <= value)
                 {
-                    if (choice <= value)
-                    {
-                        selected_point = static_cast<blt::i32>(index);
-                        break;
-                    }
-                }
-                else
-                {
-                    if (choice > mutation_operator_chances[index - 1] && choice <= value)
-                    {
-                        selected_point = static_cast<blt::i32>(index);
-                        break;
-                    }
+                    selected_point = static_cast<i32>(index);
+                    break;
                 }
             }
 
@@ -201,7 +189,7 @@ namespace blt::gp
             {
             case mutation_operator::EXPRESSION:
                 c_node += mutate_point(program, c, c.subtree_from_point(static_cast<ptrdiff_t>(c_node)));
-#if BLT_DEBUG_LEVEL >= 2
+#if BLT_TRACK_ALLOCATIONS || BLT_DEBUG_LEVEL >= 2
                 ++mutate_expression_counter;
 #endif
                 break;
@@ -228,7 +216,7 @@ namespace blt::gp
                             if (index < current_func_info.argument_types.size() && val.id != current_func_info.argument_types[index].id)
                             {
                                 // TODO: new config?
-                                auto& tree = get_static_tree_tl(program);
+                                auto& tree = tree_t::get_thread_local(program);
                                 config.generator.get().generate(tree,
                                                                 {program, val.id, config.replacement_min_depth, config.replacement_max_depth});
 
@@ -251,15 +239,6 @@ namespace blt::gp
                                     }
                                 }
                                 child_end = static_cast<ptrdiff_t>(child_start + tree.size());
-
-#if BLT_DEBUG_LEVEL >= 2
-                                if (!c.check(detail::debug::context_ptr))
-                                {
-                                    print_mutate_stats();
-                                    throw std::runtime_error("Adjust Tree check failed");
-                                }
-                                ++mutate_adjust_counter;
-#endif
                             }
                         }
 
@@ -285,7 +264,7 @@ namespace blt::gp
                             for (ptrdiff_t i = static_cast<ptrdiff_t>(replacement_func_info.argc.argc) - 1;
                                  i >= current_func_info.argc.argc; i--)
                             {
-                                auto& tree = get_static_tree_tl(program);
+                                auto& tree = tree_t::get_thread_local(program);
                                 config.generator.get().generate(tree,
                                                                 {
                                                                     program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
@@ -308,6 +287,8 @@ namespace blt::gp
                         print_mutate_stats();
                         BLT_ABORT("Adjust Tree Check Failed.");
                     }
+#endif
+#if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
                     ++mutate_adjust_counter;
 #endif
                 }
@@ -358,7 +339,7 @@ namespace blt::gp
                     size_t start_index = c_node;
                     for (ptrdiff_t i = new_argc - 1; i > static_cast<ptrdiff_t>(arg_position); i--)
                     {
-                        auto& tree = get_static_tree_tl(program);
+                        auto& tree = tree_t::get_thread_local(program);
                         config.generator.get().generate(tree,
                                                         {
                                                             program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
@@ -370,7 +351,7 @@ namespace blt::gp
                     // vals.copy_from(combined_ptr, for_bytes);
                     for (blt::ptrdiff_t i = static_cast<blt::ptrdiff_t>(arg_position) - 1; i >= 0; i--)
                     {
-                        auto& tree = get_static_tree_tl(program);
+                        auto& tree = tree_t::get_thread_local(program);
                         config.generator.get().generate(tree,
                                                         {
                                                             program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
@@ -397,6 +378,8 @@ namespace blt::gp
                         print_mutate_stats();
                         BLT_ABORT("SUB_FUNC Tree Check Failed.");
                     }
+#endif
+#if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
                     ++mutate_sub_func_counter;
 #endif
                 }
@@ -469,6 +452,8 @@ namespace blt::gp
                         print_mutate_stats();
                         BLT_ABORT("JUMP_FUNC Tree Check Failed.");
                     }
+#endif
+#if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
                     ++mutate_jump_counter;
 #endif
                 }
@@ -476,55 +461,36 @@ namespace blt::gp
             case mutation_operator::COPY:
                 {
                     auto& info = program.get_operator_info(c.get_operator(c_node).id());
-                    size_t pt = -1ul;
-                    size_t pf = -1ul;
-                    for (const auto& [index, v] : blt::enumerate(info.argument_types))
-                    {
-                        for (size_t i = index + 1; i < info.argument_types.size(); i++)
-                        {
-                            auto& v1 = info.argument_types[i];
-                            if (v == v1)
-                            {
-                                if (pt == -1ul)
-                                    pt = index;
-                                else
-                                    pf = index;
-                                break;
-                            }
-                        }
-                        if (pt != -1ul && pf != -1ul)
-                            break;
-                    }
-                    if (pt == -1ul || pf == -1ul)
+                    if (c.get_operator(c_node).is_value())
                         continue;
+                    thread_local tracked_vector<size_t> potential_indexes;
+                    potential_indexes.clear();
 
-                    size_t from = 0;
-                    size_t to = 0;
-
-                    if (program.get_random().choice())
+                    const auto from_index = program.get_random().get_u64(0, info.argument_types.size());
+                    for (const auto [index, type] : enumerate(info.argument_types))
                     {
-                        from = pt;
-                        to = pf;
+                        if (index == from_index)
+                            continue;
+                        if (info.argument_types[from_index] == type)
+                            potential_indexes.push_back(index);
                     }
-                    else
-                    {
-                        from = pf;
-                        to = pt;
-                    }
+                    if (potential_indexes.empty())
+                        continue;
+                    const auto to_index = program.get_random().select(potential_indexes);
 
                     thread_local tracked_vector<tree_t::child_t> child_data;
                     child_data.clear();
 
                     c.find_child_extends(child_data, c_node, info.argument_types.size());
 
-                    auto from_index = child_data.size() - 1 - from;
-                    auto to_index = child_data.size() - 1 - to;
-                    auto& from_child = child_data[from_index];
-                    auto& to_child = child_data[to_index];
+                    const auto child_from_index = child_data.size() - 1 - from_index;
+                    const auto child_to_index = child_data.size() - 1 - to_index;
+                    const auto& [from_start, from_end] = child_data[child_from_index];
+                    const auto& [to_start, to_end] = child_data[child_to_index];
 
                     thread_local tree_t copy_tree{program};
-                    c.copy_subtree(tree_t::subtree_point_t{from_child.start}, from_child.end, copy_tree);
-                    c.replace_subtree(tree_t::subtree_point_t{to_child.start}, to_child.end, copy_tree);
+                    c.copy_subtree(tree_t::subtree_point_t{from_start}, from_end, copy_tree);
+                    c.replace_subtree(tree_t::subtree_point_t{to_start}, to_end, copy_tree);
                     copy_tree.clear(program);
 
 #if BLT_DEBUG_LEVEL >= 2
@@ -538,6 +504,8 @@ namespace blt::gp
                         print_mutate_stats();
                         BLT_ABORT("COPY Tree Check Failed.");
                     }
+#endif
+#if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
                     ++mutate_copy_counter;
 #endif
 

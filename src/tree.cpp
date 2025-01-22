@@ -501,7 +501,6 @@ namespace blt::gp
     tree_t& tree_t::get_thread_local(gp_program& program)
     {
         thread_local tree_t tree{program};
-        tree.clear(program);
         return tree;
     }
 
