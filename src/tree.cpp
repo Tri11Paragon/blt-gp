@@ -62,6 +62,62 @@ namespace blt::gp
         tree.values.pop_bytes(bytes);
     }
 
+    void tree_t::copy_fast(const tree_t& copy)
+    {
+        if (this == &copy)
+            return;
+
+        operations.reserve(copy.operations.size());
+
+        auto copy_it = copy.operations.begin();
+        auto op_it = operations.begin();
+
+        size_t total_op_bytes = 0;
+        size_t total_copy_bytes = 0;
+
+        for (; op_it != operations.end(); ++op_it)
+        {
+            if (copy_it == copy.operations.end())
+                break;
+            if (copy_it->is_value())
+            {
+                copy.handle_refcount_increment(copy_it, total_copy_bytes);
+                total_copy_bytes += copy_it->type_size();
+            }
+            if (op_it->is_value())
+            {
+                handle_refcount_decrement(op_it, total_op_bytes);
+                total_op_bytes += op_it->type_size();
+            }
+            *op_it = *copy_it;
+            ++copy_it;
+        }
+        const auto op_it_cpy = op_it;
+        for (; op_it != operations.end(); ++op_it)
+        {
+            if (op_it->is_value())
+            {
+                handle_refcount_decrement(op_it, total_op_bytes);
+                total_op_bytes += op_it->type_size();
+            }
+        }
+        operations.erase(op_it_cpy, operations.end());
+        for (; copy_it != copy.operations.end(); ++copy_it)
+        {
+            if (copy_it->is_value())
+            {
+                copy.handle_refcount_increment(copy_it, total_copy_bytes);
+                total_copy_bytes += copy_it->type_size();
+            }
+            operations.emplace_back(*copy_it);
+        }
+
+        values.reserve(copy.values.stored());
+        values.reset();
+        values.insert(copy.values);
+    }
+
+
     void tree_t::print(std::ostream& out, const bool print_literals, const bool pretty_print, const bool include_types,
                        const ptrdiff_t marked_index) const
     {

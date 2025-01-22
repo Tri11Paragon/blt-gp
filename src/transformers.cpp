@@ -36,7 +36,7 @@ namespace blt::gp
 
     inline void print_mutate_stats()
     {
-        std::cerr << "Mutation statistics (Total: " << (mutate_point_counter + mutate_expression_counter + mutate_adjust_counter +
+        std::cerr << "Mutation statistics (Total: " << (mutate_point_counter + mutate_adjust_counter +
             mutate_sub_func_counter + mutate_jump_counter + mutate_copy_counter) << "):" << std::endl;
         std::cerr << "\tSuccessful Point Mutations: " << mutate_point_counter << std::endl;
         std::cerr << "\tSuccessful Expression Mutations: " << mutate_expression_counter << std::endl;
