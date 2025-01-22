@@ -766,25 +766,27 @@ namespace blt::gp
         {
             if (get_random().choice(selection_probabilities.crossover_chance))
             {
-                thread_local tree_t tree{*this};
-                tree.clear(*this);
-                auto ptr = c2;
-                if (ptr == nullptr)
-                    ptr = &tree;
+                // if (c2 == nullptr)
+                    // return 0;
+                // auto ptr = c2;
+                // if (ptr == nullptr)
+                    // ptr = &tree_t::get_thread_local(*this);
 #ifdef BLT_TRACK_ALLOCATIONS
                 auto state = tracker.start_measurement_thread_local();
 #endif
                 const tree_t* p1;
                 const tree_t* p2;
                 size_t runs = 0;
-                // double parent_val = 0;
+                tree_t tree{*this};
                 do
                 {
+                    // BLT_TRACE("%lu %p %p", runs, &c1, &tree);
                     p1 = &crossover.select(*this, current_pop);
                     p2 = &crossover.select(*this, current_pop);
 
                     c1.copy_fast(*p1);
-                    ptr->copy_fast(*p2);
+                    tree.copy_fast(*p2);
+                    // ptr->copy_fast(*p2);
 
                     if (++runs >= config.crossover.get().get_config().max_crossover_iterations)
                         return 0;
@@ -792,7 +794,7 @@ namespace blt::gp
                     crossover_calls.value(1);
 #endif
                 }
-                while (!config.crossover.get().apply(*this, *p1, *p2, c1, *ptr));
+                while (!config.crossover.get().apply(*this, *p1, *p2, c1, tree));
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.stop_measurement_thread_local(state);
                 crossover_calls.call();
@@ -802,8 +804,10 @@ namespace blt::gp
                     crossover_allocations.set_value(std::max(crossover_allocations.get_value(), state.getAllocatedByteDifference()));
                 }
 #endif
-                if (c2 == nullptr)
-                    tree.clear(*this);
+                // if (c2 == nullptr)
+                    // tree_t::get_thread_local(*this);
+                if (c2 != nullptr)
+                    *c2 = tree;
                 return 2;
             }
             if (get_random().choice(selection_probabilities.mutation_chance))

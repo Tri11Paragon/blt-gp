@@ -365,15 +365,15 @@ namespace blt::gp
         values.copy_from(copy_ptr_c1 + c1_subtree_bytes, c1_stack_after_bytes);
 
         // now swap the operators
-        auto insert_point_c1 = c1_subtree_begin_itr - 1;
-        auto insert_point_c2 = c2_subtree_begin_itr - 1;
+        // auto insert_point_c1 = c1_subtree_begin_itr - 1;
+        // auto insert_point_c2 = c2_subtree_begin_itr - 1;
 
         // invalidates [begin, end()) so the insert points should be fine
-        operations.erase(c1_subtree_begin_itr, c1_subtree_end_itr);
-        other_tree.operations.erase(c2_subtree_begin_itr, c2_subtree_end_itr);
+        auto insert_point_c1 = operations.erase(c1_subtree_begin_itr, c1_subtree_end_itr);
+        auto insert_point_c2 = other_tree.operations.erase(c2_subtree_begin_itr, c2_subtree_end_itr);
 
-        operations.insert(++insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
-        other_tree.operations.insert(++insert_point_c2, c1_subtree_operators.begin(), c1_subtree_operators.end());
+        operations.insert(insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
+        other_tree.operations.insert(insert_point_c2, c1_subtree_operators.begin(), c1_subtree_operators.end());
     }
 
     void tree_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree)
@@ -496,6 +496,13 @@ namespace blt::gp
         while (children_left > 0);
 
         return start;
+    }
+
+    tree_t& tree_t::get_thread_local(gp_program& program)
+    {
+        thread_local tree_t tree{program};
+        tree.clear(program);
+        return tree;
     }
 
     void tree_t::handle_operator_inserted(const op_container_t& op)

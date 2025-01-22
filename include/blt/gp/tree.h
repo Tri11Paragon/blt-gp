@@ -613,6 +613,8 @@ namespace blt::gp
             clear(*m_program);
         }
 
+        static tree_t& get_thread_local(gp_program& program);
+
     private:
         void handle_operator_inserted(const op_container_t& op);
 
