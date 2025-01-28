@@ -84,7 +84,15 @@ namespace blt::gp::example
         void setup_operations()
         {
             BLT_DEBUG("Setup Types and Operators");
-            static operation_t add{[](const float a, const float b) { return a + b; }, "add"};
+            static operation_t add{
+                // this is the function used by the operation
+                [](const float a, const float b)
+                {
+                    return a + b;
+                },
+                // this name is optional and is used if you print an individual
+                "add"
+            };
             static operation_t sub([](const float a, const float b) { return a - b; }, "sub");
             static operation_t mul([](const float a, const float b) { return a * b; }, "mul");
             static operation_t pro_div([](const float a, const float b) { return b == 0.0f ? 0.0f : a / b; }, "div");
