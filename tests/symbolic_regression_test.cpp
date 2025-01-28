@@ -23,10 +23,10 @@
 
 static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-std::array crossover_chances = {1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0};
+std::array crossover_chances = {0.8, 0.9, 1.0};
 std::array mutation_chances = {0.0, 0.1, 0.2, 0.9, 1.0};
-std::array reproduction_chances = {0.0, 1.0, 0.1, 0.9};
-std::array elite_amounts = {0, 2, 10, 50};
+std::array reproduction_chances = {0.0, 0.1, 0.9, 1.0};
+std::array elite_amounts = {0, 2, 50};
 std::array population_sizes = {50, 500, 5000};
 
 blt::gp::prog_config_t best_config;
@@ -206,5 +206,6 @@ int main()
 
     for (int i = 0; i < 1; i++)
         do_run();
+    BLT_PRINT_PROFILE("Symbolic Regress");
     return 0;
 }
