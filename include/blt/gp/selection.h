@@ -61,16 +61,16 @@ namespace blt::gp
                 {
                     for (size_t i = 0; i < config.elites; i++)
                     {
-                        if (ind.value.fitness.adjusted_fitness >= values[i].second)
+                        if (ind.second.fitness.adjusted_fitness >= values[i].second)
                         {
                             bool doesnt_contain = true;
                             for (blt::size_t j = 0; j < config.elites; j++)
                             {
-                                if (ind.index == values[j].first)
+                                if (ind.first == values[j].first)
                                     doesnt_contain = false;
                             }
                             if (doesnt_contain)
-                                values[i] = {ind.index, ind.value.fitness.adjusted_fitness};
+                                values[i] = {ind.first, ind.second.fitness.adjusted_fitness};
                             break;
                         }
                     }

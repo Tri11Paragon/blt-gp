@@ -17,7 +17,7 @@
  */
 #include <blt/gp/generators.h>
 #include <blt/gp/program.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <stack>
 
 namespace blt::gp

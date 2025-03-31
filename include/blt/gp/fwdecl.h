@@ -20,7 +20,7 @@
 #define BLT_GP_FWDECL_H
 
 #include <functional>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/std/types.h>
 #include <ostream>
 #include <cstdlib>

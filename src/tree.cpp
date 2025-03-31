@@ -18,7 +18,7 @@
 #include <blt/gp/tree.h>
 #include <blt/gp/stack.h>
 #include <blt/std/assert.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/gp/program.h>
 #include <stack>
 
@@ -544,7 +544,7 @@ namespace blt::gp
 
         if (bytes_expected != bytes_size)
         {
-            BLT_ERROR_STREAM << "Stack state: " << values.size() << "\n";
+            BLT_ERROR("Stack state: {}", values.size());
             BLT_ERROR("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
                       static_cast<ptrdiff_t>(bytes_expected) - static_cast<ptrdiff_t>(bytes_size));
             BLT_ERROR("Amount of bytes in stack doesn't match the number of bytes expected for the operations");

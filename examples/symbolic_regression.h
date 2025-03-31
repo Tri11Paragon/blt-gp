@@ -20,7 +20,7 @@
 #define BLT_GP_EXAMPLE_SYMBOLIC_REGRESSION_H
 
 #include "examples_base.h"
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/format/format.h>
 #include <iostream>
 
