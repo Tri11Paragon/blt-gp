@@ -677,6 +677,11 @@ namespace blt::gp
 			return config;
 		}
 
+		void set_config(const prog_config_t& config)
+		{
+			this->config = config;
+		}
+
 		[[nodiscard]] type_provider& get_typesystem()
 		{
 			return storage.system;
