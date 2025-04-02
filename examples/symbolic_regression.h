@@ -194,10 +194,10 @@ namespace blt::gp::example
 			// TODO: make stats helper
 			const auto& stats = program.get_population_stats();
 			BLT_INFO("Stats:");
-			BLT_INFO("Average fitness: %lf", stats.average_fitness.load());
-			BLT_INFO("Best fitness: %lf", stats.best_fitness.load());
-			BLT_INFO("Worst fitness: %lf", stats.worst_fitness.load());
-			BLT_INFO("Overall fitness: %lf", stats.overall_fitness.load());
+			BLT_INFO("Average fitness: {:0.6f}", stats.average_fitness.load());
+			BLT_INFO("Best fitness: {:0.6f}", stats.best_fitness.load());
+			BLT_INFO("Worst fitness: {:0.6f}", stats.worst_fitness.load());
+			BLT_INFO("Overall fitness: {:0.6f}", stats.overall_fitness.load());
 		}
 
 		void execute()

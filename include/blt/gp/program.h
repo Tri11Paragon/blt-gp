@@ -462,7 +462,7 @@ namespace blt::gp
 					[this, &fitness_function, &crossover_selection, &mutation_selection, &reproduction_selection](const size_t id) {
 						thread_helper.barrier.wait();
 
-						multi_threaded_fitness_eval<FitnessFunc>()(fitness_function);
+						multi_threaded_fitness_eval<FitnessFunc>()(fitness_function, id);
 
 						if (thread_helper.next_gen_left > 0)
 						{
@@ -574,7 +574,7 @@ namespace blt::gp
 						const size_t id) {
 						thread_helper.barrier.wait();
 
-						multi_threaded_fitness_eval<FitnessFunc>()(fitness_function);
+						multi_threaded_fitness_eval<FitnessFunc>()(fitness_function, id);
 
 						if (thread_helper.next_gen_left > 0)
 						{
@@ -804,6 +804,10 @@ namespace blt::gp
 						current_stats.normalized_fitness.push_back(sum_of_prob + prob);
 						sum_of_prob += prob;
 					}
+					std::sort(current_pop.begin(), current_pop.end(), [](const auto& a, const auto& b)
+					{
+					    return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
+					});
 					thread_helper.evaluation_left = 0;
 				}
 			};
@@ -812,9 +816,10 @@ namespace blt::gp
 		template <typename FitnessFunc>
 		auto multi_threaded_fitness_eval()
 		{
-			return [this](FitnessFunc& fitness_function) {
+			return [this](FitnessFunc& fitness_function, size_t thread_id) {
 				if (thread_helper.evaluation_left > 0)
 				{
+					thread_helper.barrier.wait();
 					while (thread_helper.evaluation_left > 0)
 					{
 						size_t size = 0;
@@ -828,6 +833,15 @@ namespace blt::gp
 																					std::memory_order::memory_order_relaxed));
 						perform_fitness_function(begin, end, fitness_function);
 					}
+					thread_helper.barrier.wait();
+					if (thread_id == 0)
+					{
+						std::sort(current_pop.begin(), current_pop.end(), [](const auto& a, const auto& b)
+						{
+							return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
+						});
+					}
+					thread_helper.barrier.wait();
 				}
 			};
 		}

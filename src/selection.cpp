@@ -20,12 +20,12 @@
 
 namespace blt::gp
 {
-    void select_best_t::pre_process(gp_program&, population_t& pop)
+    void select_best_t::pre_process(gp_program&, population_t&)
     {
-        std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
-        {
-            return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
-        });
+        // std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
+        // {
+        //     return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
+        // });
         index = 0;
     }
 
@@ -35,19 +35,19 @@ namespace blt::gp
         return pop.get_individuals()[index.fetch_add(1, std::memory_order_relaxed) % size].tree;
     }
 
-    void select_worst_t::pre_process(gp_program&, population_t& pop)
+    void select_worst_t::pre_process(gp_program&, population_t&)
     {
-        std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
-        {
-            return a.fitness.adjusted_fitness < b.fitness.adjusted_fitness;
-        });
+        // std::sort(pop.begin(), pop.end(), [](const auto& a, const auto& b)
+        // {
+        //     return a.fitness.adjusted_fitness < b.fitness.adjusted_fitness;
+        // });
         index = 0;
     }
 
     const tree_t& select_worst_t::select(gp_program&, const population_t& pop)
     {
         const auto size = pop.get_individuals().size();
-        return pop.get_individuals()[index.fetch_add(1, std::memory_order_relaxed) % size].tree;
+        return pop.get_individuals()[(size - 1) - (index.fetch_add(1, std::memory_order_relaxed) % size)].tree;
     }
 
     const tree_t& select_random_t::select(gp_program& program, const population_t& pop)
