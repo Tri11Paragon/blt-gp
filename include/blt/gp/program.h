@@ -292,15 +292,15 @@ namespace blt::gp
 		})
 		{
 			create_threads();
-			selection_probabilities.update(config);
+			set_config(config);
 		}
 
 		explicit gp_program(blt::u64 seed, const prog_config_t& config): seed_func([seed] {
 			return seed;
-		}), config(config)
+		})
 		{
 			create_threads();
-			selection_probabilities.update(config);
+			set_config(config);
 		}
 
 		/**
@@ -311,13 +311,13 @@ namespace blt::gp
 		explicit gp_program(std::function<blt::u64()> seed_func): seed_func(std::move(seed_func))
 		{
 			create_threads();
-			selection_probabilities.update(config);
+			set_config(config);
 		}
 
-		explicit gp_program(std::function<blt::u64()> seed_func, const prog_config_t& config): seed_func(std::move(seed_func)), config(config)
+		explicit gp_program(std::function<blt::u64()> seed_func, const prog_config_t& config): seed_func(std::move(seed_func))
 		{
 			create_threads();
-			selection_probabilities.update(config);
+			set_config(config);
 		}
 
 		~gp_program()
@@ -680,6 +680,7 @@ namespace blt::gp
 		void set_config(const prog_config_t& config)
 		{
 			this->config = config;
+			selection_probabilities.update(this->config);
 		}
 
 		[[nodiscard]] type_provider& get_typesystem()
