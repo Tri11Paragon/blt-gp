@@ -410,7 +410,7 @@ namespace blt::gp
 		*
 		* Container must be concurrently accessible from multiple threads using operator[]
 		*
-		* NOTE: 0 is considered the best, in terms of standardized fitness
+		* NOTE: the larger the adjusted fitness, the better.
 		*/
 		template <typename FitnessFunc, typename Crossover, typename Mutation, typename Reproduction>
 		void setup_generational_evaluation(FitnessFunc& fitness_function, Crossover& crossover_selection, Mutation& mutation_selection,
