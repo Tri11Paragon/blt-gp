@@ -17,7 +17,7 @@
  */
 #include "../examples/symbolic_regression.h"
 #include <blt/gp/program.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 
 using namespace blt::gp;
 
@@ -140,10 +140,11 @@ int main()
 
     auto& program = regression.get_program();
     static auto sel = select_tournament_t{};
-    program.generate_population(program.get_typesystem().get_type<drop_type>().id(), fitness_function, sel, sel, sel);
+    program.generate_initial_population(program.get_typesystem().get_type<drop_type>().id());
+    program.setup_generational_evaluation(fitness_function, sel, sel, sel);
     while (!program.should_terminate())
     {
-        BLT_TRACE("---------------{Begin Generation %lu}---------------", program.get_current_generation());
+        BLT_TRACE("---------------\\{Begin Generation {}}---------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
         program.create_next_generation();
         BLT_TRACE("Move to next generation");
@@ -158,10 +159,10 @@ int main()
     regression.get_program().next_generation();
     regression.get_program().get_current_pop().clear();
 
-    BLT_TRACE("Created %ld times", normal_construct.load());
-    BLT_TRACE("Dropped %ld times", normal_drop.load());
-    BLT_TRACE("Ephemeral created %ld times", ephemeral_construct.load());
-    BLT_TRACE("Ephemeral dropped %ld times", ephemeral_drop.load());
-    BLT_TRACE("Max allocated %ld times", max_allocated.load());
+    BLT_TRACE("Created {} times", normal_construct.load());
+    BLT_TRACE("Dropped {} times", normal_drop.load());
+    BLT_TRACE("Ephemeral created {} times", ephemeral_construct.load());
+    BLT_TRACE("Ephemeral dropped {} times", ephemeral_drop.load());
+    BLT_TRACE("Max allocated {} times", max_allocated.load());
 
 }
