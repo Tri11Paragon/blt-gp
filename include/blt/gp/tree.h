@@ -166,7 +166,7 @@ namespace blt::gp
 
         ~evaluation_ref()
         {
-            if constexpr (detail::has_func_drop_v<T>)
+            if constexpr (detail::has_func_drop_v<detail::remove_cv_ref<T>>)
             {
                 if (m_value.get() != nullptr)
                 {

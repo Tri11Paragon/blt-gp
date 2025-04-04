@@ -63,9 +63,10 @@ namespace blt::gp
         template<typename T>
         static void call_drop(stack_allocator& read_allocator, const size_t offset)
         {
-            if constexpr (blt::gp::detail::has_func_drop_v<T>)
+            if constexpr (blt::gp::detail::has_func_drop_v<detail::remove_cv_ref<T>>)
             {
                 auto [type, ptr] = read_allocator.access_pointer<detail::remove_cv_ref<T>>(offset);
+                // type is not ephemeral, so we must drop it.
                 if (!ptr.bit(0))
                     type.drop();
             }
@@ -200,7 +201,7 @@ namespace blt::gp
 
         [[nodiscard]] bool return_has_ephemeral_drop() const
         {
-            return detail::has_func_drop_v<Return>;
+            return detail::has_func_drop_v<detail::remove_cv_ref<Return>>;
         }
 
         operator_id id = -1;
