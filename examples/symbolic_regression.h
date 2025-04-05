@@ -40,6 +40,7 @@ namespace blt::gp::example
 			constexpr static double value_cutoff = 1.e15;
 			for (auto& fitness_case : training_cases)
 			{
+				BLT_GP_UPDATE_CONTEXT(fitness_case);
 				const auto diff = std::abs(fitness_case.y - current_tree.get_evaluation_value<float>(fitness_case));
 				if (diff < value_cutoff)
 				{
