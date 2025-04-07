@@ -31,6 +31,8 @@ pkgs.mkShell
 		opentelemetry-cpp
 		opentelemetry-cpp.dev
 		opentelemetry-collector
+		protobufc
+		protobufc.dev
 	];
 	LD_LIBRARY_PATH="/run/opengl-driver/lib:/run/opengl-driver-32/lib";
 }
