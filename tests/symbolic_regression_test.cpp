@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <array>
+#include <sstream>
 #include <blt/profiling/profiler_v2.h>
 
 static const auto SEED_FUNC = [] { return std::random_device()(); };
@@ -56,7 +57,7 @@ void run(const blt::gp::prog_config_t& config)
                 auto mut = mutation_calls.start_measurement();
                 auto repo = reproduction_calls.start_measurement();
 #endif
-        BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
+        BLT_TRACE("------------\\{Begin Generation {}}------------", program.get_current_generation());
         BLT_TRACE("Creating next generation");
         BLT_START_INTERVAL("Symbolic Regression", "Create Next Generation");
         program.create_next_generation();
@@ -71,7 +72,7 @@ void run(const blt::gp::prog_config_t& config)
         BLT_END_INTERVAL("Symbolic Regress", "Evaluate Fitness");
         BLT_START_INTERVAL("Symbolic Regress", "Fitness Print");
         const auto& stats = program.get_population_stats();
-        BLT_TRACE("Avg Fit: %lf, Best Fit: %lf, Worst Fit: %lf, Overall Fit: %lf",
+        BLT_TRACE("Avg Fit: {}, Best Fit: {}, Worst Fit: {}, Overall Fit: {}",
                   stats.average_fitness.load(std::memory_order_relaxed), stats.best_fitness.load(std::memory_order_relaxed),
                   stats.worst_fitness.load(std::memory_order_relaxed), stats.overall_fitness.load(std::memory_order_relaxed));
         BLT_END_INTERVAL("Symbolic Regress", "Fitness Print");
@@ -123,17 +124,8 @@ void do_run()
                                                         .set_pop_size(population_sizes)
                                                         .set_thread_count(0);
 
-                        BLT_INFO_STREAM << "Run: Crossover (";
-                        BLT_INFO_STREAM << crossover_chance;
-                        BLT_INFO_STREAM << ") Mutation (";
-                        BLT_INFO_STREAM << mutation_chance;
-                        BLT_INFO_STREAM << ") Reproduction (";
-                        BLT_INFO_STREAM << reproduction_chance;
-                        BLT_INFO_STREAM << ") Elite (";
-                        BLT_INFO_STREAM << elite_amount;
-                        BLT_INFO_STREAM << ") Population Size (";
-                        BLT_INFO_STREAM << population_sizes;
-                        BLT_INFO_STREAM << ")" << "\n";
+                        BLT_INFO("Run: Crossover ({}) Mutation ({}) Reproduction ({}) Elite ({}) Population Size ({})", crossover_chance,
+                                 mutation_chance, reproduction_chance, elite_amount, population_sizes);
                         run(config);
 
                         results << "Run: Crossover (";
@@ -190,10 +182,10 @@ inline void there(blt::size_t)
 int main()
 {
     // blt::gp::thread_manager_t threads{
-        // std::thread::hardware_concurrency(), blt::gp::task_builder_t<test>::make_callable(
-            // blt::gp::task_t{test::hello, hello},
-            // blt::gp::task_t{test::there, there}
-        // )
+    // std::thread::hardware_concurrency(), blt::gp::task_builder_t<test>::make_callable(
+    // blt::gp::task_t{test::hello, hello},
+    // blt::gp::task_t{test::there, there}
+    // )
     // };
 
     // threads.add_task(test::hello);
@@ -202,7 +194,7 @@ int main()
     // threads.add_task(test::there);
 
     // while (threads.has_tasks_left())
-        // threads.execute();
+    // threads.execute();
 
     for (int i = 0; i < 1; i++)
         do_run();

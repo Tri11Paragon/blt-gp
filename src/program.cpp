@@ -26,36 +26,36 @@ namespace blt::gp
     static advanced_mutation_t s_mutator;
     static crossover_t s_crossover;
     static ramped_half_initializer_t s_init;
-    
+
     prog_config_t::prog_config_t(): mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
     {
-    
+
     }
-    
+
     prog_config_t::prog_config_t(const std::reference_wrapper<population_initializer_t>& popInitializer):
             mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
     {}
-    
+
     prog_config_t::prog_config_t(size_t populationSize, const std::reference_wrapper<population_initializer_t>& popInitializer):
             population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
     {}
-    
+
     prog_config_t::prog_config_t(size_t populationSize):
             population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
     {}
-    
+
     random_t& gp_program::get_random() const
     {
         thread_local static blt::gp::random_t random_engine{seed_func()};
         return random_engine;
     }
-    
+
     stack_allocator::Allocator& stack_allocator::get_allocator()
     {
         static Allocator allocator;
         return allocator;
     }
-    
+
     void gp_program::create_threads()
     {
 #ifdef BLT_TRACK_ALLOCATIONS

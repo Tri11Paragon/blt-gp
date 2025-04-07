@@ -145,15 +145,34 @@ namespace blt::gp
     size_t mutation_t::mutate_point(gp_program& program, tree_t& c, const tree_t::subtree_point_t node) const
     {
         auto& new_tree = tree_t::get_thread_local(program);
+#if BLT_DEBUG_LEVEL >= 2
+        auto previous_size = new_tree.size();
+        auto previous_bytes = new_tree.total_value_bytes();
+#endif
         config.generator.get().generate(new_tree, {program, node.type, config.replacement_min_depth, config.replacement_max_depth});
+
+#if BLT_DEBUG_LEVEL >= 2
+        const auto old_op = c.get_operator(node.pos);
+        if (!new_tree.check(detail::debug::context_ptr))
+        {
+            BLT_ERROR("Mutate point new tree check failed!");
+            BLT_ERROR("Old Op: {} got replaced with New Op: {}", program.get_name(old_op.id()).value_or("Unknown"),
+                      program.get_name(new_tree.get_operator(0).id()).value_or("Unknown"));
+            BLT_ERROR("Tree started with size: {} and bytes: {}", previous_size, previous_bytes);
+            throw std::runtime_error("Mutate Point tree check failed");
+        }
+#endif
 
         c.replace_subtree(node, new_tree);
 
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
+        const auto new_op = c.get_operator(node.pos);
         if (!c.check(detail::debug::context_ptr))
         {
             print_mutate_stats();
+            BLT_ERROR("Old Op: {} got replaced with New Op: {}", program.get_name(old_op.id()).value_or("Unknown"),
+                      program.get_name(new_op.id()).value_or("Unknown"));
             throw std::runtime_error("Mutate Point tree check failed");
         }
 #endif

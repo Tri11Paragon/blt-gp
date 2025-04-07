@@ -20,7 +20,7 @@
 #define BLT_GP_ALLOCATOR_H
 
 #include <blt/std/types.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/gp/util/trackers.h>
 #include <cstdlib>
 #include <vector>

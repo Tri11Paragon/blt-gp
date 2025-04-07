@@ -18,7 +18,7 @@
 #include <blt/gp/tree.h>
 #include <blt/gp/stack.h>
 #include <blt/std/assert.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/gp/program.h>
 #include <stack>
 
@@ -501,6 +501,7 @@ namespace blt::gp
     tree_t& tree_t::get_thread_local(gp_program& program)
     {
         thread_local tree_t tree{program};
+        tree.clear(program);
         return tree;
     }
 
@@ -544,8 +545,8 @@ namespace blt::gp
 
         if (bytes_expected != bytes_size)
         {
-            BLT_ERROR_STREAM << "Stack state: " << values.size() << "\n";
-            BLT_ERROR("Child tree bytes %ld vs expected %ld, difference: %ld", bytes_size, bytes_expected,
+            BLT_ERROR("Stack state: {}", values.size());
+            BLT_ERROR("Child tree bytes {} vs expected {}, difference: {}", bytes_size, bytes_expected,
                       static_cast<ptrdiff_t>(bytes_expected) - static_cast<ptrdiff_t>(bytes_size));
             BLT_ERROR("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
             return false;
@@ -588,18 +589,18 @@ namespace blt::gp
             if (v1 != v2)
             {
                 const auto vd = std::abs(v1 - v2);
-                BLT_ERROR("found %ld bytes expected %ld bytes, total difference: %ld", v1, v2, vd);
-                BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
+                BLT_ERROR("found {} bytes expected {} bytes, total difference: {}", v1, v2, vd);
+                BLT_ERROR("Total Produced {} || Total Consumed {} || Total Difference {}", total_produced, total_consumed,
                           std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
                 return false;
             }
         }
         catch (std::exception& e)
         {
-            BLT_ERROR("Exception occurred \"%s\"", e.what());
-            BLT_ERROR("Total Produced %ld || Total Consumed %ld || Total Difference %ld", total_produced, total_consumed,
+            BLT_ERROR("Exception occurred \"{}\"", e.what());
+            BLT_ERROR("Total Produced {} || Total Consumed {} || Total Difference {}", total_produced, total_consumed,
                       std::abs(static_cast<blt::ptrdiff_t>(total_produced) - static_cast<blt::ptrdiff_t>(total_consumed)));
-            BLT_ERROR("We failed at index %lu", index);
+            BLT_ERROR("We failed at index {}", index);
             return false;
         }
         return true;

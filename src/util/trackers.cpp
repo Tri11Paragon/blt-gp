@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/util/trackers.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include "blt/format/format.h"
 #include <numeric>
 

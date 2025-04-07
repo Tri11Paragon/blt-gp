@@ -21,21 +21,16 @@
 
 #include <blt/std/types.h>
 #include <blt/std/bump_allocator.h>
-#include <blt/std/assert.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/std/allocator.h>
-#include <blt/std/ranges.h>
 #include <blt/meta/meta.h>
-#include <blt/gp/fwdecl.h>
-#include <blt/gp/util/trackers.h>
+#include <blt/gp/util/meta.h>
 #include <blt/gp/allocator.h>
 #include <utility>
-#include <stdexcept>
 #include <cstdlib>
 #include <memory>
 #include <type_traits>
 #include <cstring>
-#include <iostream>
 
 namespace blt::gp
 {
@@ -87,7 +82,7 @@ namespace blt::gp
         static constexpr size_t aligned_size() noexcept
         {
             const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
-            if constexpr (blt::gp::detail::has_func_drop_v<T>)
+            if constexpr (blt::gp::detail::has_func_drop_v<gp::detail::remove_cv_ref<T>>)
                 return bytes + detail::aligned_size(sizeof(std::atomic_uint64_t*));
             return bytes;
         }
@@ -179,7 +174,7 @@ namespace blt::gp
             const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
             std::memcpy(ptr, &t, sizeof(NO_REF));
 
-            if constexpr (gp::detail::has_func_drop_v<T>)
+            if constexpr (gp::detail::has_func_drop_v<gp::detail::remove_cv_ref<T>>)
             {
                 new(ptr + sizeof(NO_REF)) mem::pointer_storage<std::atomic_uint64_t>{nullptr};
             }
