@@ -24,7 +24,6 @@
 #include <blt/profiling/profiler_v2.h>
 #include <random>
 
-
 namespace blt::gp
 {
 #if BLT_DEBUG_LEVEL >= 2 || defined(BLT_TRACK_ALLOCATIONS)

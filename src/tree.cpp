@@ -668,6 +668,91 @@ namespace blt::gp
         return {point, m_program->get_operator_info(operations[point].id()).return_type};
     }
 
+    size_t tree_t::required_size() const
+    {
+        // 2 size_t used to store expected_length of operations + size of the values stack
+        return 2 * sizeof(size_t) + operations.size() * sizeof(size_t) + values.bytes_in_head();
+    }
+
+    void tree_t::to_byte_array(std::byte* out) const
+    {
+        const auto op_size = operations.size();
+        std::memcpy(out, &op_size, sizeof(size_t));
+        out += sizeof(size_t);
+        for (const auto& op : operations)
+        {
+            constexpr auto size_of_op = sizeof(operator_id);
+            auto id = op.id();
+            std::memcpy(out, &id, size_of_op);
+            out += size_of_op;
+        }
+        const auto val_size = values.bytes_in_head();
+        std::memcpy(out, &val_size, sizeof(size_t));
+        out += sizeof(size_t);
+        std::memcpy(out, values.data(), val_size);
+    }
+
+    void tree_t::to_file(FILE* file) const
+    {
+        const auto op_size = operations.size();
+        BLT_ASSERT(std::fwrite(&op_size, sizeof(size_t), 1, file) == sizeof(size_t));
+        for (const auto& op : operations)
+        {
+            auto id = op.id();
+            std::fwrite(&id, sizeof(operator_id), 1, file);
+        }
+        const auto val_size = values.bytes_in_head();
+        BLT_ASSERT(std::fwrite(&val_size, sizeof(size_t), 1, file) == sizeof(size_t));
+        BLT_ASSERT(std::fwrite(values.data(), val_size, 1, file) == val_size);
+    }
+
+    void tree_t::from_byte_array(const std::byte* in)
+    {
+        size_t ops_to_read;
+        std::memcpy(&ops_to_read, in, sizeof(size_t));
+        in += sizeof(size_t);
+        operations.reserve(ops_to_read);
+        for (size_t i = 0; i < ops_to_read; i++)
+        {
+            operator_id id;
+            std::memcpy(&id, in, sizeof(operator_id));
+            in += sizeof(operator_id);
+            operations.push_back({
+                m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
+                id,
+                m_program->is_operator_ephemeral(id),
+                m_program->get_operator_flags(id)
+            });
+        }
+        size_t val_size;
+        std::memcpy(&val_size, in, sizeof(size_t));
+        in += sizeof(size_t);
+        // TODO replace instances of u8 that are used to alias types with the proper std::byte
+        values.copy_from(reinterpret_cast<const u8*>(in), val_size);
+    }
+
+    void tree_t::from_file(FILE* file)
+    {
+        size_t ops_to_read;
+        BLT_ASSERT(std::fread(&ops_to_read, sizeof(size_t), 1, file) == sizeof(size_t));
+        operations.reserve(ops_to_read);
+        for (size_t i = 0; i < ops_to_read; i++)
+        {
+            operator_id id;
+            BLT_ASSERT(std::fread(&id, sizeof(operator_id), 1, file) == sizeof(operator_id));
+            operations.push_back({
+                m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
+                id,
+                m_program->is_operator_ephemeral(id),
+                m_program->get_operator_flags(id)
+            });
+        }
+        size_t val_size;
+        BLT_ASSERT(std::fread(&val_size, sizeof(size_t), 1, file) == sizeof(size_t));
+        values.resize(val_size);
+        BLT_ASSERT(std::fread(values.data(), val_size, 1, file) == val_size);
+    }
+
     void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)
     {
         if (!return_type)

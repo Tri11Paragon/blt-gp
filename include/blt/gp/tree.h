@@ -242,7 +242,6 @@ namespace blt::gp
                     bytes = 0;
                 }
             }
-
         private:
             tree_t& tree;
             u8* data;
@@ -607,6 +606,16 @@ namespace blt::gp
                 return results;
             };
         }
+
+        [[nodiscard]] size_t required_size() const;
+
+        void to_byte_array(std::byte* out) const;
+
+        void to_file(FILE* file) const;
+
+        void from_byte_array(const std::byte* in);
+
+        void from_file(FILE* file);
 
         ~tree_t()
         {

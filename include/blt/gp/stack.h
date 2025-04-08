@@ -307,6 +307,12 @@ namespace blt::gp
                 expand_raw(bytes);
         }
 
+        void resize(const size_t bytes)
+        {
+            reserve(bytes);
+            bytes_stored = bytes;
+        }
+
         [[nodiscard]] size_t stored() const
         {
             return bytes_stored;
@@ -321,6 +327,13 @@ namespace blt::gp
         {
             bytes_stored = 0;
         }
+
+        [[nodiscard]] auto* data() const
+        {
+            return data_;
+        }
+
+
 
     private:
         void expand(const size_t bytes)
