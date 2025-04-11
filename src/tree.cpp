@@ -692,18 +692,18 @@ namespace blt::gp
         std::memcpy(out, values.data(), val_size);
     }
 
-    void tree_t::to_file(FILE* file) const
+    void tree_t::to_file(fs::writer_t& file) const
     {
         const auto op_size = operations.size();
-        BLT_ASSERT(std::fwrite(&op_size, sizeof(size_t), 1, file) == sizeof(size_t));
+        BLT_ASSERT(file.write(&op_size, sizeof(size_t)) == sizeof(size_t));
         for (const auto& op : operations)
         {
             auto id = op.id();
-            std::fwrite(&id, sizeof(operator_id), 1, file);
+            file.write(&id, sizeof(operator_id));
         }
         const auto val_size = values.bytes_in_head();
-        BLT_ASSERT(std::fwrite(&val_size, sizeof(size_t), 1, file) == sizeof(size_t));
-        BLT_ASSERT(std::fwrite(values.data(), val_size, 1, file) == val_size);
+        BLT_ASSERT(file.write(&val_size, sizeof(size_t)) == sizeof(size_t));
+        BLT_ASSERT(file.write(values.data(), val_size) == val_size);
     }
 
     void tree_t::from_byte_array(const std::byte* in)
@@ -731,15 +731,15 @@ namespace blt::gp
         values.copy_from(reinterpret_cast<const u8*>(in), val_size);
     }
 
-    void tree_t::from_file(FILE* file)
+    void tree_t::from_file(fs::reader_t& file)
     {
         size_t ops_to_read;
-        BLT_ASSERT(std::fread(&ops_to_read, sizeof(size_t), 1, file) == sizeof(size_t));
+        BLT_ASSERT(file.read(&ops_to_read, sizeof(size_t)) == sizeof(size_t));
         operations.reserve(ops_to_read);
         for (size_t i = 0; i < ops_to_read; i++)
         {
             operator_id id;
-            BLT_ASSERT(std::fread(&id, sizeof(operator_id), 1, file) == sizeof(operator_id));
+            BLT_ASSERT(file.read(&id, sizeof(operator_id)) == sizeof(operator_id));
             operations.push_back({
                 m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
                 id,
@@ -748,9 +748,9 @@ namespace blt::gp
             });
         }
         size_t val_size;
-        BLT_ASSERT(std::fread(&val_size, sizeof(size_t), 1, file) == sizeof(size_t));
+        BLT_ASSERT(file.read(&val_size, sizeof(size_t)) == sizeof(size_t));
         values.resize(val_size);
-        BLT_ASSERT(std::fread(values.data(), val_size, 1, file) == val_size);
+        BLT_ASSERT(file.read(values.data(), val_size) == val_size);
     }
 
     void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)

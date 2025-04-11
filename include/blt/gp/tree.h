@@ -24,6 +24,7 @@
 #include <blt/gp/stack.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/std/types.h>
+#include <blt/fs/fwddecl.h>
 
 #include <utility>
 #include <stack>
@@ -611,11 +612,11 @@ namespace blt::gp
 
         void to_byte_array(std::byte* out) const;
 
-        void to_file(FILE* file) const;
+        void to_file(fs::writer_t& file) const;
 
         void from_byte_array(const std::byte* in);
 
-        void from_file(FILE* file);
+        void from_file(fs::reader_t& file);
 
         ~tree_t()
         {

@@ -640,7 +640,7 @@ namespace blt::gp
 			return thread_helper.lifetime_over;
 		}
 
-		operator_id select_terminal(type_id id)
+		operator_id select_terminal(const type_id id)
 		{
 			// we wanted a terminal, but could not find one, so we will select from a function that has a terminal
 			if (storage.terminals[id].empty())
@@ -648,7 +648,7 @@ namespace blt::gp
 			return get_random().select(storage.terminals[id]);
 		}
 
-		operator_id select_non_terminal(type_id id)
+		operator_id select_non_terminal(const type_id id)
 		{
 			// non-terminal doesn't exist, return a terminal. This is useful for types that are defined only to have a random value, nothing more.
 			// was considering an std::optional<> but that would complicate the generator code considerably. I'll mark this as a TODO for v2
@@ -657,7 +657,7 @@ namespace blt::gp
 			return get_random().select(storage.non_terminals[id]);
 		}
 
-		operator_id select_non_terminal_too_deep(type_id id)
+		operator_id select_non_terminal_too_deep(const type_id id)
 		{
 			// this should probably be an error.
 			if (storage.operators_ordered_terminals[id].empty())
@@ -688,32 +688,32 @@ namespace blt::gp
 			return storage.system;
 		}
 
-		[[nodiscard]] operator_info_t& get_operator_info(operator_id id)
+		[[nodiscard]] operator_info_t& get_operator_info(const operator_id id)
 		{
 			return storage.operators[id];
 		}
 
-		[[nodiscard]] detail::print_func_t& get_print_func(operator_id id)
+		[[nodiscard]] detail::print_func_t& get_print_func(const operator_id id)
 		{
 			return storage.print_funcs[id];
 		}
 
-		[[nodiscard]] detail::destroy_func_t& get_destroy_func(operator_id id)
+		[[nodiscard]] detail::destroy_func_t& get_destroy_func(const operator_id id)
 		{
 			return storage.destroy_funcs[id];
 		}
 
-		[[nodiscard]] std::optional<std::string_view> get_name(operator_id id) const
+		[[nodiscard]] std::optional<std::string_view> get_name(const operator_id id) const
 		{
 			return storage.names[id];
 		}
 
-		[[nodiscard]] tracked_vector<operator_id>& get_type_terminals(type_id id)
+		[[nodiscard]] tracked_vector<operator_id>& get_type_terminals(const type_id id)
 		{
 			return storage.terminals[id];
 		}
 
-		[[nodiscard]] tracked_vector<operator_id>& get_type_non_terminals(type_id id)
+		[[nodiscard]] tracked_vector<operator_id>& get_type_non_terminals(const type_id id)
 		{
 			return storage.non_terminals[id];
 		}
@@ -753,46 +753,54 @@ namespace blt::gp
 			storage = std::move(op);
 		}
 
-		template <blt::size_t size>
-		std::array<blt::size_t, size> get_best_indexes()
+		template <size_t size>
+		std::array<size_t, size> get_best_indexes()
 		{
-			std::array<blt::size_t, size> arr;
+			std::array<size_t, size> arr;
 
-			tracked_vector<std::pair<blt::size_t, double>> values;
+			tracked_vector<std::pair<size_t, double>> values;
 			values.reserve(current_pop.get_individuals().size());
 
-			for (const auto& [index, value] : blt::enumerate(current_pop.get_individuals()))
+			for (const auto& [index, value] : enumerate(current_pop.get_individuals()))
 				values.emplace_back(index, value.fitness.adjusted_fitness);
 
 			std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
 				return a.second > b.second;
 			});
 
-			for (blt::size_t i = 0; i < std::min(size, config.population_size); i++)
+			for (size_t i = 0; i < std::min(size, config.population_size); ++i)
 				arr[i] = values[i].first;
-			for (blt::size_t i = std::min(size, config.population_size); i < size; i++)
+			for (size_t i = std::min(size, config.population_size); i < size; ++i)
 				arr[i] = 0;
 
 			return arr;
 		}
 
-		template <blt::size_t size>
+		template <size_t size>
 		auto get_best_trees()
 		{
 			return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
-																						[this](auto&& arr, blt::size_t index) -> tree_t& {
+																						[this](auto&& arr, size_t index) -> tree_t& {
 																							return current_pop.get_individuals()[arr[index]].tree;
-																						}, std::make_integer_sequence<blt::size_t, size>());
+																						}, std::make_integer_sequence<size_t, size>());
 		}
 
-		template <blt::size_t size>
+		template <size_t size>
 		auto get_best_individuals()
 		{
 			return convert_array<std::array<std::reference_wrapper<individual_t>, size>>(get_best_indexes<size>(),
-																						[this](auto&& arr, blt::size_t index) -> individual_t& {
+																						[this](auto&& arr, size_t index) -> individual_t& {
 																							return current_pop.get_individuals()[arr[index]];
-																						}, std::make_integer_sequence<blt::size_t, size>());
+																						}, std::make_integer_sequence<size_t, size>());
 		}
+
+		void save_generation(fs::writer_t& writer);
+
+		void save_state(fs::writer_t& writer);
+
+		void load_generation(fs::reader_t& reader);
+
+		void load_state(fs::reader_t& reader);
 
 	private:
 		template <typename FitnessFunc>

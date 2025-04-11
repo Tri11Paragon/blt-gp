@@ -56,6 +56,14 @@ namespace blt::gp
         return allocator;
     }
 
+    void gp_program::save_state(fs::writer_t& writer)
+    {
+    }
+
+    void gp_program::load_state(fs::reader_t& reader)
+    {
+    }
+
     void gp_program::create_threads()
     {
 #ifdef BLT_TRACK_ALLOCATIONS
