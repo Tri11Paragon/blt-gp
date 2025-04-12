@@ -57,12 +57,13 @@ namespace blt::gp
                 BLT_WARN("Tried to remove sync from global sync state, but no thread was running");
                 return;
             }
-            std::scoped_lock lock(mutex);
+            std::unique_lock lock(mutex);
             const auto iter = std::find(syncs.begin(), syncs.end(), sync);
             std::iter_swap(iter, syncs.end() - 1);
             syncs.pop_back();
             if (syncs.empty())
             {
+                lock.unlock();
                 should_run = false;
                 condition_variable.notify_all();
                 thread->join();
@@ -83,8 +84,12 @@ namespace blt::gp
         get_state().add(this);
     }
 
-    void sync_t::trigger(u64 current_time)
+    void sync_t::trigger(const u64 current_time)
     {
+        if ((m_timer_seconds && (current_time % *m_timer_seconds == 0)) || (m_generations && (current_time % *m_generations == 0)))
+        {
+            
+        }
     }
 
     sync_t::~sync_t()
