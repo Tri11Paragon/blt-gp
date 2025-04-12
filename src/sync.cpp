@@ -18,6 +18,7 @@
 #include <blt/gp/sync.h>
 #include <thread>
 #include <atomic>
+#include <blt/gp/program.h>
 #include <blt/std/time.h>
 
 namespace blt::gp
@@ -79,16 +80,22 @@ namespace blt::gp
         return state;
     }
 
-    sync_t::sync_t(gp_program& program): m_program(&program)
+    sync_t::sync_t(gp_program& program, fs::writer_t& writer): m_program(&program), m_writer(&writer)
     {
         get_state().add(this);
     }
 
-    void sync_t::trigger(const u64 current_time)
+    void sync_t::trigger(const u64 current_time) const
     {
-        if ((m_timer_seconds && (current_time % *m_timer_seconds == 0)) || (m_generations && (current_time % *m_generations == 0)))
+        if ((m_timer_seconds && (current_time % *m_timer_seconds == 0)) || (m_generations && (m_program->get_current_generation() % *m_generations ==
+            0)))
         {
-            
+            if (m_reset_to_start_of_file)
+                m_writer->seek(0, fs::writer_t::seek_origin::seek_set);
+            if (m_whole_program)
+                m_program->save_state(*m_writer);
+            else
+                m_program->save_generation(*m_writer);
         }
     }
 

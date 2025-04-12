@@ -27,9 +27,9 @@ namespace blt::gp
     class sync_t
     {
     public:
-        explicit sync_t(gp_program& program);
+        explicit sync_t(gp_program& program, fs::writer_t& writer);
 
-        void trigger(u64 current_time);
+        void trigger(u64 current_time) const;
 
         sync_t& with_timer(u64 seconds)
         {
@@ -43,12 +43,45 @@ namespace blt::gp
             return *this;
         }
 
+        sync_t& overwrite_file_on_write()
+        {
+            m_reset_to_start_of_file = true;
+            return *this;
+        }
+
+        sync_t& append_to_file_on_write()
+        {
+            m_reset_to_start_of_file = false;
+            return *this;
+        }
+
+        /**
+         * Save the state of the whole program instead of just the generation information.
+         */
+        sync_t& whole_program()
+        {
+            m_whole_program = true;
+            return *this;
+        }
+
+        /**
+         * Only save the current generation to disk.
+         */
+        sync_t& generation_only()
+        {
+            m_whole_program = false;
+            return *this;
+        }
+
         ~sync_t();
 
     private:
         gp_program* m_program;
+        fs::writer_t* m_writer;
         std::optional<u64> m_timer_seconds;
         std::optional<u64> m_generations;
+        bool m_reset_to_start_of_file = false;
+        bool m_whole_program = false;
     };
 }
 

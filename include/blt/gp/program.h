@@ -1058,7 +1058,7 @@ namespace blt::gp
 			std::atomic_uint64_t next_gen_left = 0;
 
 			std::atomic_bool lifetime_over = false;
-			blt::barrier barrier;
+			blt::barrier_t barrier;
 
 			explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
 			{}
