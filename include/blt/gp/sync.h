@@ -19,9 +19,37 @@
 #ifndef BLT_GP_SYNC_H
 #define BLT_GP_SYNC_H
 
+#include <blt/std/types.h>
+#include <blt/gp/fwdecl.h>
+
 namespace blt::gp
 {
+    class sync_t
+    {
+    public:
+        explicit sync_t(gp_program& program);
 
+        void trigger(u64 current_time);
+
+        sync_t& with_timer(u64 seconds)
+        {
+            m_timer_seconds = seconds;
+            return *this;
+        }
+
+        sync_t& every_generations(u64 generations)
+        {
+            m_generations = generations;
+            return *this;
+        }
+
+        ~sync_t();
+
+    private:
+        gp_program* m_program;
+        std::optional<u64> m_timer_seconds;
+        std::optional<u64> m_generations;
+    };
 }
 
 #endif //BLT_GP_SYNC_H

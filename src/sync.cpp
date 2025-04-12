@@ -16,8 +16,79 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/sync.h>
+#include <thread>
+#include <atomic>
+#include <blt/std/time.h>
 
 namespace blt::gp
 {
+    struct global_sync_state_t
+    {
+        std::vector<sync_t*> syncs;
+        std::mutex mutex;
+        std::thread* thread = nullptr;
+        std::atomic_bool should_run = true;
+        std::condition_variable condition_variable;
 
+        void add(sync_t* sync)
+        {
+            if (thread == nullptr)
+            {
+                thread = new std::thread([this]()
+                {
+                    while (should_run)
+                    {
+                        std::unique_lock lock(mutex);
+                        condition_variable.wait_for(lock, std::chrono::milliseconds(100));
+                        const auto current_time = system::getCurrentTimeMilliseconds();
+                        for (const auto& sync : syncs)
+                            sync->trigger(current_time);
+                    }
+                });
+            }
+            std::scoped_lock lock(mutex);
+            syncs.push_back(sync);
+        }
+
+        void remove(const sync_t* sync)
+        {
+            if (thread == nullptr)
+            {
+                BLT_WARN("Tried to remove sync from global sync state, but no thread was running");
+                return;
+            }
+            std::scoped_lock lock(mutex);
+            const auto iter = std::find(syncs.begin(), syncs.end(), sync);
+            std::iter_swap(iter, syncs.end() - 1);
+            syncs.pop_back();
+            if (syncs.empty())
+            {
+                should_run = false;
+                condition_variable.notify_all();
+                thread->join();
+                delete thread;
+                thread = nullptr;
+            }
+        }
+    };
+
+    global_sync_state_t& get_state()
+    {
+        static global_sync_state_t state;
+        return state;
+    }
+
+    sync_t::sync_t(gp_program& program): m_program(&program)
+    {
+        get_state().add(this);
+    }
+
+    void sync_t::trigger(u64 current_time)
+    {
+    }
+
+    sync_t::~sync_t()
+    {
+        get_state().remove(this);
+    }
 }

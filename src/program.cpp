@@ -56,6 +56,14 @@ namespace blt::gp
         return allocator;
     }
 
+    void gp_program::save_generation(fs::writer_t& writer)
+    {
+    }
+
+    void gp_program::load_generation(fs::reader_t& reader)
+    {
+    }
+
     void gp_program::save_state(fs::writer_t& writer)
     {
     }
