@@ -58,18 +58,40 @@ namespace blt::gp
 
     void gp_program::save_generation(fs::writer_t& writer)
     {
+        const auto individuals = current_pop.get_individuals().size();
+        writer.write(&individuals, sizeof(individuals));
+        for (const auto& individual : current_pop.get_individuals())
+        {
+            writer.write(&individual.fitness, sizeof(individual.fitness));
+            individual.tree.to_file(writer);
+        }
     }
 
     void gp_program::load_generation(fs::reader_t& reader)
     {
+        size_t individuals;
+        reader.read(&individuals, sizeof(individuals));
+        if (current_pop.get_individuals().size() != individuals)
+        {
+            for (size_t i = current_pop.get_individuals().size(); i < individuals; i++)
+                current_pop.get_individuals().emplace_back(tree_t{*this});
+        }
+        for (auto& individual : current_pop.get_individuals())
+        {
+            reader.read(&individual.fitness, sizeof(individual.fitness));
+            individual.tree.clear(*this);
+            individual.tree.from_file(reader);
+        }
     }
 
     void gp_program::save_state(fs::writer_t& writer)
     {
+
     }
 
     void gp_program::load_state(fs::reader_t& reader)
     {
+
     }
 
     void gp_program::create_threads()

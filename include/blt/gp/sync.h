@@ -29,7 +29,7 @@ namespace blt::gp
     public:
         explicit sync_t(gp_program& program, fs::writer_t& writer);
 
-        void trigger(u64 current_time) const;
+        virtual void trigger(u64 current_time) const;
 
         sync_t& with_timer(u64 seconds)
         {
