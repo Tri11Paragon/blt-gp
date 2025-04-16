@@ -29,20 +29,22 @@ namespace blt::gp
 
     prog_config_t::prog_config_t(): mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
     {
-
     }
 
     prog_config_t::prog_config_t(const std::reference_wrapper<population_initializer_t>& popInitializer):
-            mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
-    {}
+        mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
+    {
+    }
 
     prog_config_t::prog_config_t(size_t populationSize, const std::reference_wrapper<population_initializer_t>& popInitializer):
-            population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
-    {}
+        population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(popInitializer)
+    {
+    }
 
     prog_config_t::prog_config_t(size_t populationSize):
-            population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
-    {}
+        population_size(populationSize), mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
+    {
+    }
 
     random_t& gp_program::get_random() const
     {
@@ -86,12 +88,90 @@ namespace blt::gp
 
     void gp_program::save_state(fs::writer_t& writer)
     {
-
+        const size_t operator_count = storage.operators.size();
+        writer.write(&operator_count, sizeof(operator_count));
+        for (const auto& [i, op] : enumerate(storage.operators))
+        {
+            writer.write(&i, sizeof(i));
+            bool has_name = storage.names[i].has_value();
+            writer.write(&has_name, sizeof(has_name));
+            if (has_name)
+            {
+                auto size = storage.names[i]->size();
+                writer.write(&size, sizeof(size));
+                writer.write(storage.names[i]->data(), size);
+            }
+            writer.write(&storage.operator_metadata[i].arg_size_bytes, sizeof(storage.operator_metadata[i].arg_size_bytes));
+            writer.write(&storage.operator_metadata[i].return_size_bytes, sizeof(storage.operator_metadata[i].return_size_bytes));
+            writer.write(&op.argc, sizeof(op.argc));
+            writer.write(&op.return_type, sizeof(op.return_type));
+            const size_t argc_type_count = op.argument_types.size();
+            writer.write(&argc_type_count, sizeof(argc_type_count));
+            for (const auto argument : op.argument_types)
+                writer.write(&argument, sizeof(argument));
+        }
+        save_generation(writer);
     }
 
     void gp_program::load_state(fs::reader_t& reader)
     {
+        size_t operator_count;
+        reader.read(&operator_count, sizeof(operator_count));
+        if (operator_count != storage.operators.size())
+            throw std::runtime_error(
+                "Invalid number of operators. Expected " + std::to_string(storage.operators.size()) + " found " + std::to_string(operator_count));
+        for (size_t i = 0; i < operator_count; i++)
+        {
+            size_t expected_i;
+            reader.read(&expected_i, sizeof(expected_i));
+            if (expected_i != i)
+                throw std::runtime_error("Loaded invalid operator ID. Expected " + std::to_string(i) + " found " + std::to_string(expected_i));
+            bool has_name;
+            reader.read(&has_name, sizeof(has_name));
+            if (has_name)
+            {
+                size_t size;
+                reader.read(&size, sizeof(size));
+                std::string name;
+                name.resize(size);
+                reader.read(name.data(), size);
+                if (!storage.names[i].has_value())
+                    throw std::runtime_error("Expected operator ID " + std::to_string(i) + " to have name " + name);
+                if (name != *storage.names[i])
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected to be named " + name + " found " + std::string(*storage.names[i]));
+                auto& op = storage.operators[i];
+                auto& op_meta = storage.operator_metadata[i];
 
+                decltype(std::declval<decltype(storage.operator_metadata)::value_type>().arg_size_bytes) arg_size_bytes;
+                decltype(std::declval<decltype(storage.operator_metadata)::value_type>().return_size_bytes) return_size_bytes;
+                reader.read(&arg_size_bytes, sizeof(arg_size_bytes));
+                reader.read(&return_size_bytes, sizeof(return_size_bytes));
+
+                if (op_meta.arg_size_bytes != arg_size_bytes)
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected operator to take " + std::to_string(op_meta.arg_size_bytes) + " but got " +
+                        std::to_string(arg_size_bytes));
+
+                if (op_meta.return_size_bytes != return_size_bytes)
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected operator to return " + std::to_string(op_meta.return_size_bytes) + " but got " +
+                        std::to_string(return_size_bytes));
+
+                argc_t argc;
+                reader.read(&argc, sizeof(argc));
+                type_id return_type;
+                reader.read(&return_type, sizeof(return_type));
+                size_t arg_type_count;
+                reader.read(&arg_type_count, sizeof(arg_type_count));
+                for (size_t j = 0; j < arg_type_count; j++)
+                {
+                    type_id type;
+                    reader.read(&type, sizeof(type));
+                }
+            }
+        }
+        load_generation(reader);
     }
 
     void gp_program::create_threads()
@@ -105,7 +185,8 @@ namespace blt::gp
         // main thread is thread0
         for (blt::size_t i = 1; i < config.threads; i++)
         {
-            thread_helper.threads.emplace_back(new std::thread([i, this]() {
+            thread_helper.threads.emplace_back(new std::thread([i, this]()
+            {
 #ifdef BLT_TRACK_ALLOCATIONS
                 tracker.reserve();
                 tracker.await_thread_loading_complete(config.threads);
