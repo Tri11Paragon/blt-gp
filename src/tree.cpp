@@ -717,12 +717,12 @@ namespace blt::gp
             operator_id id;
             std::memcpy(&id, in, sizeof(operator_id));
             in += sizeof(operator_id);
-            operations.push_back({
+            operations.emplace_back(
                 m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
                 id,
                 m_program->is_operator_ephemeral(id),
                 m_program->get_operator_flags(id)
-            });
+            );
         }
         size_t val_size;
         std::memcpy(&val_size, in, sizeof(size_t));
@@ -740,17 +740,17 @@ namespace blt::gp
         {
             operator_id id;
             BLT_ASSERT(file.read(&id, sizeof(operator_id)) == sizeof(operator_id));
-            operations.push_back({
+            operations.emplace_back(
                 m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
                 id,
                 m_program->is_operator_ephemeral(id),
                 m_program->get_operator_flags(id)
-            });
+            );
         }
-        size_t val_size;
-        BLT_ASSERT(file.read(&val_size, sizeof(size_t)) == sizeof(size_t));
-        values.resize(val_size);
-        BLT_ASSERT(file.read(values.data(), val_size) == val_size);
+        size_t bytes_in_head;
+        BLT_ASSERT(file.read(&bytes_in_head, sizeof(size_t)) == sizeof(size_t));
+        values.resize(bytes_in_head);
+        BLT_ASSERT(file.read(values.data(), bytes_in_head) == bytes_in_head);
     }
 
     void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)
@@ -786,5 +786,24 @@ namespace blt::gp
             }
             handle_operator_inserted(operations[point]);
         }
+    }
+
+    bool operator==(const tree_t& a, const tree_t& b)
+    {
+        if (a.operations.size() != b.operations.size())
+            return false;
+        if (a.values.bytes_in_head() != b.values.bytes_in_head())
+            return false;
+        return std::equal(a.operations.begin(), a.operations.end(), b.operations.begin());
+    }
+
+    bool operator==(const op_container_t& a, const op_container_t& b)
+    {
+        return a.id() == b.id();
+    }
+
+    bool operator==(const individual_t& a, const individual_t& b)
+    {
+        return a.tree == b.tree;
     }
 }

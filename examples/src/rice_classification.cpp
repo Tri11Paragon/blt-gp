@@ -21,7 +21,7 @@
 #include <blt/gp/program.h>
 #include <blt/profiling/profiler_v2.h>
 #include <blt/gp/tree.h>
-#include <blt/std/logging.h>
+#include <blt/logging/logging.h>
 #include <blt/format/format.h>
 #include <blt/parse/argparse.h>
 #include <iostream>
@@ -191,7 +191,7 @@ void blt::gp::example::rice_classification_t::load_rice_data(const std::string_v
     training_cases.insert(training_cases.end(), c.begin(), c.end());
     training_cases.insert(training_cases.end(), o.begin(), o.end());
     std::shuffle(training_cases.begin(), training_cases.end(), program.get_random());
-    BLT_INFO("Created testing set of size %ld, training set is of size %ld", testing_cases.size(), training_cases.size());
+    BLT_INFO("Created testing set of size {}, training set is of size {}", testing_cases.size(), training_cases.size());
 }
 
 blt::gp::confusion_matrix_t blt::gp::example::rice_classification_t::test_individual(const individual_t& individual) const

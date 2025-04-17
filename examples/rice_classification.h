@@ -116,8 +116,8 @@ namespace blt::gp::example
                 mutation_sel = &sel;
             if (reproduction_sel == nullptr)
                 reproduction_sel = &sel;
-            program.generate_population(program.get_typesystem().get_type<float>().id(), fitness_function_ref, *crossover_sel, *mutation_sel,
-                                        *reproduction_sel);
+            program.generate_initial_population(program.get_typesystem().get_type<float>().id());
+            program.setup_generational_evaluation(fitness_function_ref, *crossover_sel, *mutation_sel, *reproduction_sel);
         }
 
         void print_best(const size_t amount = 3)

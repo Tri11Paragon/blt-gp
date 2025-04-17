@@ -88,6 +88,8 @@ namespace blt::gp
             return m_flags;
         }
 
+        friend bool operator==(const op_container_t& a, const op_container_t& b);
+
     private:
         size_t m_type_size;
         operator_id m_id;
@@ -625,6 +627,13 @@ namespace blt::gp
 
         static tree_t& get_thread_local(gp_program& program);
 
+        friend bool operator==(const tree_t& a, const tree_t& b);
+
+        friend bool operator!=(const tree_t& a, const tree_t& b)
+        {
+            return !(a == b);
+        }
+
     private:
         void handle_operator_inserted(const op_container_t& op);
 
@@ -755,6 +764,13 @@ namespace blt::gp
         individual_t& operator=(const individual_t&) = delete;
 
         individual_t& operator=(individual_t&&) = default;
+
+        friend bool operator==(const individual_t& a, const individual_t& b);
+
+        friend bool operator!=(const individual_t& a, const individual_t& b)
+        {
+            return !(a == b);
+        }
     };
 
     class population_t

@@ -15,9 +15,15 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <filesystem>
+
 #include "../examples/symbolic_regression.h"
 #include <blt/gp/program.h>
 #include <blt/logging/logging.h>
+#include <ostream>
+#include <istream>
+#include <fstream>
+#include <blt/fs/stream_wrappers.h>
 
 using namespace blt::gp;
 
@@ -35,7 +41,7 @@ prog_config_t config = prog_config_t()
                        .set_reproduction_chance(0.1)
                        .set_max_generations(50)
                        .set_pop_size(500)
-                       .set_thread_count(1);
+                       .set_thread_count(0);
 
 
 example::symbolic_regression_t regression{691ul, config};
@@ -84,11 +90,16 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
 int main()
 {
     operator_builder<context> builder{};
-    builder.build(addf, subf, mulf, pro_divf, op_sinf, op_cosf, op_expf, op_logf, litf, op_xf);
-    regression.get_program().set_operations(builder.grab());
+    const auto& operators = builder.build(addf, subf, mulf, pro_divf, op_sinf, op_cosf, op_expf, op_logf, litf, op_xf);
+    regression.get_program().set_operations(operators);
 
     auto& program = regression.get_program();
     static auto sel = select_tournament_t{};
+
+    gp_program test_program{691};
+    test_program.set_operations(operators);
+    test_program.setup_generational_evaluation(fitness_function, sel, sel, sel, false);
+
     program.generate_initial_population(program.get_typesystem().get_type<float>().id());
     program.setup_generational_evaluation(fitness_function, sel, sel, sel);
     while (!program.should_terminate())
@@ -100,5 +111,25 @@ int main()
         program.next_generation();
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
+        {
+            std::filesystem::remove("serialization_test.data");
+            std::ofstream stream{"serialization_test.data", std::ios::binary};
+            blt::fs::fstream_writer_t writer{stream};
+            program.save_generation(writer);
+        }
+        {
+            std::ifstream stream{"serialization_test.data", std::ios::binary};
+            blt::fs::fstream_reader_t reader{stream};
+            test_program.load_generation(reader);
+        }
+        // do a quick validation check
+        for (const auto& [saved, loaded] : blt::zip(program.get_current_pop(), test_program.get_current_pop()))
+        {
+            if (saved.tree != loaded.tree)
+            {
+                BLT_ERROR("Serializer Failed to correctly serialize tree to disk, trees are not equal!");
+                std::exit(1);
+            }
+        }
     }
 }
