@@ -86,6 +86,35 @@ namespace blt::gp
         }
     }
 
+    void write_stat(fs::writer_t& writer, const population_stats& stat)
+    {
+        const auto overall_fitness = stat.overall_fitness.load();
+        const auto average_fitness = stat.average_fitness.load();
+        const auto best_fitness = stat.best_fitness.load();
+        const auto worst_fitness = stat.worst_fitness.load();
+        writer.write(&overall_fitness, sizeof(overall_fitness));
+        writer.write(&average_fitness, sizeof(average_fitness));
+        writer.write(&best_fitness, sizeof(best_fitness));
+        writer.write(&worst_fitness, sizeof(worst_fitness));
+        const size_t fitness_count = stat.normalized_fitness.size();
+        writer.write(&fitness_count, sizeof(fitness_count));
+        for (const auto& fitness : stat.normalized_fitness)
+            writer.write(&fitness, sizeof(fitness));
+    }
+
+    void load_stat(fs::reader_t& reader, population_stats& stat)
+    {
+        reader.read(&stat.overall_fitness, sizeof(stat.overall_fitness));
+        reader.read(&stat.average_fitness, sizeof(stat.average_fitness));
+        reader.read(&stat.best_fitness, sizeof(stat.best_fitness));
+        reader.read(&stat.worst_fitness, sizeof(stat.worst_fitness));
+        size_t fitness_count;
+        reader.read(&fitness_count, sizeof(fitness_count));
+        stat.normalized_fitness.resize(fitness_count);
+        for (auto& fitness : stat.normalized_fitness)
+            reader.read(&fitness, sizeof(fitness));
+    }
+
     void gp_program::save_state(fs::writer_t& writer)
     {
         const size_t operator_count = storage.operators.size();
@@ -110,6 +139,11 @@ namespace blt::gp
             for (const auto argument : op.argument_types)
                 writer.write(&argument, sizeof(argument));
         }
+        const size_t history_count = statistic_history.size();
+        writer.write(&history_count, sizeof(history_count));
+        for (const auto& stat : statistic_history)
+            write_stat(writer, stat);
+        write_stat(writer, current_stats);
         save_generation(writer);
     }
 
@@ -155,22 +189,49 @@ namespace blt::gp
 
                 if (op_meta.return_size_bytes != return_size_bytes)
                     throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected operator to return " + std::to_string(op_meta.return_size_bytes) + " but got " +
+                        "Operator ID " + std::to_string(i) + " expected operator to return " + std::to_string(op_meta.return_size_bytes) + " but got "
+                        +
                         std::to_string(return_size_bytes));
 
                 argc_t argc;
                 reader.read(&argc, sizeof(argc));
+                if (argc.argc != op.argc.argc)
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc) + " arguments but got " + std::to_string(
+                            argc.argc));
+                if (argc.argc_context != op.argc.argc_context)
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc_context) + " arguments but got " +
+                        std::to_string(argc.argc_context));
                 type_id return_type;
                 reader.read(&return_type, sizeof(return_type));
+                if (return_type != op.return_type)
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected return type " + std::to_string(op.return_type) + " but got " + std::to_string(
+                            return_type));
                 size_t arg_type_count;
+                if (arg_type_count != op.argument_types.size())
+                    throw std::runtime_error(
+                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argument_types.size()) + " arguments but got " +
+                        std::to_string(arg_type_count));
                 reader.read(&arg_type_count, sizeof(arg_type_count));
                 for (size_t j = 0; j < arg_type_count; j++)
                 {
                     type_id type;
                     reader.read(&type, sizeof(type));
+                    if (type != op.argument_types[j])
+                        throw std::runtime_error(
+                            "Operator ID " + std::to_string(i) + " expected argument " + std::to_string(j) + " to be of type " + std::to_string(
+                                op.argument_types[j]) + " but got " + std::to_string(type));
                 }
             }
         }
+        size_t history_count;
+        reader.read(&history_count, sizeof(history_count));
+        statistic_history.resize(history_count);
+        for (size_t i = 0; i < history_count; i++)
+            load_stat(reader, statistic_history[i]);
+        load_stat(reader, current_stats);
         load_generation(reader);
     }
 
