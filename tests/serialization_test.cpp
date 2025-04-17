@@ -66,7 +66,7 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
     {
         BLT_GP_UPDATE_CONTEXT(fitness_case);
         auto val = current_tree.get_evaluation_ref<float>(fitness_case);
-        const auto diff = std::abs(fitness_case.y - val.get().value());
+        const auto diff = std::abs(fitness_case.y - val.get());
         if (diff < value_cutoff)
         {
             fitness.raw_fitness += diff;
