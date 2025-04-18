@@ -18,6 +18,9 @@
 #include <blt/gp/program.h>
 #include <iostream>
 
+#define BLT_ASSERT_RET(expr, ret) if (!(expr)) { return ret; }
+#define BLT_ASSERT_RET(expr) if (!(expr)) { return false; }
+
 namespace blt::gp
 {
     // default static references for mutation, crossover, and initializer
@@ -69,10 +72,10 @@ namespace blt::gp
         }
     }
 
-    void gp_program::load_generation(fs::reader_t& reader)
+    bool gp_program::load_generation(fs::reader_t& reader)
     {
         size_t individuals;
-        reader.read(&individuals, sizeof(individuals));
+        BLT_ASSERT_RET(reader.read(&individuals, sizeof(individuals)) == sizeof(individuals));
         if (current_pop.get_individuals().size() != individuals)
         {
             for (size_t i = current_pop.get_individuals().size(); i < individuals; i++)
@@ -80,10 +83,11 @@ namespace blt::gp
         }
         for (auto& individual : current_pop.get_individuals())
         {
-            reader.read(&individual.fitness, sizeof(individual.fitness));
+            BLT_ASSERT_RET(reader.read(&individual.fitness, sizeof(individual.fitness)) == sizeof(individual.fitness));
             individual.tree.clear(*this);
             individual.tree.from_file(reader);
         }
+        return true;
     }
 
     void write_stat(fs::writer_t& writer, const population_stats& stat)
@@ -102,17 +106,18 @@ namespace blt::gp
             writer.write(&fitness, sizeof(fitness));
     }
 
-    void load_stat(fs::reader_t& reader, population_stats& stat)
+    bool load_stat(fs::reader_t& reader, population_stats& stat)
     {
-        BLT_ASSERT(reader.read(&stat.overall_fitness, sizeof(stat.overall_fitness)) == sizeof(stat.overall_fitness));
-        BLT_ASSERT(reader.read(&stat.average_fitness, sizeof(stat.average_fitness)) == sizeof(stat.average_fitness));
-        BLT_ASSERT(reader.read(&stat.best_fitness, sizeof(stat.best_fitness)) == sizeof(stat.best_fitness));
-        BLT_ASSERT(reader.read(&stat.worst_fitness, sizeof(stat.worst_fitness)) == sizeof(stat.worst_fitness));
+        BLT_ASSERT_RET(reader.read(&stat.overall_fitness, sizeof(stat.overall_fitness)) == sizeof(stat.overall_fitness));
+        BLT_ASSERT_RET(reader.read(&stat.average_fitness, sizeof(stat.average_fitness)) == sizeof(stat.average_fitness));
+        BLT_ASSERT_RET(reader.read(&stat.best_fitness, sizeof(stat.best_fitness)) == sizeof(stat.best_fitness));
+        BLT_ASSERT_RET(reader.read(&stat.worst_fitness, sizeof(stat.worst_fitness)) == sizeof(stat.worst_fitness));
         size_t fitness_count;
-        BLT_ASSERT(reader.read(&fitness_count, sizeof(fitness_count)) == sizeof(size_t));
+        BLT_ASSERT_RET(reader.read(&fitness_count, sizeof(fitness_count)) == sizeof(size_t));
         stat.normalized_fitness.resize(fitness_count);
         for (auto& fitness : stat.normalized_fitness)
-            BLT_ASSERT(reader.read(&fitness, sizeof(fitness)) == sizeof(fitness));
+            BLT_ASSERT_RET(reader.read(&fitness, sizeof(fitness)) == sizeof(fitness));
+        return true;
     }
 
     void gp_program::save_state(fs::writer_t& writer)
@@ -147,7 +152,7 @@ namespace blt::gp
         save_generation(writer);
     }
 
-    void gp_program::load_state(fs::reader_t& reader)
+    std::optional<serializer_error_t> gp_program::load_state(fs::reader_t& reader)
     {
         size_t operator_count;
         BLT_ASSERT(reader.read(&operator_count, sizeof(operator_count)) == sizeof(operator_count));
@@ -233,6 +238,8 @@ namespace blt::gp
             load_stat(reader, statistic_history[i]);
         load_stat(reader, current_stats);
         load_generation(reader);
+
+        return {};
     }
 
     void gp_program::create_threads()

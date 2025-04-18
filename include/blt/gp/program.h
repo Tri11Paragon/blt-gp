@@ -58,8 +58,8 @@ namespace blt::gp
 {
     struct argc_t
     {
-        blt::u32 argc = 0;
-        blt::u32 argc_context = 0;
+        u32 argc = 0;
+        u32 argc_context = 0;
 
         [[nodiscard]] bool is_terminal() const
         {
@@ -81,8 +81,8 @@ namespace blt::gp
 
     struct operator_metadata_t
     {
-        blt::size_t arg_size_bytes = 0;
-        blt::size_t return_size_bytes = 0;
+        size_t arg_size_bytes = 0;
+        size_t return_size_bytes = 0;
         argc_t argc{};
     };
 
@@ -106,12 +106,15 @@ namespace blt::gp
         type_provider system;
     };
 
+
+    using serializer_error_t = std::variant<>;
+
     template <typename Context = detail::empty_t>
     class operator_builder
     {
         friend class gp_program;
 
-        friend class blt::gp::detail::operator_storage_test;
+        friend class detail::operator_storage_test;
 
     public:
         explicit operator_builder() = default;
@@ -833,9 +836,9 @@ namespace blt::gp
 
         void save_state(fs::writer_t& writer);
 
-        void load_generation(fs::reader_t& reader);
+        bool load_generation(fs::reader_t& reader);
 
-        void load_state(fs::reader_t& reader);
+        std::optional<serializer_error_t> load_state(fs::reader_t& reader);
 
     private:
         template <typename FitnessFunc>
