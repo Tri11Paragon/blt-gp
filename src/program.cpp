@@ -104,15 +104,15 @@ namespace blt::gp
 
     void load_stat(fs::reader_t& reader, population_stats& stat)
     {
-        reader.read(&stat.overall_fitness, sizeof(stat.overall_fitness));
-        reader.read(&stat.average_fitness, sizeof(stat.average_fitness));
-        reader.read(&stat.best_fitness, sizeof(stat.best_fitness));
-        reader.read(&stat.worst_fitness, sizeof(stat.worst_fitness));
+        BLT_ASSERT(reader.read(&stat.overall_fitness, sizeof(stat.overall_fitness)) == sizeof(stat.overall_fitness));
+        BLT_ASSERT(reader.read(&stat.average_fitness, sizeof(stat.average_fitness)) == sizeof(stat.average_fitness));
+        BLT_ASSERT(reader.read(&stat.best_fitness, sizeof(stat.best_fitness)) == sizeof(stat.best_fitness));
+        BLT_ASSERT(reader.read(&stat.worst_fitness, sizeof(stat.worst_fitness)) == sizeof(stat.worst_fitness));
         size_t fitness_count;
-        reader.read(&fitness_count, sizeof(fitness_count));
+        BLT_ASSERT(reader.read(&fitness_count, sizeof(fitness_count)) == sizeof(size_t));
         stat.normalized_fitness.resize(fitness_count);
         for (auto& fitness : stat.normalized_fitness)
-            reader.read(&fitness, sizeof(fitness));
+            BLT_ASSERT(reader.read(&fitness, sizeof(fitness)) == sizeof(fitness));
     }
 
     void gp_program::save_state(fs::writer_t& writer)
@@ -150,37 +150,37 @@ namespace blt::gp
     void gp_program::load_state(fs::reader_t& reader)
     {
         size_t operator_count;
-        reader.read(&operator_count, sizeof(operator_count));
+        BLT_ASSERT(reader.read(&operator_count, sizeof(operator_count)) == sizeof(operator_count));
         if (operator_count != storage.operators.size())
             throw std::runtime_error(
                 "Invalid number of operators. Expected " + std::to_string(storage.operators.size()) + " found " + std::to_string(operator_count));
         for (size_t i = 0; i < operator_count; i++)
         {
             size_t expected_i;
-            reader.read(&expected_i, sizeof(expected_i));
+            BLT_ASSERT(reader.read(&expected_i, sizeof(expected_i)) == sizeof(expected_i));
             if (expected_i != i)
                 throw std::runtime_error("Loaded invalid operator ID. Expected " + std::to_string(i) + " found " + std::to_string(expected_i));
             bool has_name;
-            reader.read(&has_name, sizeof(has_name));
+            BLT_ASSERT(reader.read(&has_name, sizeof(has_name)) == sizeof(has_name));
             if (has_name)
             {
                 size_t size;
-                reader.read(&size, sizeof(size));
+                BLT_ASSERT(reader.read(&size, sizeof(size)) == sizeof(size));
                 std::string name;
                 name.resize(size);
-                reader.read(name.data(), size);
+                BLT_ASSERT(reader.read(name.data(), size) == size);
                 if (!storage.names[i].has_value())
                     throw std::runtime_error("Expected operator ID " + std::to_string(i) + " to have name " + name);
                 if (name != *storage.names[i])
                     throw std::runtime_error(
                         "Operator ID " + std::to_string(i) + " expected to be named " + name + " found " + std::string(*storage.names[i]));
-                auto& op = storage.operators[i];
-                auto& op_meta = storage.operator_metadata[i];
+                const auto& op = storage.operators[i];
+                const auto& op_meta = storage.operator_metadata[i];
 
                 decltype(std::declval<decltype(storage.operator_metadata)::value_type>().arg_size_bytes) arg_size_bytes;
                 decltype(std::declval<decltype(storage.operator_metadata)::value_type>().return_size_bytes) return_size_bytes;
-                reader.read(&arg_size_bytes, sizeof(arg_size_bytes));
-                reader.read(&return_size_bytes, sizeof(return_size_bytes));
+                BLT_ASSERT(reader.read(&arg_size_bytes, sizeof(arg_size_bytes)) == sizeof(arg_size_bytes));
+                BLT_ASSERT(reader.read(&return_size_bytes, sizeof(return_size_bytes)) == sizeof(return_size_bytes));
 
                 if (op_meta.arg_size_bytes != arg_size_bytes)
                     throw std::runtime_error(
@@ -194,7 +194,7 @@ namespace blt::gp
                         std::to_string(return_size_bytes));
 
                 argc_t argc;
-                reader.read(&argc, sizeof(argc));
+                BLT_ASSERT(reader.read(&argc, sizeof(argc)) == sizeof(argc));
                 if (argc.argc != op.argc.argc)
                     throw std::runtime_error(
                         "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc) + " arguments but got " + std::to_string(
@@ -204,7 +204,7 @@ namespace blt::gp
                         "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc_context) + " arguments but got " +
                         std::to_string(argc.argc_context));
                 type_id return_type;
-                reader.read(&return_type, sizeof(return_type));
+                BLT_ASSERT(reader.read(&return_type, sizeof(return_type)) == sizeof(return_type));
                 if (return_type != op.return_type)
                     throw std::runtime_error(
                         "Operator ID " + std::to_string(i) + " expected return type " + std::to_string(op.return_type) + " but got " + std::to_string(
@@ -214,11 +214,11 @@ namespace blt::gp
                     throw std::runtime_error(
                         "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argument_types.size()) + " arguments but got " +
                         std::to_string(arg_type_count));
-                reader.read(&arg_type_count, sizeof(arg_type_count));
+                BLT_ASSERT(reader.read(&arg_type_count, sizeof(arg_type_count)) == sizeof(return_type));
                 for (size_t j = 0; j < arg_type_count; j++)
                 {
                     type_id type;
-                    reader.read(&type, sizeof(type));
+                    BLT_ASSERT(reader.read(&type, sizeof(type)) == sizeof(type));
                     if (type != op.argument_types[j])
                         throw std::runtime_error(
                             "Operator ID " + std::to_string(i) + " expected argument " + std::to_string(j) + " to be of type " + std::to_string(
@@ -227,7 +227,7 @@ namespace blt::gp
             }
         }
         size_t history_count;
-        reader.read(&history_count, sizeof(history_count));
+        BLT_ASSERT(reader.read(&history_count, sizeof(history_count)) == sizeof(history_count));
         statistic_history.resize(history_count);
         for (size_t i = 0; i < history_count; i++)
             load_stat(reader, statistic_history[i]);

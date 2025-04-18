@@ -750,7 +750,7 @@ namespace blt::gp
         size_t bytes_in_head;
         BLT_ASSERT(file.read(&bytes_in_head, sizeof(size_t)) == sizeof(size_t));
         values.resize(bytes_in_head);
-        BLT_ASSERT(file.read(values.data(), bytes_in_head) == bytes_in_head);
+        BLT_ASSERT(file.read(values.data(), bytes_in_head) == static_cast<i64>(bytes_in_head));
     }
 
     void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)
