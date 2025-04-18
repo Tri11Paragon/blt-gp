@@ -93,8 +93,8 @@ namespace blt::gp
     std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(const tree_t& c1,
                                                                                    const tree_t& c2) const
     {
-        auto first = c1.select_subtree(config.terminal_chance);
-        auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
+        const auto first = c1.select_subtree(config.terminal_chance);
+        const auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
 
         if (!second)
             return {};
@@ -108,7 +108,7 @@ namespace blt::gp
         auto c1_point_o = get_point_traverse_retry(c1, {});
         if (!c1_point_o)
             return {};
-        auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
+        const auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
         if (!c2_point_o)
             return {};
         return {{*c1_point_o, *c2_point_o}};

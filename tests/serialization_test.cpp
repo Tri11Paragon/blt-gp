@@ -156,15 +156,11 @@ int main()
             }
         }
     }
-    try {
-        std::ifstream stream{"serialization_test2.data", std::ios::binary};
-        blt::fs::fstream_reader_t reader{stream};
-        bad_program.load_state(reader);
-    } catch (const std::runtime_error&)
+    std::ifstream stream{"serialization_test2.data", std::ios::binary};
+    blt::fs::fstream_reader_t reader{stream};
+    if (auto err = bad_program.load_state(reader))
     {
-        // TODO: use blt::expected so this isn't required + better design.
-        goto exit;
+        BLT_ERROR(blt::gp::errors::serialization::to_string(*err));
+        BLT_ASSERT(false && "Expected program to throw an exception when parsing state data into an incompatible program!");
     }
-    BLT_ASSERT(false && "Expected program to throw an exception when parsing state data into an incompatible program!");
-    exit:
 }

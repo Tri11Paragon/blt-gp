@@ -18,11 +18,24 @@
 #include <blt/gp/program.h>
 #include <iostream>
 
-#define BLT_ASSERT_RET(expr, ret) if (!(expr)) { return ret; }
+#ifndef BLT_ASSERT_RET
 #define BLT_ASSERT_RET(expr) if (!(expr)) { return false; }
+#endif
+
+#define BLT_READ(read_statement, size) do { auto read = read_statement; if (read != size) { return blt::gp::errors::serialization::invalid_read_t{read, size}; } } while (false)
 
 namespace blt::gp
 {
+    std::string errors::serialization::to_string(const serializer_error_t& error)
+    {
+        return std::visit(lambda_visitor{
+                              [](const auto& val)
+                              {
+                                  return val.to_string();
+                              }
+                          }, error);
+    }
+
     // default static references for mutation, crossover, and initializer
     // this is largely to not break the tests :3
     // it's also to allow for quick setup of a gp program if you don't care how crossover or mutation is handled
@@ -152,87 +165,71 @@ namespace blt::gp
         save_generation(writer);
     }
 
-    std::optional<serializer_error_t> gp_program::load_state(fs::reader_t& reader)
+    std::optional<errors::serialization::serializer_error_t> gp_program::load_state(fs::reader_t& reader)
     {
         size_t operator_count;
-        BLT_ASSERT(reader.read(&operator_count, sizeof(operator_count)) == sizeof(operator_count));
+        BLT_READ(reader.read(&operator_count, sizeof(operator_count)), sizeof(operator_count));
         if (operator_count != storage.operators.size())
-            throw std::runtime_error(
-                "Invalid number of operators. Expected " + std::to_string(storage.operators.size()) + " found " + std::to_string(operator_count));
+            return errors::serialization::unexpected_size_t{operator_count, storage.operators.size()};
         for (size_t i = 0; i < operator_count; i++)
         {
             size_t expected_i;
-            BLT_ASSERT(reader.read(&expected_i, sizeof(expected_i)) == sizeof(expected_i));
+            BLT_READ(reader.read(&expected_i, sizeof(expected_i)), sizeof(expected_i));
             if (expected_i != i)
-                throw std::runtime_error("Loaded invalid operator ID. Expected " + std::to_string(i) + " found " + std::to_string(expected_i));
+                return errors::serialization::invalid_operator_id_t{i, expected_i};
             bool has_name;
-            BLT_ASSERT(reader.read(&has_name, sizeof(has_name)) == sizeof(has_name));
+            BLT_READ(reader.read(&has_name, sizeof(has_name)), sizeof(has_name));
             if (has_name)
             {
                 size_t size;
-                BLT_ASSERT(reader.read(&size, sizeof(size)) == sizeof(size));
+                BLT_READ(reader.read(&size, sizeof(size)), sizeof(size));
                 std::string name;
                 name.resize(size);
-                BLT_ASSERT(reader.read(name.data(), size) == static_cast<i64>(size));
+                BLT_READ(reader.read(name.data(), size), static_cast<i64>(size));
                 if (!storage.names[i].has_value())
-                    throw std::runtime_error("Expected operator ID " + std::to_string(i) + " to have name " + name);
+                    return errors::serialization::invalid_name_t{i, name, "NO NAME"};
                 if (name != *storage.names[i])
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected to be named " + name + " found " + std::string(*storage.names[i]));
+                    return errors::serialization::invalid_name_t{i, name, std::string{*storage.names[i]}};
                 const auto& op = storage.operators[i];
                 const auto& op_meta = storage.operator_metadata[i];
 
                 decltype(std::declval<decltype(storage.operator_metadata)::value_type>().arg_size_bytes) arg_size_bytes;
                 decltype(std::declval<decltype(storage.operator_metadata)::value_type>().return_size_bytes) return_size_bytes;
-                BLT_ASSERT(reader.read(&arg_size_bytes, sizeof(arg_size_bytes)) == sizeof(arg_size_bytes));
-                BLT_ASSERT(reader.read(&return_size_bytes, sizeof(return_size_bytes)) == sizeof(return_size_bytes));
+                BLT_READ(reader.read(&arg_size_bytes, sizeof(arg_size_bytes)), sizeof(arg_size_bytes));
+                BLT_READ(reader.read(&return_size_bytes, sizeof(return_size_bytes)), sizeof(return_size_bytes));
 
                 if (op_meta.arg_size_bytes != arg_size_bytes)
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected operator to take " + std::to_string(op_meta.arg_size_bytes) + " but got " +
-                        std::to_string(arg_size_bytes));
+                    return errors::serialization::mismatched_bytes_t{i, arg_size_bytes, op_meta.arg_size_bytes};
 
                 if (op_meta.return_size_bytes != return_size_bytes)
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected operator to return " + std::to_string(op_meta.return_size_bytes) + " but got "
-                        +
-                        std::to_string(return_size_bytes));
+                    return errors::serialization::mismatched_bytes_t{i, return_size_bytes, op_meta.return_size_bytes};
 
                 argc_t argc;
-                BLT_ASSERT(reader.read(&argc, sizeof(argc)) == sizeof(argc));
+                BLT_READ(reader.read(&argc, sizeof(argc)), sizeof(argc));
                 if (argc.argc != op.argc.argc)
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc) + " arguments but got " + std::to_string(
-                            argc.argc));
+                    return errors::serialization::mismatched_argc_t{i, argc.argc, op.argc.argc};
                 if (argc.argc_context != op.argc.argc_context)
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argc.argc_context) + " arguments but got " +
-                        std::to_string(argc.argc_context));
+                    return errors::serialization::mismatched_argc_t{i, argc.argc_context, op.argc.argc_context};
+
                 type_id return_type;
-                BLT_ASSERT(reader.read(&return_type, sizeof(return_type)) == sizeof(return_type));
+                BLT_READ(reader.read(&return_type, sizeof(return_type)), sizeof(return_type));
                 if (return_type != op.return_type)
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected return type " + std::to_string(op.return_type) + " but got " + std::to_string(
-                            return_type));
+                    return errors::serialization::mismatched_return_type_t{i, return_type, op.return_type};
                 size_t arg_type_count;
-                BLT_ASSERT(reader.read(&arg_type_count, sizeof(arg_type_count)) == sizeof(return_type));
+                BLT_READ(reader.read(&arg_type_count, sizeof(arg_type_count)), sizeof(return_type));
                 if (arg_type_count != op.argument_types.size())
-                    throw std::runtime_error(
-                        "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argument_types.size()) + " arguments but got " +
-                        std::to_string(arg_type_count));
+                    return errors::serialization::unexpected_size_t{arg_type_count, op.argument_types.size()};
                 for (size_t j = 0; j < arg_type_count; j++)
                 {
                     type_id type;
-                    BLT_ASSERT(reader.read(&type, sizeof(type)) == sizeof(type));
+                    BLT_READ(reader.read(&type, sizeof(type)), sizeof(type));
                     if (type != op.argument_types[j])
-                        throw std::runtime_error(
-                            "Operator ID " + std::to_string(i) + " expected argument " + std::to_string(j) + " to be of type " + std::to_string(
-                                op.argument_types[j]) + " but got " + std::to_string(type));
+                        return errors::serialization::mismatched_arg_type_t{i, j, type, op.argument_types[j]};
                 }
             }
         }
         size_t history_count;
-        BLT_ASSERT(reader.read(&history_count, sizeof(history_count)) == sizeof(history_count));
+        BLT_READ(reader.read(&history_count, sizeof(history_count)), sizeof(history_count));
         statistic_history.resize(history_count);
         for (size_t i = 0; i < history_count; i++)
             load_stat(reader, statistic_history[i]);

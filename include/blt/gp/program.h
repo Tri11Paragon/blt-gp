@@ -106,8 +106,118 @@ namespace blt::gp
         type_provider system;
     };
 
+    namespace errors::serialization
+    {
+        struct invalid_read_t
+        {
+            i64 read;
+            i64 expected;
 
-    using serializer_error_t = std::variant<>;
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Invalid read; unable to read sufficient bytes to populate the object. Expected " + std::to_string(expected) + " but read " +
+                    std::to_string(read);
+            }
+        };
+
+        struct unexpected_size_t
+        {
+            size_t read_size;
+            size_t expected_size;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Invalid read of a size type. Expected to find " + std::to_string(expected_size) + " found " + std::to_string(read_size);
+            }
+        };
+
+        struct invalid_operator_id_t
+        {
+            operator_id read;
+            operator_id expected;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Loaded invalid operator ID. Expected " + std::to_string(expected) + " but found " + std::to_string(read);
+            }
+        };
+
+        struct invalid_name_t
+        {
+            operator_id id;
+            std::string found;
+            std::string expected;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Operator ID " + std::to_string(id) + " expected to have name '" + expected + "' but found '" + found + "'";
+            }
+        };
+
+        struct mismatched_bytes_t
+        {
+            operator_id id;
+            size_t read_size;
+            size_t expected_size;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Operator ID " + std::to_string(id) + " expected bytes " + std::to_string(expected_size) + " but found " +
+                    std::to_string(read_size);
+            }
+        };
+
+        struct mismatched_argc_t
+        {
+            operator_id id;
+            size_t read_argc;
+            size_t expected_argc;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Operator ID " + std::to_string(id) + " expected argc " + std::to_string(expected_argc) + " but found " +
+                    std::to_string(read_argc);
+            }
+        };
+
+        struct mismatched_return_type_t
+        {
+            operator_id id;
+            type_id read_type;
+            type_id expected_type;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Operator ID " + std::to_string(id) +
+                    " expected return type " + std::to_string(expected_type) +
+                    " but got " + std::to_string(read_type);
+            }
+        };
+
+        struct mismatched_arg_type_t
+        {
+            operator_id id;
+            size_t arg_index;
+            type_id read_type;
+            type_id expected_type;
+
+            [[nodiscard]] std::string to_string() const
+            {
+                return "Operator ID " + std::to_string(id) +
+                    " expected argument " + std::to_string(arg_index) +
+                    " to be of type " + std::to_string(expected_type) +
+                    " but got " + std::to_string(read_type);
+            }
+        };
+
+        using serializer_error_t = std::variant<errors::serialization::invalid_read_t, errors::serialization::unexpected_size_t,
+                                            errors::serialization::invalid_operator_id_t, errors::serialization::invalid_name_t,
+                                            errors::serialization::mismatched_bytes_t, errors::serialization::mismatched_argc_t,
+                                            errors::serialization::mismatched_return_type_t, errors::serialization::mismatched_arg_type_t>;
+
+        std::string to_string(const serializer_error_t& error);
+    }
+
 
     template <typename Context = detail::empty_t>
     class operator_builder
@@ -838,7 +948,7 @@ namespace blt::gp
 
         bool load_generation(fs::reader_t& reader);
 
-        std::optional<serializer_error_t> load_state(fs::reader_t& reader);
+        std::optional<errors::serialization::serializer_error_t> load_state(fs::reader_t& reader);
 
     private:
         template <typename FitnessFunc>
