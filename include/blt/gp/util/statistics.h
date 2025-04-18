@@ -196,6 +196,20 @@ namespace blt::gp
             worst_fitness = 0;
             normalized_fitness.clear();
         }
+
+        friend bool operator==(const population_stats& a, const population_stats& b)
+        {
+            return a.overall_fitness.load(std::memory_order_relaxed) == b.overall_fitness.load(std::memory_order_relaxed) &&
+                a.average_fitness.load(std::memory_order_relaxed) == b.average_fitness.load(std::memory_order_relaxed) &&
+                a.best_fitness.load(std::memory_order_relaxed) == b.best_fitness.load(std::memory_order_relaxed) &&
+                a.worst_fitness.load(std::memory_order_relaxed) == b.worst_fitness.load(std::memory_order_relaxed) &&
+                a.normalized_fitness == b.normalized_fitness;
+        }
+
+        friend bool operator!=(const population_stats& a, const population_stats& b)
+        {
+            return !(a == b);
+        }
     };
 }
 

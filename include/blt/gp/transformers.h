@@ -55,6 +55,9 @@ namespace blt::gp
         }
     }
 
+    /**
+     * Base class for crossover which performs basic subtree crossover on two random nodes in the parent tree
+     */
     class crossover_t
     {
     public:
@@ -121,6 +124,11 @@ namespace blt::gp
         [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
 
         config_t config;
+    };
+
+    class advanced_crossover_t : public crossover_t
+    {
+        bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };
 
     class mutation_t

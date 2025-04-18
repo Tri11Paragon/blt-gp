@@ -168,7 +168,7 @@ namespace blt::gp
                 BLT_ASSERT(reader.read(&size, sizeof(size)) == sizeof(size));
                 std::string name;
                 name.resize(size);
-                BLT_ASSERT(reader.read(name.data(), size) == size);
+                BLT_ASSERT(reader.read(name.data(), size) == static_cast<i64>(size));
                 if (!storage.names[i].has_value())
                     throw std::runtime_error("Expected operator ID " + std::to_string(i) + " to have name " + name);
                 if (name != *storage.names[i])
@@ -210,11 +210,11 @@ namespace blt::gp
                         "Operator ID " + std::to_string(i) + " expected return type " + std::to_string(op.return_type) + " but got " + std::to_string(
                             return_type));
                 size_t arg_type_count;
+                BLT_ASSERT(reader.read(&arg_type_count, sizeof(arg_type_count)) == sizeof(return_type));
                 if (arg_type_count != op.argument_types.size())
                     throw std::runtime_error(
                         "Operator ID " + std::to_string(i) + " expected " + std::to_string(op.argument_types.size()) + " arguments but got " +
                         std::to_string(arg_type_count));
-                BLT_ASSERT(reader.read(&arg_type_count, sizeof(arg_type_count)) == sizeof(return_type));
                 for (size_t j = 0; j < arg_type_count; j++)
                 {
                     type_id type;

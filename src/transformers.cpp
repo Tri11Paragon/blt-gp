@@ -80,20 +80,7 @@ namespace blt::gp
         if (!point)
             return false;
 
-        // TODO: more crossover!
-        switch (program.get_random().get_u32(0, 2))
-        {
-        case 0:
-        case 1:
-            c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
-            break;
-        default:
-#if BLT_DEBUG_LEVEL > 0
-            BLT_ABORT("This place should be unreachable!");
-#else
-            BLT_UNREACHABLE;
-#endif
-        }
+        c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
 
 #if BLT_DEBUG_LEVEL >= 2
         if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
@@ -132,6 +119,57 @@ namespace blt::gp
         if (type)
             return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
         return t.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
+    }
+
+    bool advanced_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
+    {
+        if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
+            return false;
+
+        // TODO: more crossover!
+        switch (program.get_random().get_u32(0, 2))
+        {
+            // single point crossover (only if operators at this point are "compatible")
+        case 0:
+            case0:
+            {
+                std::optional<crossover_point_t> point;
+
+                if (config.traverse)
+                    point = get_crossover_point_traverse(p1, p2);
+                else
+                    point = get_crossover_point(p1, p2);
+
+                if (!point)
+                    return false;
+
+                // check if can work
+                // otherwise goto case2
+            }
+            // Mating crossover analogs to same species breeding. Only works if tree is mostly similar
+        case 1:
+            case1:
+            {
+                // if fails got to case0
+                if (false)
+                    goto case0;
+            }
+            // Subtree crossover, select random points inside trees and swap their subtrees
+        case 2:
+            case2:
+            return crossover_t::apply(program, p1, p2, c1, c2);
+        default:
+#if BLT_DEBUG_LEVEL > 0
+            BLT_ABORT("This place should be unreachable!");
+#else
+            BLT_UNREACHABLE;
+#endif
+        }
+
+#if BLT_DEBUG_LEVEL >= 2
+        if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
+            throw std::runtime_error("Tree check failed");
+#endif
     }
 
     bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)

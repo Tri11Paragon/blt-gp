@@ -760,6 +760,11 @@ namespace blt::gp
             return current_stats;
         }
 
+        [[nodiscard]] const tracked_vector<population_stats>& get_stats_histories() const
+        {
+            return statistic_history;
+        }
+
         [[nodiscard]] bool is_operator_ephemeral(const operator_id id) const
         {
             return storage.operator_flags.find(static_cast<size_t>(id))->second.is_ephemeral();

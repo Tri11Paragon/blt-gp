@@ -100,6 +100,12 @@ int main()
     test_program.set_operations(operators);
     test_program.setup_generational_evaluation(fitness_function, sel, sel, sel, false);
 
+    // simulate a program which is similar but incompatible with the other programs.
+    operator_builder<context> builder2{};
+    gp_program bad_program{691};
+    bad_program.set_operations(builder2.build(addf, subf, mulf, op_sinf, op_cosf, litf, op_xf));
+    bad_program.setup_generational_evaluation(fitness_function, sel, sel, sel, false);
+
     program.generate_initial_population(program.get_typesystem().get_type<float>().id());
     program.setup_generational_evaluation(fitness_function, sel, sel, sel);
     while (!program.should_terminate())
@@ -112,8 +118,7 @@ int main()
         BLT_TRACE("Evaluate Fitness");
         program.evaluate_fitness();
         {
-            std::filesystem::remove("serialization_test.data");
-            std::ofstream stream{"serialization_test.data", std::ios::binary};
+            std::ofstream stream{"serialization_test.data", std::ios::binary | std::ios::trunc};
             blt::fs::fstream_writer_t writer{stream};
             program.save_generation(writer);
         }
@@ -132,4 +137,34 @@ int main()
             }
         }
     }
+    {
+        std::ofstream stream{"serialization_test2.data", std::ios::binary | std::ios::trunc};
+        blt::fs::fstream_writer_t writer{stream};
+        program.save_state(writer);
+    }
+    {
+        std::ifstream stream{"serialization_test2.data", std::ios::binary};
+        blt::fs::fstream_reader_t reader{stream};
+        test_program.load_state(reader);
+
+        for (const auto [saved, loaded] : blt::zip(program.get_stats_histories(), test_program.get_stats_histories()))
+        {
+            if (saved != loaded)
+            {
+                BLT_ERROR("Serializer Failed to correctly serialize histories to disk, histories are not equal!");
+                std::exit(1);
+            }
+        }
+    }
+    try {
+        std::ifstream stream{"serialization_test2.data", std::ios::binary};
+        blt::fs::fstream_reader_t reader{stream};
+        bad_program.load_state(reader);
+    } catch (const std::runtime_error&)
+    {
+        // TODO: use blt::expected so this isn't required + better design.
+        goto exit;
+    }
+    BLT_ASSERT(false && "Expected program to throw an exception when parsing state data into an incompatible program!");
+    exit:
 }
