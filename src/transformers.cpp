@@ -65,7 +65,7 @@ namespace blt::gp
     {
     }
 
-    bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
+    bool subtree_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
         if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
             return false;
@@ -90,7 +90,7 @@ namespace blt::gp
         return true;
     }
 
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(const tree_t& c1,
+    std::optional<subtree_crossover_t::crossover_point_t> subtree_crossover_t::get_crossover_point(const tree_t& c1,
                                                                                    const tree_t& c2) const
     {
         const auto first = c1.select_subtree(config.terminal_chance);
@@ -102,7 +102,7 @@ namespace blt::gp
         return {{first, *second}};
     }
 
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(const tree_t& c1,
+    std::optional<subtree_crossover_t::crossover_point_t> subtree_crossover_t::get_crossover_point_traverse(const tree_t& c1,
                                                                                             const tree_t& c2) const
     {
         auto c1_point_o = get_point_traverse_retry(c1, {});
@@ -114,7 +114,7 @@ namespace blt::gp
         return {{*c1_point_o, *c2_point_o}};
     }
 
-    std::optional<tree_t::subtree_point_t> crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
+    std::optional<tree_t::subtree_point_t> subtree_crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
     {
         if (type)
             return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
@@ -131,24 +131,13 @@ namespace blt::gp
         {
             // single point crossover (only if operators at this point are "compatible")
         case 0:
-            case0:
             {
-                std::optional<crossover_point_t> point;
-
-                if (config.traverse)
-                    point = get_crossover_point_traverse(p1, p2);
-                else
-                    point = get_crossover_point(p1, p2);
-
-                if (!point)
-                    return false;
 
                 // check if can work
                 // otherwise goto case2
             }
             // Mating crossover analogs to same species breeding. Only works if tree is mostly similar
         case 1:
-            case1:
             {
                 // if fails got to case0
                 if (false)
@@ -156,8 +145,7 @@ namespace blt::gp
             }
             // Subtree crossover, select random points inside trees and swap their subtrees
         case 2:
-            case2:
-            return crossover_t::apply(program, p1, p2, c1, c2);
+            return subtree_crossover_t{}.apply(program, p1, p2, c1, c2);
         default:
 #if BLT_DEBUG_LEVEL > 0
             BLT_ABORT("This place should be unreachable!");

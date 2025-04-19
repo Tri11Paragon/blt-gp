@@ -145,7 +145,11 @@ int main()
     {
         std::ifstream stream{"serialization_test2.data", std::ios::binary};
         blt::fs::fstream_reader_t reader{stream};
-        test_program.load_state(reader);
+        if (auto err = test_program.load_state(reader))
+        {
+            BLT_ERROR("Error: {}", blt::gp::errors::serialization::to_string(*err));
+            BLT_ABORT("Expected program to succeeded without returning an error state!");
+        }
 
         for (const auto [saved, loaded] : blt::zip(program.get_stats_histories(), test_program.get_stats_histories()))
         {
@@ -156,11 +160,12 @@ int main()
             }
         }
     }
-    std::ifstream stream{"serialization_test2.data", std::ios::binary};
-    blt::fs::fstream_reader_t reader{stream};
-    if (auto err = bad_program.load_state(reader))
     {
-        BLT_ERROR(blt::gp::errors::serialization::to_string(*err));
-        BLT_ASSERT(false && "Expected program to throw an exception when parsing state data into an incompatible program!");
+        std::ifstream stream{"serialization_test2.data", std::ios::binary};
+        blt::fs::fstream_reader_t reader{stream};
+        if (!bad_program.load_state(reader).has_value())
+        {
+            BLT_ABORT("Expected program to throw an exception when parsing state data into an incompatible program!");
+        }
     }
 }
