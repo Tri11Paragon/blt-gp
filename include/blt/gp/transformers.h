@@ -82,11 +82,20 @@ namespace blt::gp
             f32 terminal_chance = 0.1;
             // use traversal to select point instead of random selection
             bool traverse = false;
+
+            BLT_MAKE_SETTER_LVALUE(u32, max_crossover_tries);
+            BLT_MAKE_SETTER_LVALUE(u32, max_crossover_iterations);
+            BLT_MAKE_SETTER_LVALUE(u32, min_tree_size);
+            BLT_MAKE_SETTER_LVALUE(f32, depth_multiplier);
+            BLT_MAKE_SETTER_LVALUE(f32, terminal_chance);
+            BLT_MAKE_SETTER_LVALUE(bool, traverse);
         };
 
         explicit crossover_t(const config_t& config): config(config)
         {
         }
+
+        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) = 0;
 
         [[nodiscard]] const config_t& get_config() const
         {

@@ -15,6 +15,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <blt/std/variant.h>
 #include <filesystem>
 
 #include "../examples/symbolic_regression.h"
@@ -24,6 +25,60 @@
 #include <istream>
 #include <fstream>
 #include <blt/fs/stream_wrappers.h>
+
+
+struct no_default
+{
+    no_default() = delete;
+
+    no_default(int)
+    {
+    }
+};
+
+struct not_copyable
+{
+    not_copyable() = default;
+    not_copyable(const not_copyable&) = delete;
+};
+
+struct copyable
+{
+    copyable() = default;
+    copyable(const copyable&) = default;
+};
+
+struct copyable_nothrow
+{
+    copyable_nothrow() = default;
+    copyable_nothrow(const copyable_nothrow&) noexcept = default;
+};
+
+struct not_movable
+{
+    not_movable() = default;
+    not_movable(not_movable&&) = delete;
+};
+
+struct movable
+{
+    movable() = default;
+    movable(movable&&) = delete;
+};
+
+struct movable_nothrow
+{
+    movable_nothrow() = default;
+    movable_nothrow(movable_nothrow&&) noexcept = delete;
+};
+
+blt::variant_t<no_default> no_default_variant;
+blt::variant_t<not_copyable> not_copyable_variant;
+blt::variant_t<copyable> copyable_variant;
+blt::variant_t<copyable_nothrow> copyable_nothrow_variant;
+blt::variant_t<not_movable> not_movable_variant;
+blt::variant_t<movable> movable_variant;
+blt::variant_t<movable_nothrow> movable_nothrow_variant;
 
 using namespace blt::gp;
 

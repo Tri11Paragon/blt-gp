@@ -139,9 +139,6 @@ namespace blt::gp
             // Mating crossover analogs to same species breeding. Only works if tree is mostly similar
         case 1:
             {
-                // if fails got to case0
-                if (false)
-                    goto case0;
             }
             // Subtree crossover, select random points inside trees and swap their subtrees
         case 2:

@@ -40,7 +40,7 @@ namespace blt::gp
     // this is largely to not break the tests :3
     // it's also to allow for quick setup of a gp program if you don't care how crossover or mutation is handled
     static advanced_mutation_t s_mutator;
-    static crossover_t s_crossover;
+    static subtree_crossover_t s_crossover;
     static ramped_half_initializer_t s_init;
 
     prog_config_t::prog_config_t(): mutator(s_mutator), crossover(s_crossover), pop_initializer(s_init)
