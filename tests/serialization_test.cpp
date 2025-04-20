@@ -26,59 +26,48 @@
 #include <fstream>
 #include <blt/fs/stream_wrappers.h>
 
-
-struct no_default
+struct default_type
 {
-    no_default() = delete;
-
-    no_default(int)
+    std::string to_string() // NOLINT
     {
+        return "Unimplemented";
     }
 };
 
-struct not_copyable
+struct type1 : default_type
 {
-    not_copyable() = default;
-    not_copyable(const not_copyable&) = delete;
+    std::string to_string() // NOLINT
+    {
+        return "type1";
+    }
 };
 
-struct copyable
+struct type2 : default_type
 {
-    copyable() = default;
-    copyable(const copyable&) = default;
+    std::string to_string() // NOLINT
+    {
+        return "type2";
+    }
 };
 
-struct copyable_nothrow
+struct type3 : default_type
 {
-    copyable_nothrow() = default;
-    copyable_nothrow(const copyable_nothrow&) noexcept = default;
+    std::string to_string() // NOLINT
+    {
+        return "type3";
+    }
 };
 
-struct not_movable
+void test()
 {
-    not_movable() = default;
-    not_movable(not_movable&&) = delete;
-};
+    blt::variant_t<type1, type2, type3> some_type1{type1{}};
+    blt::variant_t<type1, type2, type3> some_type2{type2{}};
+    blt::variant_t<type1, type2, type3> some_type3{type3{}};
 
-struct movable
-{
-    movable() = default;
-    movable(movable&&) = delete;
-};
-
-struct movable_nothrow
-{
-    movable_nothrow() = default;
-    movable_nothrow(movable_nothrow&&) noexcept = delete;
-};
-
-blt::variant_t<no_default> no_default_variant;
-blt::variant_t<not_copyable> not_copyable_variant;
-blt::variant_t<copyable> copyable_variant;
-blt::variant_t<copyable_nothrow> copyable_nothrow_variant;
-blt::variant_t<not_movable> not_movable_variant;
-blt::variant_t<movable> movable_variant;
-blt::variant_t<movable_nothrow> movable_nothrow_variant;
+    BLT_TRACE("TYPE1: {}", some_type1.call_member(&default_type::to_string));
+    BLT_TRACE("TYPE2: {}", some_type2.call_member(&default_type::to_string));
+    BLT_TRACE("TYPE3: {}", some_type3.call_member(&default_type::to_string));
+}
 
 using namespace blt::gp;
 
@@ -144,6 +133,8 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
 
 int main()
 {
+    test();
+    return 0;
     operator_builder<context> builder{};
     const auto& operators = builder.build(addf, subf, mulf, pro_divf, op_sinf, op_cosf, op_expf, op_logf, litf, op_xf);
     regression.get_program().set_operations(operators);

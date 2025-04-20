@@ -17,6 +17,7 @@
  */
 #include <blt/gp/program.h>
 #include <iostream>
+#include <blt/std/variant.h>
 
 #ifndef BLT_ASSERT_RET
 #define BLT_ASSERT_RET(expr) if (!(expr)) { return false; }
