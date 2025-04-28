@@ -200,6 +200,8 @@ namespace blt::gp
             ptrdiff_t pos;
             type_id type;
 
+            subtree_point_t() = default;
+
             explicit subtree_point_t(const ptrdiff_t pos): pos(pos), type(0)
             {
             }
@@ -245,6 +247,7 @@ namespace blt::gp
                     bytes = 0;
                 }
             }
+
         private:
             tree_t& tree;
             u8* data;
@@ -585,7 +588,8 @@ namespace blt::gp
         template <typename Context, typename... Operators>
         static auto make_execution_lambda(size_t call_reserve_size, Operators&... operators)
         {
-            return [call_reserve_size, &operators...](const tree_t& tree, void* context) -> evaluation_context& {
+            return [call_reserve_size, &operators...](const tree_t& tree, void* context) -> evaluation_context&
+            {
                 const auto& ops = tree.operations;
                 const auto& vals = tree.values;
 

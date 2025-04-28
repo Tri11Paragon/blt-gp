@@ -15,7 +15,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/std/variant.h>
 #include <filesystem>
 
 #include "../examples/symbolic_regression.h"
@@ -25,71 +24,6 @@
 #include <istream>
 #include <fstream>
 #include <blt/fs/stream_wrappers.h>
-
-struct default_type
-{
-    virtual std::string to_string() // NOLINT
-    {
-        return "Unimplemented";
-    }
-};
-
-struct type1 : default_type
-{
-    virtual std::string to_string() final // NOLINT
-    {
-        return "type1";
-    }
-};
-
-struct type2 : default_type
-{
-    virtual std::string to_string() final // NOLINT
-    {
-        return "type2";
-    }
-};
-
-struct type3 : default_type
-{
-    virtual std::string to_string() final // NOLINT
-    {
-        return "type3";
-    }
-};
-
-template <typename T>
-void print()
-{
-    BLT_TRACE("{}", blt::type_string<T>());
-}
-
-void test()
-{
-    // auto ptr = &default_type::to_string;
-    // auto ptr2 = reinterpret_cast<std::string(type3::*)()>(ptr);
-
-
-    // blt::black_box(hi.to_string());
-    // default_type* t = blt::black_box_ret(&hi);
-    // blt::black_box(t->to_string());
-
-    // BLT_TRACE("Validate:");
-
-    // BLT_TRACE("TYPE1: {}", type1{}.to_string());
-    // BLT_TRACE("TYPE2: {}", type2{}.to_string());
-    // BLT_TRACE("TYPE3: {}\n\n", type3{}.to_string());
-
-    // BLT_TRACE("Output:");
-
-    blt::variant_t<type1, type2, type3> some_type1{type1{}};
-    blt::variant_t<type1, type2, type3> some_type2{type2{}};
-    blt::variant_t<type1, type2, type3> some_type3{type3{}};
-
-    BLT_TRACE("TYPE1: {}", some_type1.call_member_args(&default_type::to_string));
-    BLT_TRACE("TYPE2: {}", some_type2.call_member_args(&default_type::to_string));
-    BLT_TRACE("TYPE3: {}", some_type3.call_member_args(&default_type::to_string));
-}
 
 using namespace blt::gp;
 
@@ -155,8 +89,6 @@ bool fitness_function(const tree_t& current_tree, fitness_t& fitness, size_t)
 
 int main()
 {
-    test();
-    return 0;
     operator_builder<context> builder{};
     const auto& operators = builder.build(addf, subf, mulf, pro_divf, op_sinf, op_cosf, op_expf, op_logf, litf, op_xf);
     regression.get_program().set_operations(operators);
@@ -213,9 +145,9 @@ int main()
     {
         std::ifstream stream{"serialization_test2.data", std::ios::binary};
         blt::fs::fstream_reader_t reader{stream};
-        if (auto err = test_program.load_state(reader))
+        if (auto error = test_program.load_state(reader))
         {
-            BLT_ERROR("Error: {}", blt::gp::errors::serialization::to_string(*err));
+            BLT_ERROR("Error: {}", error->call_member(&errors::serialization::error_to_string_t::to_string));
             BLT_ABORT("Expected program to succeeded without returning an error state!");
         }
 
@@ -231,7 +163,7 @@ int main()
     {
         std::ifstream stream{"serialization_test2.data", std::ios::binary};
         blt::fs::fstream_reader_t reader{stream};
-        if (!bad_program.load_state(reader).has_value())
+        if (!bad_program.load_state(reader))
         {
             BLT_ABORT("Expected program to throw an exception when parsing state data into an incompatible program!");
         }

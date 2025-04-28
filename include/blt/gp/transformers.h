@@ -143,7 +143,7 @@ namespace blt::gp
          * @param c2 reference to output child 2
          * @return true if function succeeded, otherwise false
          */
-        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2); // NOLINT
+        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override; // NOLINT
 
         ~subtree_crossover_t() override = default;
 
@@ -151,8 +151,24 @@ namespace blt::gp
         [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
     };
 
+    class one_point_crossover_t : public crossover_t
+    {
+        one_point_crossover_t(): crossover_t(config_t{})
+        {
+        }
+
+        explicit one_point_crossover_t(const config_t& config): crossover_t(config)
+        {
+        }
+
+        bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
+    };
+
     class advanced_crossover_t : public crossover_t
     {
+        advanced_crossover_t(): crossover_t(config_t{})
+        {
+        }
     public:
         bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };

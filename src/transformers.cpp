@@ -121,6 +121,41 @@ namespace blt::gp
         return t.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
     }
 
+    bool one_point_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
+    {
+        if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
+            return false;
+
+        tree_t::subtree_point_t point1, point2;
+        if (config.traverse)
+        {
+            point1 = p1.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
+            if (const auto val = p2.select_subtree_traverse(point1.type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier))
+                point2 = *val;
+            else
+                return false;
+        } else
+        {
+            point1 = p1.select_subtree(config.terminal_chance);
+            if (const auto val = p2.select_subtree(point1.type, config.max_crossover_tries, config.terminal_chance))
+                point2 = *val;
+            else
+                return false;
+        }
+
+        const auto& p1_operator = p1.get_operator(point1.pos);
+        const auto& p2_operator = p2.get_operator(point2.pos);
+
+        const auto& p1_info = program.get_operator_info(p1_operator.id());
+        const auto& p2_info = program.get_operator_info(p2_operator.id());
+
+        for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
+        {
+            if (p1_info.argument_types[i] != p2_info.argument_types[i])
+                return false;
+        }
+    }
+
     bool advanced_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
     {
         if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)

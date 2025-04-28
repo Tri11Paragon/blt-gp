@@ -27,16 +27,6 @@
 
 namespace blt::gp
 {
-    std::string errors::serialization::to_string(const serializer_error_t& error)
-    {
-        return std::visit(lambda_visitor{
-                              [](const auto& val)
-                              {
-                                  return val.to_string();
-                              }
-                          }, error);
-    }
-
     // default static references for mutation, crossover, and initializer
     // this is largely to not break the tests :3
     // it's also to allow for quick setup of a gp program if you don't care how crossover or mutation is handled
