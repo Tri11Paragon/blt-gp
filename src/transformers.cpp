@@ -149,6 +149,13 @@ namespace blt::gp
         const auto& p1_info = program.get_operator_info(p1_operator.id());
         const auto& p2_info = program.get_operator_info(p2_operator.id());
 
+        thread_local tracked_vector<tree_t::child_t> children_data_p1;
+        thread_local tracked_vector<tree_t::child_t> children_data_p2;
+        children_data_p1.clear();
+        children_data_p2.clear();
+        p1.find_child_extends(children_data_p1, point1.pos, p1_info.argument_types.size());
+        p2.find_child_extends(children_data_p2, point2.pos, p2_info.argument_types.size());
+
         for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
         {
             if (p1_info.argument_types[i] != p2_info.argument_types[i])
