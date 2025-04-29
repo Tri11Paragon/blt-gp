@@ -149,12 +149,27 @@ namespace blt::gp
         const auto& p1_info = program.get_operator_info(p1_operator.id());
         const auto& p2_info = program.get_operator_info(p2_operator.id());
 
-        thread_local tracked_vector<tree_t::child_t> children_data_p1;
-        thread_local tracked_vector<tree_t::child_t> children_data_p2;
-        children_data_p1.clear();
-        children_data_p2.clear();
-        p1.find_child_extends(children_data_p1, point1.pos, p1_info.argument_types.size());
-        p2.find_child_extends(children_data_p2, point2.pos, p2_info.argument_types.size());
+        thread_local struct type_resolver_t
+        {
+            tracked_vector<tree_t::child_t> children_data_p1;
+            tracked_vector<tree_t::child_t> children_data_p2;
+            hashmap_t<type_id, std::vector<size_t>> missing_p1_types;
+            hashmap_t<type_id, std::vector<size_t>> missing_p2_types;
+
+            void clear()
+            {
+                children_data_p1.clear();
+                children_data_p2.clear();
+                for (auto& [id, v] : missing_p1_types)
+                    v.clear();
+                for (auto& [id, v] : missing_p2_types)
+                    v.clear();
+            }
+        } resolver;
+        resolver.clear();
+
+        p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
+        p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
 
         for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
         {

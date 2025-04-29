@@ -37,53 +37,40 @@ namespace blt::gp
     namespace detail
     {
         BLT_META_MAKE_FUNCTION_CHECK(drop);
-        // BLT_META_MAKE_FUNCTION_CHECK(drop_ephemeral);
     }
 
+    /**
+     * @brief This is the primary class that enables a type-erased GP system without compromising on performance.
+     *
+     * This class provides an efficient way to allocate, deallocate, and manage memory blocks
+     * in a stack-like structure. It supports operations like memory alignment, copying, moving,
+     * insertion, and removal of memory. This is particularly useful for performance-critical
+     * systems requiring temporary memory management without frequent heap allocation overhead.
+     *
+     * Types placed within this container cannot have an alignment greater than `BLT_GP_MAX_ALIGNMENT` bytes, doing so will result in unaligned pointer access.
+     * You can configure this by setting `BLT_GP_MAX_ALIGNMENT` as a compiler definition but be aware it will increase memory requirements.
+     * Setting `BLT_GP_MAX_ALIGNMENT` to lower than 8 is UB on x86-64 systems.
+     * Consequently, all types have a minimum storage size of `BLT_GP_MAX_ALIGNMENT` (8) bytes, meaning a char, float, int, etc. will take `BLT_GP_MAX_ALIGNMENT` bytes
+     */
     class stack_allocator
     {
         constexpr static size_t PAGE_SIZE = 0x100;
-        template <typename T>
-        using NO_REF_T = std::remove_cv_t<std::remove_reference_t<T>>;
         using Allocator = aligned_allocator;
 
-        // todo remove this once i fix all the broken references
-        struct detail
+        static constexpr size_t align_bytes(const size_t size) noexcept
         {
-            static constexpr size_t aligned_size(const size_t size) noexcept
-            {
-                return (size + (gp::detail::MAX_ALIGNMENT - 1)) & ~(gp::detail::MAX_ALIGNMENT - 1);
-            }
-        };
+            return (size + (detail::MAX_ALIGNMENT - 1)) & ~(detail::MAX_ALIGNMENT - 1);
+        }
 
     public:
         static Allocator& get_allocator();
 
-        struct size_data_t
-        {
-            blt::size_t total_size_bytes = 0;
-            blt::size_t total_used_bytes = 0;
-            blt::size_t total_remaining_bytes = 0;
-
-            friend std::ostream& operator<<(std::ostream& stream, const size_data_t& data)
-            {
-                stream << "[";
-                stream << data.total_used_bytes << " / " << data.total_size_bytes;
-                stream << " ("
-                    << (data.total_size_bytes != 0
-                            ? (static_cast<double>(data.total_used_bytes) / static_cast<double>(data.total_size_bytes) *
-                                100)
-                            : 0) << "%); space left: " << data.total_remaining_bytes << "]";
-                return stream;
-            }
-        };
-
         template <typename T>
         static constexpr size_t aligned_size() noexcept
         {
-            const auto bytes = detail::aligned_size(sizeof(NO_REF_T<T>));
-            if constexpr (blt::gp::detail::has_func_drop_v<gp::detail::remove_cv_ref<T>>)
-                return bytes + detail::aligned_size(sizeof(std::atomic_uint64_t*));
+            const auto bytes = align_bytes(sizeof(std::decay_t<T>));
+            if constexpr (blt::gp::detail::has_func_drop_v<detail::remove_cv_ref<T>>)
+                return bytes + align_bytes(sizeof(std::atomic_uint64_t*));
             return bytes;
         }
 
@@ -166,26 +153,28 @@ namespace blt::gp
             std::memcpy(data, data_ + (bytes_stored - bytes), bytes);
         }
 
-        template <typename T, typename NO_REF = NO_REF_T<T>>
+        template <typename T>
         void push(const T& t)
         {
-            static_assert(std::is_trivially_copyable_v<NO_REF>, "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
-            const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<NO_REF>()));
-            std::memcpy(ptr, &t, sizeof(NO_REF));
+            using DecayedT = std::decay_t<T>;
+            static_assert(std::is_trivially_copyable_v<DecayedT>, "Type must be bitwise copyable!");
+            static_assert(alignof(DecayedT) <= detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
+            const auto ptr = static_cast<char*>(allocate_bytes_for_size(aligned_size<DecayedT>()));
+            std::memcpy(ptr, &t, sizeof(DecayedT));
 
-            if constexpr (gp::detail::has_func_drop_v<gp::detail::remove_cv_ref<T>>)
+            if constexpr (gp::detail::has_func_drop_v<detail::remove_cv_ref<T>>)
             {
-                new(ptr + sizeof(NO_REF)) mem::pointer_storage<std::atomic_uint64_t>{nullptr};
+                new(ptr + sizeof(DecayedT)) mem::pointer_storage<std::atomic_uint64_t>{nullptr};
             }
         }
 
-        template <typename T, typename NO_REF = NO_REF_T<T>>
+        template <typename T>
         T pop()
         {
-            static_assert(std::is_trivially_copyable_v<NO_REF>, "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
-            constexpr auto size = aligned_size<NO_REF>();
+            using DecayedT = std::decay_t<T>;
+            static_assert(std::is_trivially_copyable_v<DecayedT>, "Type must be bitwise copyable!");
+            static_assert(alignof(DecayedT) <= detail::MAX_ALIGNMENT, "Type alignment must not be greater than the max alignment!");
+            constexpr auto size = aligned_size<DecayedT>();
 #if BLT_DEBUG_LEVEL > 0
             if (bytes_stored < size)
                 throw std::runtime_error(("Not enough bytes left to pop!" __FILE__ ":") + std::to_string(__LINE__));
@@ -205,28 +194,34 @@ namespace blt::gp
             return data_ + (bytes_stored - bytes);
         }
 
-        template <typename T, typename NO_REF = NO_REF_T<T>>
+        template <typename T>
         T& from(const size_t bytes) const
         {
-            static_assert(std::is_trivially_copyable_v<NO_REF> && "Type must be bitwise copyable!");
-            static_assert(alignof(NO_REF) <= gp::detail::MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
-            return *reinterpret_cast<NO_REF*>(from(aligned_size<NO_REF>() + bytes));
+            using DecayedT = std::decay_t<T>;
+            static_assert(std::is_trivially_copyable_v<DecayedT> && "Type must be bitwise copyable!");
+            static_assert(alignof(DecayedT) <= detail::MAX_ALIGNMENT && "Type alignment must not be greater than the max alignment!");
+            return *reinterpret_cast<DecayedT*>(from(aligned_size<DecayedT>() + bytes));
         }
 
         [[nodiscard]] std::pair<u8*, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer(const size_t bytes, const size_t type_size) const
         {
             const auto type_ref = from(bytes);
-            return {type_ref, *std::launder(
-                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
-                    sizeof(std::atomic_uint64_t*)))))};
+            return {
+                type_ref, *std::launder(
+                    reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - align_bytes(
+                        sizeof(std::atomic_uint64_t*)))))
+            };
         }
 
-        [[nodiscard]] std::pair<u8*, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer_forward(const size_t bytes, const size_t type_size) const
+        [[nodiscard]] std::pair<u8*, mem::pointer_storage<std::atomic_uint64_t>&> access_pointer_forward(
+            const size_t bytes, const size_t type_size) const
         {
             const auto type_ref = data_ + bytes;
-            return {type_ref, *std::launder(
-                reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - detail::aligned_size(
-                    sizeof(std::atomic_uint64_t*)))))};
+            return {
+                type_ref, *std::launder(
+                    reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(type_ref + (type_size - align_bytes(
+                        sizeof(std::atomic_uint64_t*)))))
+            };
         }
 
         template <typename T>
@@ -236,7 +231,7 @@ namespace blt::gp
             return {
                 type_ref, *std::launder(
                     reinterpret_cast<mem::pointer_storage<std::atomic_uint64_t>*>(reinterpret_cast<char*>(&type_ref) +
-                        detail::aligned_size(sizeof(T))))
+                        align_bytes(sizeof(T))))
             };
         }
 
@@ -264,41 +259,19 @@ namespace blt::gp
             pop_bytes(aligned_bytes);
         }
 
-        // template <typename... Args>
-        // void call_destructors()
-        // {
-        //     if constexpr (sizeof...(Args) > 0)
-        //     {
-        //         size_t offset = (aligned_size<NO_REF_T<Args>>() + ...) - aligned_size<NO_REF_T<typename meta::arg_helper<Args...>::First>>();
-        //         ((call_drop<Args>(offset + (gp::detail::has_func_drop_v<Args> ? sizeof(u64*) : 0)), offset -= aligned_size<NO_REF_T<Args>>()), ...);
-        //         (void) offset;
-        //     }
-        // }
-
         [[nodiscard]] bool empty() const noexcept
         {
             return bytes_stored == 0;
         }
 
-        [[nodiscard]] ptrdiff_t remaining_bytes_in_block() const noexcept
+        [[nodiscard]] ptrdiff_t remainder() const noexcept
         {
             return static_cast<ptrdiff_t>(size_ - bytes_stored);
         }
 
-        [[nodiscard]] ptrdiff_t bytes_in_head() const noexcept
+        [[nodiscard]] size_t stored() const noexcept
         {
-            return static_cast<ptrdiff_t>(bytes_stored);
-        }
-
-        [[nodiscard]] size_data_t size() const noexcept
-        {
-            size_data_t data;
-
-            data.total_used_bytes = bytes_stored;
-            data.total_size_bytes = size_;
-            data.total_remaining_bytes = remaining_bytes_in_block();
-
-            return data;
+            return bytes_stored;
         }
 
         void reserve(const size_t bytes)
@@ -313,12 +286,7 @@ namespace blt::gp
             bytes_stored = bytes;
         }
 
-        [[nodiscard]] size_t stored() const
-        {
-            return bytes_stored;
-        }
-
-        [[nodiscard]] size_t internal_storage_size() const
+        [[nodiscard]] size_t capacity() const
         {
             return size_;
         }
@@ -332,8 +300,6 @@ namespace blt::gp
         {
             return data_;
         }
-
-
 
     private:
         void expand(const size_t bytes)
@@ -363,7 +329,7 @@ namespace blt::gp
         {
             if (data_ == nullptr)
                 return nullptr;
-            size_t remaining_bytes = remaining_bytes_in_block();
+            size_t remaining_bytes = remainder();
             auto* pointer = static_cast<void*>(data_ + bytes_stored);
             return std::align(gp::detail::MAX_ALIGNMENT, bytes, pointer, remaining_bytes);
         }
@@ -384,15 +350,6 @@ namespace blt::gp
             bytes_stored += aligned_bytes;
             return aligned_ptr;
         }
-
-        // template <typename T>
-        // void call_drop(const size_t offset)
-        // {
-        //     if constexpr (blt::gp::detail::has_func_drop_v<T>)
-        //     {
-        //         from<NO_REF_T<T>>(offset).drop();
-        //     }
-        // }
 
         u8* data_ = nullptr;
         // place in the data_ array which has a free spot.

@@ -349,8 +349,8 @@ namespace blt::gp
         const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
         const auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
 
-        values.reserve(values.bytes_in_head() - c1_subtree_bytes + c2_subtree_bytes);
-        other_tree.values.reserve(other_tree.values.bytes_in_head() - c2_subtree_bytes + c1_subtree_bytes);
+        values.reserve(values.stored() - c1_subtree_bytes + c2_subtree_bytes);
+        other_tree.values.reserve(other_tree.values.stored() - c2_subtree_bytes + c1_subtree_bytes);
 
         values.copy_to(copy_ptr_c1, c1_total);
         values.pop_bytes(c1_total);
@@ -535,7 +535,7 @@ namespace blt::gp
     bool tree_t::check(void* context) const
     {
         size_t bytes_expected = 0;
-        const auto bytes_size = values.size().total_used_bytes;
+        const auto bytes_size = values.stored();
 
         for (const auto& op : operations)
         {
@@ -545,7 +545,7 @@ namespace blt::gp
 
         if (bytes_expected != bytes_size)
         {
-            BLT_ERROR("Stack state: {}", values.size());
+            BLT_ERROR("Stack state: Stored: {}; Capacity: {}; Remainder: {}", values.stored(), values.capacity(), values.remainder());
             BLT_ERROR("Child tree bytes {} vs expected {}, difference: {}", bytes_size, bytes_expected,
                       static_cast<ptrdiff_t>(bytes_expected) - static_cast<ptrdiff_t>(bytes_size));
             BLT_ERROR("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
@@ -580,7 +580,7 @@ namespace blt::gp
                 total_produced += m_program->get_typesystem().get_type(info.return_type).size();
             }
 
-            const auto v1 = results.values.bytes_in_head();
+            const auto v1 = static_cast<ptrdiff_t>(results.values.stored());
             const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
 
             // ephemeral don't need to be dropped as there are no copies which matter when checking the tree
@@ -671,7 +671,7 @@ namespace blt::gp
     size_t tree_t::required_size() const
     {
         // 2 size_t used to store expected_length of operations + size of the values stack
-        return 2 * sizeof(size_t) + operations.size() * sizeof(size_t) + values.bytes_in_head();
+        return 2 * sizeof(size_t) + operations.size() * sizeof(size_t) + values.stored();
     }
 
     void tree_t::to_byte_array(std::byte* out) const
@@ -686,7 +686,7 @@ namespace blt::gp
             std::memcpy(out, &id, size_of_op);
             out += size_of_op;
         }
-        const auto val_size = values.bytes_in_head();
+        const auto val_size = values.stored();
         std::memcpy(out, &val_size, sizeof(size_t));
         out += sizeof(size_t);
         std::memcpy(out, values.data(), val_size);
@@ -701,9 +701,9 @@ namespace blt::gp
             auto id = op.id();
             file.write(&id, sizeof(operator_id));
         }
-        const auto val_size = values.bytes_in_head();
+        const auto val_size = values.stored();
         BLT_ASSERT(file.write(&val_size, sizeof(size_t)) == sizeof(size_t));
-        BLT_ASSERT(file.write(values.data(), val_size) == val_size);
+        BLT_ASSERT(file.write(values.data(), val_size) == static_cast<i64>(val_size));
     }
 
     void tree_t::from_byte_array(const std::byte* in)
@@ -792,7 +792,7 @@ namespace blt::gp
     {
         if (a.operations.size() != b.operations.size())
             return false;
-        if (a.values.bytes_in_head() != b.values.bytes_in_head())
+        if (a.values.stored() != b.values.stored())
             return false;
         return std::equal(a.operations.begin(), a.operations.end(), b.operations.begin());
     }
