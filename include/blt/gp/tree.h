@@ -188,13 +188,6 @@ namespace blt::gp
     class tree_t
     {
     public:
-        struct child_t
-        {
-            ptrdiff_t start;
-            // one past the end
-            ptrdiff_t end;
-        };
-
         struct subtree_point_t
         {
             ptrdiff_t pos;
@@ -209,6 +202,15 @@ namespace blt::gp
             subtree_point_t(const ptrdiff_t pos, const type_id type): pos(pos), type(type)
             {
             }
+        };
+
+        struct child_t
+        {
+            ptrdiff_t start;
+            // one past the end
+            ptrdiff_t end;
+
+
         };
 
         struct byte_only_transaction_t
@@ -415,6 +417,8 @@ namespace blt::gp
         {
             copy_subtree(point, find_endpoint(point.pos), out_tree);
         }
+
+        void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree);
 
         /**
          * Swaps the subtrees between this tree and the other tree

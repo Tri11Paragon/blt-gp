@@ -126,7 +126,7 @@ namespace blt::gp
         if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
             return false;
 
-        tree_t::subtree_point_t point1, point2;
+        tree_t::subtree_point_t point1, point2; // NOLINT
         if (config.traverse)
         {
             point1 = p1.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
@@ -196,6 +196,16 @@ namespace blt::gp
                 return idx;
             }
 
+            [[nodiscard]] bool handled_p1(const size_t index) const
+            {
+                return correct_types.contains(index) || p1_correct_types.contains(index);
+            }
+
+            [[nodiscard]] bool handled_p2(const size_t index) const
+            {
+                return correct_types.contains(index) || p2_correct_types.contains(index);
+            }
+
             void clear()
             {
                 children_data_p1.clear();
@@ -213,9 +223,6 @@ namespace blt::gp
             }
         } resolver;
         resolver.clear();
-
-        p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
-        p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
 
         // resolve type information
         for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
@@ -250,6 +257,47 @@ namespace blt::gp
                 resolver.p1_reorder_types.push_back({i, *index});
                 resolver.p1_correct_types.insert(i);
             }
+        }
+        // next we need to figure out which types need to be swapped
+        for (size_t i = 0; i < p1_info.argument_types.size(); i++)
+        {
+            if (resolver.handled_p2(i))
+                continue;
+            if (auto index = resolver.get_p1_index(p1_info.argument_types[i].id))
+                resolver.swap_types.push_back({*index, i});
+            else
+            {
+                BLT_WARN("Unable to process type {} in p1", p1_info.argument_types[i].id);
+                return false;
+            }
+        }
+        for (size_t i = 0; i < p2_info.argument_types.size(); i++)
+        {
+            if (resolver.handled_p1(i))
+                continue;
+            if (auto index = resolver.get_p2_index(p2_info.argument_types[i].id))
+                resolver.swap_types.push_back({i, *index});
+            else
+            {
+                BLT_WARN("Unable to process type {} in p2", p2_info.argument_types[i].id);
+                return false;
+            }
+        }
+
+        // now we do the swap
+
+        p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
+        p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
+
+        for (const auto& [index1, index2] : resolver.p1_reorder_types)
+            c1.swap_subtrees(resolver.children_data_p1[index1], c1, resolver.children_data_p1[index2]);
+
+        for (const auto& [index1, index2] : resolver.p2_reorder_types)
+            c2.swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
+
+        for (const auto& [p1_index, p2_index] : resolver.swap_types)
+        {
+
         }
 
 #if BLT_DEBUG_LEVEL >= 2

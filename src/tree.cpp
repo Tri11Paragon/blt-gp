@@ -293,13 +293,13 @@ namespace blt::gp
         stack.copy_from(values, for_bytes, after_bytes);
     }
 
-    void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
+    void tree_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree)
     {
-        const auto c1_subtree_begin_itr = operations.begin() + our_subtree.pos;
-        const auto c1_subtree_end_itr = operations.begin() + find_endpoint(our_subtree.pos);
+        const auto c1_subtree_begin_itr = operations.begin() + our_subtree.start;
+        const auto c1_subtree_end_itr = operations.begin() + our_subtree.end;
 
-        const auto c2_subtree_begin_itr = other_tree.operations.begin() + other_subtree.pos;
-        const auto c2_subtree_end_itr = other_tree.operations.begin() + other_tree.find_endpoint(other_subtree.pos);
+        const auto c2_subtree_begin_itr = other_tree.operations.begin() + other_subtree.start;
+        const auto c2_subtree_end_itr = other_tree.operations.begin() + other_subtree.end;
 
         thread_local tracked_vector<op_container_t> c1_subtree_operators;
         thread_local tracked_vector<op_container_t> c2_subtree_operators;
@@ -374,6 +374,12 @@ namespace blt::gp
 
         operations.insert(insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
         other_tree.operations.insert(insert_point_c2, c1_subtree_operators.begin(), c1_subtree_operators.end());
+    }
+
+    void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
+    {
+        swap_subtrees(child_t{our_subtree.pos, find_endpoint(our_subtree.pos)}, other_tree,
+                      child_t{other_subtree.pos, find_endpoint(other_subtree.pos)});
     }
 
     void tree_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree)

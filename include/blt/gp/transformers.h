@@ -95,6 +95,10 @@ namespace blt::gp
         {
         }
 
+        /**
+         * Apply crossover to a set of parents. Note: c1 and c2 are already filled with thier respective parent's elements.
+         * @return true if the crossover succeeded, otherwise return false will erase progress.
+         */
         virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) = 0;
 
         [[nodiscard]] const config_t& get_config() const
