@@ -149,17 +149,63 @@ namespace blt::gp
         const auto& p1_info = program.get_operator_info(p1_operator.id());
         const auto& p2_info = program.get_operator_info(p2_operator.id());
 
+        struct reorder_index_t
+        {
+            size_t index1;
+            size_t index2;
+        };
+
+        struct swap_index_t
+        {
+            size_t p1_index;
+            size_t p2_index;
+        };
+
         thread_local struct type_resolver_t
         {
             tracked_vector<tree_t::child_t> children_data_p1;
             tracked_vector<tree_t::child_t> children_data_p2;
             hashmap_t<type_id, std::vector<size_t>> missing_p1_types;
             hashmap_t<type_id, std::vector<size_t>> missing_p2_types;
+            hashset_t<size_t> correct_types;
+            hashset_t<size_t> p1_correct_types;
+            hashset_t<size_t> p2_correct_types;
+            std::vector<reorder_index_t> p1_reorder_types;
+            std::vector<reorder_index_t> p2_reorder_types;
+            std::vector<swap_index_t> swap_types;
+
+            std::optional<size_t> get_p1_index(const type_id& id)
+            {
+                if (!missing_p1_types.contains(id))
+                    return {};
+                if (missing_p1_types[id].empty())
+                    return {};
+                auto idx = missing_p1_types[id].back();
+                missing_p1_types[id].pop_back();
+                return idx;
+            }
+
+            std::optional<size_t> get_p2_index(const type_id& id)
+            {
+                if (!missing_p2_types.contains(id))
+                    return {};
+                if (missing_p2_types[id].empty())
+                    return {};
+                auto idx = missing_p2_types[id].back();
+                missing_p2_types[id].pop_back();
+                return idx;
+            }
 
             void clear()
             {
                 children_data_p1.clear();
                 children_data_p2.clear();
+                correct_types.clear();
+                p1_correct_types.clear();
+                p2_correct_types.clear();
+                p1_reorder_types.clear();
+                p2_reorder_types.clear();
+                swap_types.clear();
                 for (auto& [id, v] : missing_p1_types)
                     v.clear();
                 for (auto& [id, v] : missing_p2_types)
@@ -171,11 +217,45 @@ namespace blt::gp
         p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
         p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
 
+        // resolve type information
         for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
         {
             if (p1_info.argument_types[i] != p2_info.argument_types[i])
-                return false;
+            {
+                resolver.missing_p1_types[p1_info.argument_types[i].id].push_back(i);
+                resolver.missing_p2_types[p2_info.argument_types[i].id].push_back(i);
+            } else
+                resolver.correct_types.insert(i);
         }
+
+        // if swaping p1 -> p2 and p2 -> p1, we may already have the types we need just in a different order
+
+        // first, make a list of types which can simply be reordered
+        for (size_t i = 0; i < p1_info.argument_types.size(); i++)
+        {
+            if (resolver.correct_types.contains(i))
+                continue;
+            if (auto index = resolver.get_p2_index(p1_info.argument_types[i].id))
+            {
+                resolver.p2_reorder_types.push_back({i, *index});
+                resolver.p2_correct_types.insert(i);
+            }
+        }
+        for (size_t i = 0; i < p2_info.argument_types.size(); i++)
+        {
+            if (resolver.correct_types.contains(i))
+                continue;
+            if (auto index = resolver.get_p1_index(p2_info.argument_types[i].id))
+            {
+                resolver.p1_reorder_types.push_back({i, *index});
+                resolver.p1_correct_types.insert(i);
+            }
+        }
+
+#if BLT_DEBUG_LEVEL >= 2
+        if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
+            throw std::runtime_error("Tree check failed");
+#endif
     }
 
     bool advanced_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
