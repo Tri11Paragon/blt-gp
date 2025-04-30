@@ -173,8 +173,6 @@ namespace blt::gp
             std::vector<reorder_index_t> p1_reorder_types;
             std::vector<reorder_index_t> p2_reorder_types;
             std::vector<swap_index_t> swap_types;
-            std::vector<swap_index_t> p1_to_p2_transfer_types;
-            std::vector<swap_index_t> p2_to_p1_transfer_types;
 
             void print_missing_types()
             {
@@ -236,8 +234,6 @@ namespace blt::gp
                 p1_reorder_types.clear();
                 p2_reorder_types.clear();
                 swap_types.clear();
-                p1_to_p2_transfer_types.clear();
-                p2_to_p1_transfer_types.clear();
                 for (auto& [id, v] : missing_p1_types)
                     v.clear();
                 for (auto& [id, v] : missing_p2_types)
