@@ -157,6 +157,7 @@ namespace blt::gp
 
     class one_point_crossover_t : public crossover_t
     {
+    public:
         one_point_crossover_t(): crossover_t(config_t{})
         {
         }

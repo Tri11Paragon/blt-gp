@@ -123,8 +123,8 @@ namespace blt::gp
 
     bool one_point_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
     {
-        if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
-            return false;
+        // if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
+            // return false;
 
         tree_t::subtree_point_t point1, point2; // NOLINT
         if (config.traverse)
@@ -173,6 +173,8 @@ namespace blt::gp
             std::vector<reorder_index_t> p1_reorder_types;
             std::vector<reorder_index_t> p2_reorder_types;
             std::vector<swap_index_t> swap_types;
+            std::vector<swap_index_t> p1_to_p2_transfer_types;
+            std::vector<swap_index_t> p2_to_p1_transfer_types;
 
             std::optional<size_t> get_p1_index(const type_id& id)
             {
@@ -216,6 +218,8 @@ namespace blt::gp
                 p1_reorder_types.clear();
                 p2_reorder_types.clear();
                 swap_types.clear();
+                p1_to_p2_transfer_types.clear();
+                p2_to_p1_transfer_types.clear();
                 for (auto& [id, v] : missing_p1_types)
                     v.clear();
                 for (auto& [id, v] : missing_p2_types)
@@ -296,14 +300,16 @@ namespace blt::gp
             c2.swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
 
         for (const auto& [p1_index, p2_index] : resolver.swap_types)
-        {
+            c1.swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
 
-        }
+        c1.modify_operator(point1.pos, p2_operator.id(), p2_info.return_type);
+        c2.modify_operator(point2.pos, p1_operator.id(), p1_info.return_type);
 
 #if BLT_DEBUG_LEVEL >= 2
         if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
             throw std::runtime_error("Tree check failed");
 #endif
+        return true;
     }
 
     bool advanced_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
