@@ -176,6 +176,24 @@ namespace blt::gp
             std::vector<swap_index_t> p1_to_p2_transfer_types;
             std::vector<swap_index_t> p2_to_p1_transfer_types;
 
+            void print_missing_types()
+            {
+                for (const auto& [id, v] : missing_p1_types)
+                {
+                    BLT_INFO("(P1) For type {} missing indexes:", id);
+                    for (const auto idx : v)
+                        BLT_INFO("\t{}", idx);
+                    BLT_INFO("----");
+                }
+                for (const auto& [id, v] : missing_p2_types)
+                {
+                    BLT_INFO("(P2) For type {} missing indexes:", id);
+                    for (const auto idx : v)
+                        BLT_INFO("\t{}", idx);
+                    BLT_INFO("----");
+                }
+            }
+
             std::optional<size_t> get_p1_index(const type_id& id)
             {
                 if (!missing_p1_types.contains(id))
@@ -228,8 +246,10 @@ namespace blt::gp
         } resolver;
         resolver.clear();
 
+        auto min_size = std::min(p1_info.argument_types.size(), p2_info.argument_types.size());
+
         // resolve type information
-        for (size_t i = 0; i < std::min(p1_info.argument_types.size(), p2_info.argument_types.size()); i++)
+        for (size_t i = 0; i < min_size; i++)
         {
             if (p1_info.argument_types[i] != p2_info.argument_types[i])
             {
@@ -238,6 +258,12 @@ namespace blt::gp
             } else
                 resolver.correct_types.insert(i);
         }
+
+        for (size_t i = min_size; i < p1_info.argument_types.size(); i++)
+            resolver.missing_p1_types[p1_info.argument_types[i].id].push_back(i);
+
+        for (size_t i = min_size; i < p2_info.argument_types.size(); i++)
+            resolver.missing_p2_types[p2_info.argument_types[i].id].push_back(i);
 
         // if swaping p1 -> p2 and p2 -> p1, we may already have the types we need just in a different order
 
@@ -252,6 +278,7 @@ namespace blt::gp
                 resolver.p2_correct_types.insert(i);
             }
         }
+
         for (size_t i = 0; i < p2_info.argument_types.size(); i++)
         {
             if (resolver.correct_types.contains(i))
@@ -262,6 +289,7 @@ namespace blt::gp
                 resolver.p1_correct_types.insert(i);
             }
         }
+
         // next we need to figure out which types need to be swapped
         for (size_t i = 0; i < p1_info.argument_types.size(); i++)
         {
@@ -269,27 +297,17 @@ namespace blt::gp
                 continue;
             if (auto index = resolver.get_p1_index(p1_info.argument_types[i].id))
                 resolver.swap_types.push_back({*index, i});
-            else
-            {
-                BLT_WARN("Unable to process type {} in p1", p1_info.argument_types[i].id);
-                return false;
-            }
         }
+
         for (size_t i = 0; i < p2_info.argument_types.size(); i++)
         {
             if (resolver.handled_p1(i))
                 continue;
             if (auto index = resolver.get_p2_index(p2_info.argument_types[i].id))
                 resolver.swap_types.push_back({i, *index});
-            else
-            {
-                BLT_WARN("Unable to process type {} in p2", p2_info.argument_types[i].id);
-                return false;
-            }
         }
 
         // now we do the swap
-
         p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
         p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
 
