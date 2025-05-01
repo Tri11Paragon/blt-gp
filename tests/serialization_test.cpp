@@ -41,7 +41,7 @@ prog_config_t config = prog_config_t()
                        .set_reproduction_chance(0.1)
                        .set_max_generations(50)
                        .set_pop_size(500)
-                       .set_thread_count(0);
+                       .set_thread_count(1);
 
 
 example::symbolic_regression_t regression{691ul, config};

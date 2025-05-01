@@ -173,22 +173,29 @@ namespace blt::gp
             std::vector<reorder_index_t> p1_reorder_types;
             std::vector<reorder_index_t> p2_reorder_types;
             std::vector<swap_index_t> swap_types;
+            std::vector<tree_t> temp_trees;
 
             void print_missing_types()
             {
                 for (const auto& [id, v] : missing_p1_types)
                 {
-                    BLT_INFO("(P1) For type {} missing indexes:", id);
-                    for (const auto idx : v)
-                        BLT_INFO("\t{}", idx);
-                    BLT_INFO("----");
+                    if (!v.empty())
+                    {
+                        BLT_INFO("(P1) For type {} missing indexes:", id);
+                        for (const auto idx : v)
+                            BLT_INFO("\t{}", idx);
+                        BLT_INFO("----");
+                    }
                 }
                 for (const auto& [id, v] : missing_p2_types)
                 {
-                    BLT_INFO("(P2) For type {} missing indexes:", id);
-                    for (const auto idx : v)
-                        BLT_INFO("\t{}", idx);
-                    BLT_INFO("----");
+                    if (!v.empty())
+                    {
+                        BLT_INFO("(P2) For type {} missing indexes:", id);
+                        for (const auto idx : v)
+                            BLT_INFO("\t{}", idx);
+                        BLT_INFO("----");
+                    }
                 }
             }
 
@@ -234,6 +241,8 @@ namespace blt::gp
                 p1_reorder_types.clear();
                 p2_reorder_types.clear();
                 swap_types.clear();
+                for (auto& tree : temp_trees)
+                    tree.clear(program);
                 for (auto& [id, v] : missing_p1_types)
                     v.clear();
                 for (auto& [id, v] : missing_p2_types)
@@ -275,6 +284,14 @@ namespace blt::gp
             }
         }
 
+        BLT_DEBUG("Operator C1 {} expects types: ", p1_operator.id());
+        for (const auto [i, type] : enumerate(p1_info.argument_types))
+            BLT_TRACE("{} -> {}", i, type);
+        BLT_DEBUG("Operator C2 {} expects types: ", p2_operator.id());
+        for (const auto [i, type] : enumerate(p2_info.argument_types))
+            BLT_TRACE("{} -> {}", i, type);
+        resolver.print_missing_types();
+
         for (size_t i = 0; i < p2_info.argument_types.size(); i++)
         {
             if (resolver.correct_types.contains(i))
@@ -308,13 +325,40 @@ namespace blt::gp
         p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
 
         for (const auto& [index1, index2] : resolver.p1_reorder_types)
+        {
+            BLT_DEBUG("Reordering in C1: {} -> {}", index1, index2);
             c1.swap_subtrees(resolver.children_data_p1[index1], c1, resolver.children_data_p1[index2]);
+        }
 
         for (const auto& [index1, index2] : resolver.p2_reorder_types)
+        {
+            BLT_DEBUG("Reordering in C2: {} -> {}", index1, index2);
             c2.swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
+        }
+
+        auto c1_insert = resolver.children_data_p1.back().end;
+        auto c2_insert = resolver.children_data_p2.back().end;
 
         for (const auto& [p1_index, p2_index] : resolver.swap_types)
-            c1.swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
+        {
+            if (p1_index < p1_info.argument_types.size() && p2_index < p2_info.argument_types.size())
+                c1.swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
+            else if (p1_index < p1_info.argument_types.size() && p2_index >= p2_info.argument_types.size())
+            {
+                BLT_TRACE("(P1 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
+                BLT_TRACE("Inserting into P2 from P1!");
+                c1.copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_tree);
+                c1.delete_subtree(resolver.children_data_p1[p1_index]);
+                c2_insert = c2.insert_subtree(tree_t::subtree_point_t{c1_insert}, resolver.temp_tree);
+            } else if (p2_index < p2_info.argument_types.size() && p1_index >= p1_info.argument_types.size())
+            {
+                BLT_TRACE("(P2 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
+            } else
+            {
+                BLT_WARN("This should be an impossible state!");
+            }
+        }
+
 
         c1.modify_operator(point1.pos, p2_operator.id(), p2_info.return_type);
         c2.modify_operator(point2.pos, p1_operator.id(), p1_info.return_type);

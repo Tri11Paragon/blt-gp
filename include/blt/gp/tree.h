@@ -418,6 +418,11 @@ namespace blt::gp
             copy_subtree(point, find_endpoint(point.pos), out_tree);
         }
 
+        void copy_subtree(const child_t subtree, tree_t& out_tree)
+        {
+            copy_subtree(subtree_point_t{subtree.start}, subtree.end, out_tree);
+        }
+
         void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree);
 
         /**
@@ -464,6 +469,11 @@ namespace blt::gp
         void delete_subtree(const subtree_point_t point)
         {
             delete_subtree(point, find_endpoint(point.pos));
+        }
+
+        void delete_subtree(const child_t subtree)
+        {
+            delete_subtree(subtree_point_t{subtree.start}, subtree.end);
         }
 
         /**
