@@ -47,11 +47,11 @@ namespace blt::gp
     template <typename T>
     class evaluation_ref;
 
-    class tree_manipulator_t;
+    struct tree_manipulator_t;
 
-    class single_operation_tree_manipulator_t;
+    struct single_operation_tree_manipulator_t;
 
-    class multi_operation_tree_manipulator_t;
+    struct multi_operation_tree_manipulator_t;
     
     class tree_t;
     

@@ -31,6 +31,19 @@
 
 namespace blt::gp
 {
+    namespace detail
+    {
+        struct tree_modification_context_t
+        {
+            [[nodiscard]] tree_modification_context_t(tree_t* const tree, const size_t point): tree(tree), point(point)
+            {
+            }
+
+            tree_t* tree;
+            size_t point;
+        };
+    }
+
     // TODO: i feel like this should be in its own class
     struct operator_special_flags
     {
@@ -217,12 +230,39 @@ namespace blt::gp
         stack_allocator* values;
     };
 
-    class single_operation_tree_manipulator_t
+    struct subtree_point_t
     {
+        subtree_point_t(const size_t point): point(point) // NOLINT
+        {
+        }
+
+        subtree_point_t(const ptrdiff_t point): point(static_cast<size_t>(point)) // NOLINT
+        {
+        }
+
+        size_t point;
     };
 
-    class multi_operation_tree_manipulator_t
+    struct single_operation_tree_manipulator_t
     {
+        explicit single_operation_tree_manipulator_t(const detail::tree_modification_context_t context): context(context)
+        {
+        }
+
+        void replace_subtree(tree_t& other_tree);
+
+        void replace_subtree(tracked_vector<op_container_t>& operations, stack_allocator& stack);
+
+        detail::tree_modification_context_t context;
+    };
+
+    struct multi_operation_tree_manipulator_t
+    {
+        explicit multi_operation_tree_manipulator_t(const detail::tree_modification_context_t context): context(context)
+        {
+        }
+
+        detail::tree_modification_context_t context;
     };
 
     /**
@@ -230,40 +270,33 @@ namespace blt::gp
      * While it is possible to create a tree without a need for this class, you should not attempt to modify a tree's internal state after creation.
      * This class provides helper methods to ensure that a tree remains well-ordered and that drop functions are called correctly.
      */
-    class tree_manipulator_t
+    struct tree_manipulator_t
     {
-    public:
-        explicit tree_manipulator_t(tree_t& tree): m_tree(&tree)
+        explicit tree_manipulator_t(tree_t& tree, const subtree_point_t point): context{&tree, point.point}
         {
         }
 
-    private:
-        tree_t* m_tree;
+        [[nodiscard]] multi_operation_tree_manipulator_t explode() const
+        {
+            return multi_operation_tree_manipulator_t{context};
+        }
+
+        [[nodiscard]] single_operation_tree_manipulator_t single() const
+        {
+            return single_operation_tree_manipulator_t{context};
+        }
+
+        detail::tree_modification_context_t context;
     };
 
     class tree_t
     {
         friend struct temporary_tree_storage_t;
-        friend class single_operation_tree_manipulator_t;
-        friend class multi_operation_tree_manipulator_t;
-        friend class tree_manipulator_t;
+        friend struct single_operation_tree_manipulator_t;
+        friend struct multi_operation_tree_manipulator_t;
+        friend struct tree_manipulator_t;
+
     public:
-        struct subtree_point_t
-        {
-            ptrdiff_t pos;
-            type_id type;
-
-            subtree_point_t() = default;
-
-            explicit subtree_point_t(const ptrdiff_t pos): pos(pos), type(0)
-            {
-            }
-
-            subtree_point_t(const ptrdiff_t pos, const type_id type): pos(pos), type(type)
-            {
-            }
-        };
-
         struct child_t
         {
             ptrdiff_t start;
@@ -349,6 +382,45 @@ namespace blt::gp
          */
         [[nodiscard]] std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
                                                                              double depth_multiplier = 0.6) const;
+
+        void copy_range(temporary_tree_storage_t& storage, const size_t begin, const size_t size)
+        {
+            copy_range(storage, operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
+        }
+
+        void copy_range(temporary_tree_storage_t& storage, const subtree_point_t point)
+        {
+            copy_range(storage, operations.begin() + static_cast<ptrdiff_t>(point.point),
+                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
+        }
+
+        void copy_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end);
+
+        void move_range(temporary_tree_storage_t& storage, const size_t begin, const size_t size)
+        {
+            move_range(storage, operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
+        }
+
+        void move_range(temporary_tree_storage_t& storage, const subtree_point_t point)
+        {
+            move_range(storage, operations.begin() + static_cast<ptrdiff_t>(point.point),
+                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
+        }
+
+        void move_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end);
+
+        void delete_range(const size_t begin, const size_t size)
+        {
+            delete_range(operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
+        }
+
+        void delete_range(const subtree_point_t point)
+        {
+            delete_range(operations.begin() + static_cast<ptrdiff_t>(point.point),
+                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
+        }
+
+        void delete_range(detail::op_iter_t begin, detail::op_iter_t end);
 
         /**
                  * Copies the subtree found at point into the provided out params

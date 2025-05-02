@@ -262,6 +262,18 @@ namespace blt::gp
         return {};
     }
 
+    void tree_t::copy_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end)
+    {
+    }
+
+    void tree_t::move_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end)
+    {
+    }
+
+    void tree_t::delete_range(detail::op_iter_t begin, detail::op_iter_t end)
+    {
+    }
+
     void tree_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack)
     {
         const auto point_begin_itr = operations.begin() + point.pos;
@@ -637,6 +649,16 @@ namespace blt::gp
 
     temporary_tree_storage_t::temporary_tree_storage_t(tree_t& tree): operations(&tree.operations), values(&tree.values)
     {
+    }
+
+    void single_operation_tree_manipulator_t::replace_subtree(tree_t& other_tree)
+    {
+        replace_subtree(other_tree.operations, other_tree.values);
+    }
+
+    void single_operation_tree_manipulator_t::replace_subtree(tracked_vector<op_container_t>& operations, stack_allocator& stack)
+    {
+
     }
 
     void tree_t::copy_fast(const tree_t& copy)
