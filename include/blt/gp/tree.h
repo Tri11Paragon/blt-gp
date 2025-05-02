@@ -97,15 +97,14 @@ namespace blt::gp
         operator_special_flags m_flags;
     };
 
-    class evaluation_context
-    {
-    public:
-        explicit evaluation_context() = default;
-
-        stack_allocator values;
-    };
-
-    inline size_t accumulate_type_sizes(const detail::op_iter_t begin, const detail::op_iter_t end)
+    /**
+     * Calculate the number of bytes stored inside the tree's stack between the begin and end iterators
+     *
+     * @param begin Begin iterator to the container storing the tree's operators
+     * @param end End iterator
+     * @return bytes used by operators between [begin, end)
+     */
+    inline size_t calculate_ephemeral_size(const detail::op_iter_t begin, const detail::op_iter_t end)
     {
         size_t total = 0;
         for (auto it = begin; it != end; ++it)
@@ -116,6 +115,21 @@ namespace blt::gp
         return total;
     }
 
+    /**
+     * Stores the stack used to evaluate a tree. This is done such that executing a tree doesn't modify the internal stack
+     */
+    class evaluation_context
+    {
+    public:
+        explicit evaluation_context() = default;
+
+        stack_allocator values;
+    };
+
+    /**
+     * Provides a method for accessing an evaluated tree's returned type;
+     * this class ensures that the drop function is properly called for the evaluation context
+     */
     template <typename T>
     class evaluation_ref
     {
@@ -185,8 +199,54 @@ namespace blt::gp
         evaluation_context* m_context;
     };
 
+    struct temporary_tree_storage_t
+    {
+        explicit temporary_tree_storage_t(tree_t& tree);
+
+        temporary_tree_storage_t(tracked_vector<op_container_t>& operations, stack_allocator& values): operations(&operations), values(&values)
+        {
+        }
+
+        void clear() const
+        {
+            operations->clear();
+            values->reset();
+        }
+
+        tracked_vector<op_container_t>* operations;
+        stack_allocator* values;
+    };
+
+    class single_operation_tree_manipulator_t
+    {
+    };
+
+    class multi_operation_tree_manipulator_t
+    {
+    };
+
+    /**
+     * This is the parent class responsible for managing a tree's internal state at runtime.
+     * While it is possible to create a tree without a need for this class, you should not attempt to modify a tree's internal state after creation.
+     * This class provides helper methods to ensure that a tree remains well-ordered and that drop functions are called correctly.
+     */
+    class tree_manipulator_t
+    {
+    public:
+        explicit tree_manipulator_t(tree_t& tree): m_tree(&tree)
+        {
+        }
+
+    private:
+        tree_t* m_tree;
+    };
+
     class tree_t
     {
+        friend struct temporary_tree_storage_t;
+        friend class single_operation_tree_manipulator_t;
+        friend class multi_operation_tree_manipulator_t;
+        friend class tree_manipulator_t;
     public:
         struct subtree_point_t
         {
@@ -209,51 +269,6 @@ namespace blt::gp
             ptrdiff_t start;
             // one past the end
             ptrdiff_t end;
-
-
-        };
-
-        struct byte_only_transaction_t
-        {
-            byte_only_transaction_t(tree_t& tree, const size_t bytes): tree(tree), data(nullptr), bytes(bytes)
-            {
-                move(bytes);
-            }
-
-            explicit byte_only_transaction_t(tree_t& tree): tree(tree), data(nullptr), bytes(0)
-            {
-            }
-
-            byte_only_transaction_t(const byte_only_transaction_t& copy) = delete;
-            byte_only_transaction_t& operator=(const byte_only_transaction_t& copy) = delete;
-
-            byte_only_transaction_t(byte_only_transaction_t&& move) noexcept: tree(move.tree), data(std::exchange(move.data, nullptr)),
-                                                                              bytes(std::exchange(move.bytes, 0))
-            {
-            }
-
-            byte_only_transaction_t& operator=(byte_only_transaction_t&& move) noexcept = delete;
-
-            void move(size_t bytes_to_move);
-
-            [[nodiscard]] bool empty() const
-            {
-                return bytes == 0;
-            }
-
-            ~byte_only_transaction_t()
-            {
-                if (!empty())
-                {
-                    tree.values.copy_from(data, bytes);
-                    bytes = 0;
-                }
-            }
-
-        private:
-            tree_t& tree;
-            u8* data;
-            size_t bytes;
         };
 
         explicit tree_t(gp_program& program): m_program(&program)
@@ -278,62 +293,9 @@ namespace blt::gp
          * This function copies the data from the provided tree, will attempt to reserve and copy in one step.
          * will avoid reallocation if enough space is already present.
          *
-         * This function is meant to copy into and replaces data inside the tree.
+         * This function is meant to copy into and replace data inside the tree.
          */
-        void copy_fast(const tree_t& copy)
-        {
-            if (this == &copy)
-                return;
-
-            operations.reserve(copy.operations.size());
-
-            auto copy_it = copy.operations.begin();
-            auto op_it = operations.begin();
-
-            size_t total_op_bytes = 0;
-            size_t total_copy_bytes = 0;
-
-            for (; op_it != operations.end(); ++op_it)
-            {
-                if (copy_it == copy.operations.end())
-                    break;
-                if (copy_it->is_value())
-                {
-                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
-                    total_copy_bytes += copy_it->type_size();
-                }
-                if (op_it->is_value())
-                {
-                    handle_refcount_decrement(op_it, total_op_bytes);
-                    total_op_bytes += op_it->type_size();
-                }
-                *op_it = *copy_it;
-                ++copy_it;
-            }
-            const auto op_it_cpy = op_it;
-            for (; op_it != operations.end(); ++op_it)
-            {
-                if (op_it->is_value())
-                {
-                    handle_refcount_decrement(op_it, total_op_bytes);
-                    total_op_bytes += op_it->type_size();
-                }
-            }
-            operations.erase(op_it_cpy, operations.end());
-            for (; copy_it != copy.operations.end(); ++copy_it)
-            {
-                if (copy_it->is_value())
-                {
-                    copy.handle_refcount_increment(copy_it, total_copy_bytes);
-                    total_copy_bytes += copy_it->type_size();
-                }
-                operations.emplace_back(*copy_it);
-            }
-
-            values.reserve(copy.values.stored());
-            values.reset();
-            values.insert(copy.values);
-        }
+        void copy_fast(const tree_t& copy);
 
         tree_t(tree_t&& move) = default;
 

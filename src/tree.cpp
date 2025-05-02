@@ -267,7 +267,7 @@ namespace blt::gp
         const auto point_begin_itr = operations.begin() + point.pos;
         const auto point_end_itr = operations.begin() + extent;
 
-        const size_t after_bytes = accumulate_type_sizes(point_end_itr, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
 
         const size_t ops = std::distance(point_begin_itr, point_end_itr);
         operators.reserve(operators.size() + ops);
@@ -342,8 +342,8 @@ namespace blt::gp
             c2_subtree_operators.push_back(it);
         }
 
-        const size_t c1_stack_after_bytes = accumulate_type_sizes(c1_subtree_end_itr, operations.end());
-        const size_t c2_stack_after_bytes = accumulate_type_sizes(c2_subtree_end_itr, other_tree.operations.end());
+        const size_t c1_stack_after_bytes = calculate_ephemeral_size(c1_subtree_end_itr, operations.end());
+        const size_t c2_stack_after_bytes = calculate_ephemeral_size(c2_subtree_end_itr, other_tree.operations.end());
         const auto c1_total = static_cast<ptrdiff_t>(c1_stack_after_bytes + c1_subtree_bytes);
         const auto c2_total = static_cast<ptrdiff_t>(c2_stack_after_bytes + c2_subtree_bytes);
         const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
@@ -387,7 +387,7 @@ namespace blt::gp
         const auto point_begin_itr = operations.begin() + point.pos;
         const auto point_end_itr = operations.begin() + extent;
 
-        const size_t after_bytes = accumulate_type_sizes(point_end_itr, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
 
         size_t for_bytes = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
@@ -434,7 +434,7 @@ namespace blt::gp
         const auto point_begin_itr = operations.begin() + point.pos;
         const auto point_end_itr = operations.begin() + extent;
 
-        const size_t after_bytes = accumulate_type_sizes(point_end_itr, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
 
         size_t for_bytes = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
@@ -461,7 +461,7 @@ namespace blt::gp
 
     ptrdiff_t tree_t::insert_subtree(const subtree_point_t point, tree_t& other_tree)
     {
-        const size_t after_bytes = accumulate_type_sizes(operations.begin() + point.pos, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(operations.begin() + point.pos, operations.end());
         byte_only_transaction_t transaction{*this, after_bytes};
 
         auto insert = operations.begin() + point.pos;
@@ -635,6 +635,65 @@ namespace blt::gp
         }
     }
 
+    temporary_tree_storage_t::temporary_tree_storage_t(tree_t& tree): operations(&tree.operations), values(&tree.values)
+    {
+    }
+
+    void tree_t::copy_fast(const tree_t& copy)
+    {
+        if (this == &copy)
+            return;
+
+        operations.reserve(copy.operations.size());
+
+        auto copy_it = copy.operations.begin();
+        auto op_it = operations.begin();
+
+        size_t total_op_bytes = 0;
+        size_t total_copy_bytes = 0;
+
+        for (; op_it != operations.end(); ++op_it)
+        {
+            if (copy_it == copy.operations.end())
+                break;
+            if (copy_it->is_value())
+            {
+                copy.handle_refcount_increment(copy_it, total_copy_bytes);
+                total_copy_bytes += copy_it->type_size();
+            }
+            if (op_it->is_value())
+            {
+                handle_refcount_decrement(op_it, total_op_bytes);
+                total_op_bytes += op_it->type_size();
+            }
+            *op_it = *copy_it;
+            ++copy_it;
+        }
+        const auto op_it_cpy = op_it;
+        for (; op_it != operations.end(); ++op_it)
+        {
+            if (op_it->is_value())
+            {
+                handle_refcount_decrement(op_it, total_op_bytes);
+                total_op_bytes += op_it->type_size();
+            }
+        }
+        operations.erase(op_it_cpy, operations.end());
+        for (; copy_it != copy.operations.end(); ++copy_it)
+        {
+            if (copy_it->is_value())
+            {
+                copy.handle_refcount_increment(copy_it, total_copy_bytes);
+                total_copy_bytes += copy_it->type_size();
+            }
+            operations.emplace_back(*copy_it);
+        }
+
+        values.reserve(copy.values.stored());
+        values.reset();
+        values.insert(copy.values);
+    }
+
     void tree_t::clear(gp_program& program)
     {
         auto* f = &program;
@@ -766,7 +825,7 @@ namespace blt::gp
         byte_only_transaction_t move_data{*this};
         if (operations[point].is_value())
         {
-            const size_t after_bytes = accumulate_type_sizes(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+            const size_t after_bytes = calculate_ephemeral_size(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
             move_data.move(after_bytes);
             if (operations[point].get_flags().is_ephemeral() && operations[point].has_ephemeral_drop())
             {
@@ -787,7 +846,7 @@ namespace blt::gp
         {
             if (move_data.empty())
             {
-                const size_t after_bytes = accumulate_type_sizes(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+                const size_t after_bytes = calculate_ephemeral_size(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
                 move_data.move(after_bytes);
             }
             handle_operator_inserted(operations[point]);

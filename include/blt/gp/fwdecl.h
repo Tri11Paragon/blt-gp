@@ -43,6 +43,15 @@ namespace blt::gp
     struct op_container_t;
     
     class evaluation_context;
+
+    template <typename T>
+    class evaluation_ref;
+
+    class tree_manipulator_t;
+
+    class single_operation_tree_manipulator_t;
+
+    class multi_operation_tree_manipulator_t;
     
     class tree_t;
     
