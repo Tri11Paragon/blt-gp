@@ -379,7 +379,7 @@ namespace blt::gp
     void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
     {
         swap_subtrees(child_t{our_subtree.pos, find_endpoint(our_subtree.pos)}, other_tree,
-                      child_t{other_subtree.pos, find_endpoint(other_subtree.pos)});
+                      child_t{other_subtree.pos, other_tree.find_endpoint(other_subtree.pos)});
     }
 
     void tree_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree)

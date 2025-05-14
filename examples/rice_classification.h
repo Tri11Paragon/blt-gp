@@ -79,7 +79,7 @@ namespace blt::gp::example
             BLT_DEBUG("Begin Generation Loop");
             while (!program.should_terminate())
             {
-                BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
+                BLT_TRACE("------------\\{Begin Generation {}}------------", program.get_current_generation());
                 BLT_TRACE("Creating next generation");
                 program.create_next_generation();
                 BLT_TRACE("Move to next generation");

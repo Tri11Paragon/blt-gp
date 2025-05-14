@@ -46,7 +46,7 @@ namespace blt::gp
         void print_args(std::integer_sequence<u64, indices...>)
         {
             BLT_INFO("Arguments:");
-            (BLT_INFO("%ld: %s", indices, blt::type_string<Args>().c_str()), ...);
+            (BLT_INFO("{}: {}", indices, blt::type_string<Args>().c_str()), ...);
         }
 
         template <typename Func, u64... indices, typename... ExtraArgs>
