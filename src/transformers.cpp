@@ -231,7 +231,7 @@ namespace blt::gp
                 return correct_types.contains(index) || p2_correct_types.contains(index);
             }
 
-            void clear()
+            void clear(gp_program& program)
             {
                 children_data_p1.clear();
                 children_data_p2.clear();
@@ -249,7 +249,7 @@ namespace blt::gp
                     v.clear();
             }
         } resolver;
-        resolver.clear();
+        resolver.clear(program);
 
         auto min_size = std::min(p1_info.argument_types.size(), p2_info.argument_types.size());
 
@@ -347,9 +347,9 @@ namespace blt::gp
             {
                 BLT_TRACE("(P1 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
                 BLT_TRACE("Inserting into P2 from P1!");
-                c1.copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_tree);
+                c1.copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_trees[0]);
                 c1.delete_subtree(resolver.children_data_p1[p1_index]);
-                c2_insert = c2.insert_subtree(tree_t::subtree_point_t{c1_insert}, resolver.temp_tree);
+                c2_insert = c2.insert_subtree(tree_t::subtree_point_t{c1_insert}, resolver.temp_trees[0]);
             } else if (p2_index < p2_info.argument_types.size() && p1_index >= p1_info.argument_types.size())
             {
                 BLT_TRACE("(P2 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
