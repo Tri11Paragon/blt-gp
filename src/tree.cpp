@@ -197,31 +197,31 @@ namespace blt::gp
         return depth;
     }
 
-    tree_t::subtree_point_t tree_t::select_subtree(const double terminal_chance) const
+    subtree_point_t tree_t::select_subtree(const double terminal_chance) const
     {
         do
         {
             const auto point = m_program->get_random().get_u64(0, operations.size());
             const auto& info = m_program->get_operator_info(operations[point].id());
             if (!info.argc.is_terminal())
-                return {static_cast<ptrdiff_t>(point), info.return_type};
+                return {static_cast<ptrdiff_t>(point), info};
             if (m_program->get_random().choice(terminal_chance))
-                return {static_cast<ptrdiff_t>(point), info.return_type};
+                return {static_cast<ptrdiff_t>(point), info};
         }
         while (true);
     }
 
-    std::optional<tree_t::subtree_point_t> tree_t::select_subtree(const type_id type, const u32 max_tries, const double terminal_chance) const
+    std::optional<subtree_point_t> tree_t::select_subtree(const type_id type, const u32 max_tries, const double terminal_chance) const
     {
         for (u32 i = 0; i < max_tries; ++i)
         {
-            if (const auto tree = select_subtree(terminal_chance); tree.type == type)
+            if (const auto tree = select_subtree(terminal_chance); tree.get_type() == type)
                 return tree;
         }
         return {};
     }
 
-    tree_t::subtree_point_t tree_t::select_subtree_traverse(const double terminal_chance, const double depth_multiplier) const
+    subtree_point_t tree_t::select_subtree_traverse(const double terminal_chance, const double depth_multiplier) const
     {
         size_t index = 0;
         double depth = 0;
@@ -232,14 +232,14 @@ namespace blt::gp
             if (info.argc.is_terminal())
             {
                 if (m_program->get_random().choice(terminal_chance))
-                    return {static_cast<ptrdiff_t>(index), info.return_type};
+                    return {static_cast<ptrdiff_t>(index), info};
                 index = 0;
                 depth = 0;
                 exit_chance = 0;
                 continue;
             }
             if (m_program->get_random().choice(exit_chance))
-                return {static_cast<ptrdiff_t>(index), info.return_type};
+                return {static_cast<ptrdiff_t>(index), info};
 
             const auto child = m_program->get_random().get_u32(0, info.argc.argc);
             index++;
@@ -251,35 +251,23 @@ namespace blt::gp
         }
     }
 
-    std::optional<tree_t::subtree_point_t> tree_t::select_subtree_traverse(const type_id type, const u32 max_tries, const double terminal_chance,
+    std::optional<subtree_point_t> tree_t::select_subtree_traverse(const type_id type, const u32 max_tries, const double terminal_chance,
                                                                            const double depth_multiplier) const
     {
         for (u32 i = 0; i < max_tries; ++i)
         {
-            if (const auto tree = select_subtree_traverse(terminal_chance, depth_multiplier); tree.type == type)
+            if (const auto tree = select_subtree_traverse(terminal_chance, depth_multiplier); tree.get_type() == type)
                 return tree;
         }
         return {};
     }
 
-    void tree_t::copy_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end)
+    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack) const
     {
-    }
+        const auto point_begin_itr = tree->operations.begin() + point.get_spoint();
+        const auto point_end_itr = tree->operations.begin() + extent;
 
-    void tree_t::move_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end)
-    {
-    }
-
-    void tree_t::delete_range(detail::op_iter_t begin, detail::op_iter_t end)
-    {
-    }
-
-    void tree_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack)
-    {
-        const auto point_begin_itr = operations.begin() + point.pos;
-        const auto point_end_itr = operations.begin() + extent;
-
-        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, tree->operations.end());
 
         const size_t ops = std::distance(point_begin_itr, point_end_itr);
         operators.reserve(operators.size() + ops);
@@ -295,20 +283,40 @@ namespace blt::gp
                 for_bytes += it.type_size();
                 if (it.get_flags().is_ephemeral() && it.has_ephemeral_drop())
                 {
-                    auto [_, ptr] = values.access_pointer(for_bytes + after_bytes, it.type_size());
+                    auto [_, ptr] = tree->values.access_pointer(for_bytes + after_bytes, it.type_size());
                     ++*ptr;
                 }
             }
             operators[operators.size() - 1 - (pos++)] = it;
         }
 
-        stack.copy_from(values, for_bytes, after_bytes);
+        stack.copy_from(tree->values, for_bytes, after_bytes);
     }
 
-    void tree_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree)
+    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack) const
     {
-        const auto c1_subtree_begin_itr = operations.begin() + our_subtree.start;
-        const auto c1_subtree_end_itr = operations.begin() + our_subtree.end;
+        copy_subtree(point, tree->find_endpoint(point.get_spoint()), operators, stack);
+    }
+
+    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& out_tree) const
+    {
+        copy_subtree(point, extent, out_tree.operations, out_tree.values);
+    }
+
+    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, tree_t& out_tree) const
+    {
+        copy_subtree(point, tree->find_endpoint(point.get_spoint()), out_tree);
+    }
+
+    void slow_tree_manipulator_t::copy_subtree(const child_t subtree, tree_t& out_tree) const
+    {
+        copy_subtree(subtree_point_t{subtree.start, tree->m_program->get_operator_info(tree->operations[subtree.start].id())}, subtree.end, out_tree);
+    }
+
+    void slow_tree_manipulator_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree) const
+    {
+        const auto c1_subtree_begin_itr = tree->operations.begin() + our_subtree.start;
+        const auto c1_subtree_end_itr = tree->operations.begin() + our_subtree.end;
 
         const auto c2_subtree_begin_itr = other_tree.operations.begin() + other_subtree.start;
         const auto c2_subtree_end_itr = other_tree.operations.begin() + other_subtree.end;
@@ -328,14 +336,7 @@ namespace blt::gp
         for (const auto& it : iterate(c1_subtree_begin_itr, c1_subtree_end_itr))
         {
             if (it.is_value())
-            {
-                // if (it.get_flags().is_ephemeral() && it.has_ephemeral_drop())
-                // {
-                //     auto& ptr = values.access_pointer_forward(for_our_bytes, it.type_size());
-                //     ++*ptr;
-                // }
                 c1_subtree_bytes += it.type_size();
-            }
             c1_subtree_operators.push_back(it);
         }
 
@@ -343,29 +344,22 @@ namespace blt::gp
         for (const auto& it : iterate(c2_subtree_begin_itr, c2_subtree_end_itr))
         {
             if (it.is_value())
-            {
-                // if (it.get_flags().is_ephemeral() && it.has_ephemeral_drop())
-                // {
-                //     auto& ptr = values.access_pointer_forward(for_other_bytes, it.type_size());
-                //     ++*ptr;
-                // }
                 c2_subtree_bytes += it.type_size();
-            }
             c2_subtree_operators.push_back(it);
         }
 
-        const size_t c1_stack_after_bytes = calculate_ephemeral_size(c1_subtree_end_itr, operations.end());
+        const size_t c1_stack_after_bytes = calculate_ephemeral_size(c1_subtree_end_itr, tree->operations.end());
         const size_t c2_stack_after_bytes = calculate_ephemeral_size(c2_subtree_end_itr, other_tree.operations.end());
         const auto c1_total = static_cast<ptrdiff_t>(c1_stack_after_bytes + c1_subtree_bytes);
         const auto c2_total = static_cast<ptrdiff_t>(c2_stack_after_bytes + c2_subtree_bytes);
         const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
         const auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
 
-        values.reserve(values.stored() - c1_subtree_bytes + c2_subtree_bytes);
+        tree->values.reserve(tree->values.stored() - c1_subtree_bytes + c2_subtree_bytes);
         other_tree.values.reserve(other_tree.values.stored() - c2_subtree_bytes + c1_subtree_bytes);
 
-        values.copy_to(copy_ptr_c1, c1_total);
-        values.pop_bytes(c1_total);
+        tree->values.copy_to(copy_ptr_c1, c1_total);
+        tree->values.pop_bytes(c1_total);
 
         other_tree.values.copy_to(copy_ptr_c2, c2_total);
         other_tree.values.pop_bytes(c2_total);
@@ -373,33 +367,33 @@ namespace blt::gp
         other_tree.values.copy_from(copy_ptr_c1, c1_subtree_bytes);
         other_tree.values.copy_from(copy_ptr_c2 + c2_subtree_bytes, c2_stack_after_bytes);
 
-        values.copy_from(copy_ptr_c2, c2_subtree_bytes);
-        values.copy_from(copy_ptr_c1 + c1_subtree_bytes, c1_stack_after_bytes);
+        tree->values.copy_from(copy_ptr_c2, c2_subtree_bytes);
+        tree->values.copy_from(copy_ptr_c1 + c1_subtree_bytes, c1_stack_after_bytes);
 
         // now swap the operators
         // auto insert_point_c1 = c1_subtree_begin_itr - 1;
         // auto insert_point_c2 = c2_subtree_begin_itr - 1;
 
         // invalidates [begin, end()) so the insert points should be fine
-        auto insert_point_c1 = operations.erase(c1_subtree_begin_itr, c1_subtree_end_itr);
-        auto insert_point_c2 = other_tree.operations.erase(c2_subtree_begin_itr, c2_subtree_end_itr);
+        const auto insert_point_c1 = tree->operations.erase(c1_subtree_begin_itr, c1_subtree_end_itr);
+        const auto insert_point_c2 = other_tree.operations.erase(c2_subtree_begin_itr, c2_subtree_end_itr);
 
-        operations.insert(insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
+        tree->operations.insert(insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
         other_tree.operations.insert(insert_point_c2, c1_subtree_operators.begin(), c1_subtree_operators.end());
     }
 
-    void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
+    void slow_tree_manipulator_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree) const
     {
-        swap_subtrees(child_t{our_subtree.pos, find_endpoint(our_subtree.pos)}, other_tree,
-                      child_t{other_subtree.pos, find_endpoint(other_subtree.pos)});
+        swap_subtrees(child_t{our_subtree.get_spoint(), tree->find_endpoint(our_subtree.get_spoint())}, other_tree,
+                      child_t{other_subtree.get_spoint(), tree->find_endpoint(other_subtree.get_spoint())});
     }
 
-    void tree_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree)
+    void slow_tree_manipulator_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, const tree_t& other_tree) const
     {
-        const auto point_begin_itr = operations.begin() + point.pos;
-        const auto point_end_itr = operations.begin() + extent;
+        const auto point_begin_itr = tree->operations.begin() + point.get_spoint();
+        const auto point_end_itr = tree->operations.begin() + extent;
 
-        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, tree->operations.end());
 
         size_t for_bytes = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
@@ -409,18 +403,18 @@ namespace blt::gp
                 for_bytes += it.type_size();
                 if (it.get_flags().is_ephemeral() && it.has_ephemeral_drop())
                 {
-                    auto [val, ptr] = values.access_pointer(for_bytes + after_bytes, it.type_size());
+                    auto [val, ptr] = tree->values.access_pointer(for_bytes + after_bytes, it.type_size());
                     --*ptr;
                     if (*ptr == 0)
-                        handle_ptr_empty(ptr, val, it.id());
+                        tree->handle_ptr_empty(ptr, val, it.id());
                 }
             }
         }
-        auto insert = operations.erase(point_begin_itr, point_end_itr);
+        auto insert = tree->operations.erase(point_begin_itr, point_end_itr);
 
         const auto ptr = get_thread_pointer_for_size<struct replace>(after_bytes);
-        values.copy_to(ptr, after_bytes);
-        values.pop_bytes(after_bytes + for_bytes);
+        tree->values.copy_to(ptr, after_bytes);
+        tree->values.pop_bytes(after_bytes + for_bytes);
 
         size_t copy_bytes = 0;
         for (const auto& v : other_tree.operations)
@@ -434,19 +428,24 @@ namespace blt::gp
                 }
                 copy_bytes += v.type_size();
             }
-            insert = ++operations.emplace(insert, v);
+            insert = ++tree->operations.emplace(insert, v);
         }
 
-        values.insert(other_tree.values);
-        values.copy_from(ptr, after_bytes);
+        tree->values.insert(other_tree.values);
+        tree->values.copy_from(ptr, after_bytes);
     }
 
-    void tree_t::delete_subtree(const subtree_point_t point, const ptrdiff_t extent)
+    void slow_tree_manipulator_t::replace_subtree(const subtree_point_t point, const tree_t& other_tree) const
     {
-        const auto point_begin_itr = operations.begin() + point.pos;
-        const auto point_end_itr = operations.begin() + extent;
+        replace_subtree(point, tree->find_endpoint(point.get_spoint()), other_tree);
+    }
 
-        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, operations.end());
+    void slow_tree_manipulator_t::delete_subtree(const subtree_point_t point, const ptrdiff_t extent) const
+    {
+        const auto point_begin_itr = tree->operations.begin() + point.get_spoint();
+        const auto point_end_itr = tree->operations.begin() + extent;
+
+        const size_t after_bytes = calculate_ephemeral_size(point_end_itr, tree->operations.end());
 
         size_t for_bytes = 0;
         for (auto& it : iterate(point_begin_itr, point_end_itr).rev())
@@ -456,27 +455,37 @@ namespace blt::gp
                 for_bytes += it.type_size();
                 if (it.get_flags().is_ephemeral() && it.has_ephemeral_drop())
                 {
-                    auto [val, ptr] = values.access_pointer(for_bytes + after_bytes, it.type_size());
+                    auto [val, ptr] = tree->values.access_pointer(for_bytes + after_bytes, it.type_size());
                     --*ptr;
                     if (*ptr == 0)
-                        handle_ptr_empty(ptr, val, it.id());
+                        tree->handle_ptr_empty(ptr, val, it.id());
                 }
             }
         }
-        operations.erase(point_begin_itr, point_end_itr);
+        tree->operations.erase(point_begin_itr, point_end_itr);
 
         const auto ptr = get_thread_pointer_for_size<struct replace>(after_bytes);
-        values.copy_to(ptr, after_bytes);
-        values.pop_bytes(after_bytes + for_bytes);
-        values.copy_from(ptr, after_bytes);
+        tree->values.copy_to(ptr, after_bytes);
+        tree->values.pop_bytes(after_bytes + for_bytes);
+        tree->values.copy_from(ptr, after_bytes);
     }
 
-    ptrdiff_t tree_t::insert_subtree(const subtree_point_t point, tree_t& other_tree)
+    void slow_tree_manipulator_t::delete_subtree(const subtree_point_t point) const
     {
-        const size_t after_bytes = calculate_ephemeral_size(operations.begin() + point.pos, operations.end());
-        byte_only_transaction_t transaction{*this, after_bytes};
+        delete_subtree(point, tree->find_endpoint(point.get_spoint()));
+    }
 
-        auto insert = operations.begin() + point.pos;
+    void slow_tree_manipulator_t::delete_subtree(const child_t subtree) const
+    {
+        delete_subtree(subtree_point_t{subtree.start, tree->m_program->get_operator_info(tree->operations[subtree.start].id())}, subtree.end);
+    }
+
+    ptrdiff_t slow_tree_manipulator_t::insert_subtree(const subtree_point_t point, tree_t& other_tree) const
+    {
+        const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + point.get_spoint(), tree->operations.end());
+        tree_t::byte_only_transaction_t transaction{*tree, after_bytes};
+
+        auto insert = tree->operations.begin() + point.get_spoint();
         size_t bytes = 0;
         for (auto& it : iterate(other_tree.operations).rev())
         {
@@ -489,11 +498,11 @@ namespace blt::gp
                     ++*ptr;
                 }
             }
-            insert = operations.insert(insert, it);
+            insert = tree->operations.insert(insert, it);
         }
-        values.insert(other_tree.values);
+        tree->values.insert(other_tree.values);
 
-        return static_cast<ptrdiff_t>(point.pos + other_tree.size());
+        return static_cast<ptrdiff_t>(point.get_spoint() + other_tree.size());
     }
 
 
@@ -750,9 +759,9 @@ namespace blt::gp
         operations.insert(operations.begin() + static_cast<ptrdiff_t>(index), container);
     }
 
-    tree_t::subtree_point_t tree_t::subtree_from_point(ptrdiff_t point) const
+    subtree_point_t tree_t::subtree_from_point(const ptrdiff_t point) const
     {
-        return {point, m_program->get_operator_info(operations[point].id()).return_type};
+        return subtree_point_t{point, m_program->get_operator_info(operations[point].id())};
     }
 
     size_t tree_t::required_size() const
@@ -840,38 +849,38 @@ namespace blt::gp
         BLT_ASSERT(file.read(values.data(), bytes_in_head) == static_cast<i64>(bytes_in_head));
     }
 
-    void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)
+    void slow_tree_manipulator_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type) const
     {
         if (!return_type)
-            return_type = m_program->get_operator_info(new_id).return_type;
-        byte_only_transaction_t move_data{*this};
-        if (operations[point].is_value())
+            return_type = tree->m_program->get_operator_info(new_id).return_type;
+        tree_t::byte_only_transaction_t move_data{*tree};
+        if (tree->operations[point].is_value())
         {
-            const size_t after_bytes = calculate_ephemeral_size(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+            const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1, tree->operations.end());
             move_data.move(after_bytes);
-            if (operations[point].get_flags().is_ephemeral() && operations[point].has_ephemeral_drop())
+            if (tree->operations[point].get_flags().is_ephemeral() && tree->operations[point].has_ephemeral_drop())
             {
-                auto [val, ptr] = values.access_pointer(operations[point].type_size(), operations[point].type_size());
+                auto [val, ptr] = tree->values.access_pointer(tree->operations[point].type_size(), tree->operations[point].type_size());
                 --*ptr;
                 if (*ptr == 0)
-                    handle_ptr_empty(ptr, val, operations[point].id());
+                    tree->handle_ptr_empty(ptr, val, tree->operations[point].id());
             }
-            values.pop_bytes(operations[point].type_size());
+            tree->values.pop_bytes(tree->operations[point].type_size());
         }
-        operations[point] = {
-            m_program->get_typesystem().get_type(*return_type).size(),
+        tree->operations[point] = {
+            tree->m_program->get_typesystem().get_type(*return_type).size(),
             new_id,
-            m_program->is_operator_ephemeral(new_id),
-            m_program->get_operator_flags(new_id)
+            tree->m_program->is_operator_ephemeral(new_id),
+            tree->m_program->get_operator_flags(new_id)
         };
-        if (operations[point].get_flags().is_ephemeral())
+        if (tree->operations[point].get_flags().is_ephemeral())
         {
             if (move_data.empty())
             {
-                const size_t after_bytes = calculate_ephemeral_size(operations.begin() + static_cast<ptrdiff_t>(point) + 1, operations.end());
+                const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1, tree->operations.end());
                 move_data.move(after_bytes);
             }
-            handle_operator_inserted(operations[point]);
+            tree->handle_operator_inserted(tree->operations[point]);
         }
     }
 

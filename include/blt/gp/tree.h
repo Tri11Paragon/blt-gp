@@ -29,6 +29,8 @@
 #include <utility>
 #include <stack>
 
+#include "program.h"
+
 namespace blt::gp
 {
     namespace detail
@@ -232,15 +234,43 @@ namespace blt::gp
 
     struct subtree_point_t
     {
-        subtree_point_t(const size_t point): point(point) // NOLINT
+        subtree_point_t(const size_t point, const operator_info_t& info): point(point), info(&info) // NOLINT
         {
         }
 
-        subtree_point_t(const ptrdiff_t point): point(static_cast<size_t>(point)) // NOLINT
+        subtree_point_t(const ptrdiff_t point, const operator_info_t& info): point(static_cast<size_t>(point)), info(&info) // NOLINT
         {
+        }
+
+        [[nodiscard]] size_t get_point() const
+        {
+            return point;
+        }
+
+        [[nodiscard]] ptrdiff_t get_spoint() const
+        {
+            return static_cast<ptrdiff_t>(point);
+        }
+
+        [[nodiscard]] const operator_info_t& get_info() const
+        {
+            return *info;
+        }
+
+        [[nodiscard]] type_id get_type() const
+        {
+            return info->return_type;
         }
 
         size_t point;
+        const operator_info_t* info;
+    };
+
+    struct child_t
+    {
+        ptrdiff_t start;
+        // one past the end
+        ptrdiff_t end;
     };
 
     struct single_operation_tree_manipulator_t
@@ -265,6 +295,103 @@ namespace blt::gp
         detail::tree_modification_context_t context;
     };
 
+    struct slow_tree_manipulator_t
+    {
+        explicit slow_tree_manipulator_t(tree_t* const context): tree(context)
+        {
+        }
+
+        /**
+                 * Copies the subtree found at point into the provided out params
+                 * @param point subtree point
+                 * @param extent how far the subtree extends
+                 * @param operators vector for storing subtree operators
+                 * @param stack stack for storing subtree values
+                 */
+        void copy_subtree(subtree_point_t point, ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack) const;
+
+        /**
+         * Copies the subtree found at point into the provided out params
+         * @param point subtree point
+         * @param operators vector for storing subtree operators
+         * @param stack stack for storing subtree values
+         */
+        void copy_subtree(const subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack) const;
+
+        void copy_subtree(subtree_point_t point, ptrdiff_t extent, tree_t& out_tree) const;
+
+        void copy_subtree(subtree_point_t point, tree_t& out_tree) const;
+
+        void copy_subtree(child_t subtree, tree_t& out_tree) const;
+
+        void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree) const;
+
+        /**
+         * Swaps the subtrees between this tree and the other tree
+         * @param our_subtree
+         * @param other_tree
+         * @param other_subtree
+         */
+        void swap_subtrees(subtree_point_t our_subtree, tree_t& other_tree, subtree_point_t other_subtree) const;
+
+        /**
+         * Replaces the point inside our tree with a new tree provided to this function.
+         * Uses the extent instead of calculating it for removing the existing subtree
+         * This can be used if you already have child tree information, such as when using @code find_child_extends@endcode
+         * @param point point to replace at
+         * @param extent extend of the subtree (child tree)
+         * @param other_tree other tree to replace with
+         */
+        void replace_subtree(subtree_point_t point, ptrdiff_t extent, const tree_t& other_tree) const;
+
+        /**
+         * Replaces the point inside our tree with a new tree provided to this function
+         * @param point point to replace at
+         * @param other_tree other tree to replace with
+         */
+        void replace_subtree(subtree_point_t point, const tree_t& other_tree) const;
+
+        /**
+         * Deletes the subtree at a point, bounded by extent. This is useful if you already know the size of the child tree
+         * Note: if you provide an incorrectly sized extent this will create UB within the GP program
+         * extent must be one past the last element in the subtree, as returned by all helper functions here.
+         * @param point point to delete from
+         * @param extent end point of the tree
+         */
+        void delete_subtree(subtree_point_t point, ptrdiff_t extent) const;
+
+        /**
+         * Deletes the subtree at a point
+         * @param point point of subtree to recursively delete
+         */
+        void delete_subtree(subtree_point_t point) const;
+
+        void delete_subtree(child_t subtree) const;
+
+        /**
+         * Insert a subtree before the specified point
+         * @param point point to insert into
+         * @param other_tree the tree to insert
+         * @return point + other_tree.size()
+         */
+        ptrdiff_t insert_subtree(subtree_point_t point, tree_t& other_tree) const;
+
+        /**
+         * temporarily moves the last bytes amount of data from the current stack. this can be useful for if you are going to do a lot
+         * of consecutive operations on the tree as this will avoid extra copy + reinsert.
+         * The object returned by this function will automatically move the data back in when it goes out of scope.
+         * @param operator_index operator index to move from. this is inclusive
+         */
+        void temporary_move(const size_t)
+        {
+            // return obt_move_t{*this, operator_index};
+        }
+
+        void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {}) const;
+
+        tree_t* tree;
+    };
+
     /**
      * This is the parent class responsible for managing a tree's internal state at runtime.
      * While it is possible to create a tree without a need for this class, you should not attempt to modify a tree's internal state after creation.
@@ -272,21 +399,27 @@ namespace blt::gp
      */
     struct tree_manipulator_t
     {
-        explicit tree_manipulator_t(tree_t& tree, const subtree_point_t point): context{&tree, point.point}
+        explicit tree_manipulator_t(tree_t& tree): context{&tree}
         {
         }
 
-        [[nodiscard]] multi_operation_tree_manipulator_t explode() const
+        // if you are fine with operations being slowing, this is the function to use as it allows you to modify trees without worrying about byte orders
+        [[nodiscard]] slow_tree_manipulator_t easy_manipulator() const
         {
-            return multi_operation_tree_manipulator_t{context};
+            return slow_tree_manipulator_t{context};
         }
 
-        [[nodiscard]] single_operation_tree_manipulator_t single() const
+        [[nodiscard]] multi_operation_tree_manipulator_t explode(const subtree_point_t point) const
         {
-            return single_operation_tree_manipulator_t{context};
+            return multi_operation_tree_manipulator_t{{context, point.point}};
         }
 
-        detail::tree_modification_context_t context;
+        [[nodiscard]] single_operation_tree_manipulator_t single(const subtree_point_t point) const
+        {
+            return single_operation_tree_manipulator_t{{context, point.point}};
+        }
+
+        tree_t* context;
     };
 
     class tree_t
@@ -295,13 +428,50 @@ namespace blt::gp
         friend struct single_operation_tree_manipulator_t;
         friend struct multi_operation_tree_manipulator_t;
         friend struct tree_manipulator_t;
+        friend struct slow_tree_manipulator_t;
 
     public:
-        struct child_t
+        struct byte_only_transaction_t
         {
-            ptrdiff_t start;
-            // one past the end
-            ptrdiff_t end;
+            byte_only_transaction_t(tree_t& tree, const size_t bytes): tree(tree), data(nullptr), bytes(bytes)
+            {
+                move(bytes);
+            }
+
+            explicit byte_only_transaction_t(tree_t& tree): tree(tree), data(nullptr), bytes(0)
+            {
+            }
+
+            byte_only_transaction_t(const byte_only_transaction_t& copy) = delete;
+            byte_only_transaction_t& operator=(const byte_only_transaction_t& copy) = delete;
+
+            byte_only_transaction_t(byte_only_transaction_t&& move) noexcept: tree(move.tree), data(std::exchange(move.data, nullptr)),
+                                                                              bytes(std::exchange(move.bytes, 0))
+            {
+            }
+
+            byte_only_transaction_t& operator=(byte_only_transaction_t&& move) noexcept = delete;
+
+            void move(size_t bytes_to_move);
+
+            [[nodiscard]] bool empty() const
+            {
+                return bytes == 0;
+            }
+
+            ~byte_only_transaction_t()
+            {
+                if (!empty())
+                {
+                    tree.values.copy_from(data, bytes);
+                    bytes = 0;
+                }
+            }
+
+        private:
+            tree_t& tree;
+            u8* data;
+            size_t bytes;
         };
 
         explicit tree_t(gp_program& program): m_program(&program)
@@ -382,154 +552,6 @@ namespace blt::gp
          */
         [[nodiscard]] std::optional<subtree_point_t> select_subtree_traverse(type_id type, u32 max_tries = 5, double terminal_chance = 0.1,
                                                                              double depth_multiplier = 0.6) const;
-
-        void copy_range(temporary_tree_storage_t& storage, const size_t begin, const size_t size)
-        {
-            copy_range(storage, operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
-        }
-
-        void copy_range(temporary_tree_storage_t& storage, const subtree_point_t point)
-        {
-            copy_range(storage, operations.begin() + static_cast<ptrdiff_t>(point.point),
-                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
-        }
-
-        void copy_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end);
-
-        void move_range(temporary_tree_storage_t& storage, const size_t begin, const size_t size)
-        {
-            move_range(storage, operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
-        }
-
-        void move_range(temporary_tree_storage_t& storage, const subtree_point_t point)
-        {
-            move_range(storage, operations.begin() + static_cast<ptrdiff_t>(point.point),
-                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
-        }
-
-        void move_range(temporary_tree_storage_t& storage, detail::op_iter_t begin, detail::op_iter_t end);
-
-        void delete_range(const size_t begin, const size_t size)
-        {
-            delete_range(operations.begin() + static_cast<ptrdiff_t>(begin), operations.begin() + static_cast<ptrdiff_t>(begin + size));
-        }
-
-        void delete_range(const subtree_point_t point)
-        {
-            delete_range(operations.begin() + static_cast<ptrdiff_t>(point.point),
-                       operations.begin() + find_endpoint(static_cast<ptrdiff_t>(point.point)));
-        }
-
-        void delete_range(detail::op_iter_t begin, detail::op_iter_t end);
-
-        /**
-                 * Copies the subtree found at point into the provided out params
-                 * @param point subtree point
-                 * @param extent how far the subtree extends
-                 * @param operators vector for storing subtree operators
-                 * @param stack stack for storing subtree values
-                 */
-        void copy_subtree(subtree_point_t point, ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack);
-
-        /**
-         * Copies the subtree found at point into the provided out params
-         * @param point subtree point
-         * @param operators vector for storing subtree operators
-         * @param stack stack for storing subtree values
-         */
-        void copy_subtree(const subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack)
-        {
-            copy_subtree(point, find_endpoint(point.pos), operators, stack);
-        }
-
-        void copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& out_tree)
-        {
-            copy_subtree(point, extent, out_tree.operations, out_tree.values);
-        }
-
-        void copy_subtree(const subtree_point_t point, tree_t& out_tree)
-        {
-            copy_subtree(point, find_endpoint(point.pos), out_tree);
-        }
-
-        void copy_subtree(const child_t subtree, tree_t& out_tree)
-        {
-            copy_subtree(subtree_point_t{subtree.start}, subtree.end, out_tree);
-        }
-
-        void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree);
-
-        /**
-         * Swaps the subtrees between this tree and the other tree
-         * @param our_subtree
-         * @param other_tree
-         * @param other_subtree
-         */
-        void swap_subtrees(subtree_point_t our_subtree, tree_t& other_tree, subtree_point_t other_subtree);
-
-        /**
-         * Replaces the point inside our tree with a new tree provided to this function.
-         * Uses the extent instead of calculating it for removing the existing subtree
-         * This can be used if you already have child tree information, such as when using @code find_child_extends@endcode
-         * @param point point to replace at
-         * @param extent extend of the subtree (child tree)
-         * @param other_tree other tree to replace with
-         */
-        void replace_subtree(subtree_point_t point, ptrdiff_t extent, tree_t& other_tree);
-
-        /**
-         * Replaces the point inside our tree with a new tree provided to this function
-         * @param point point to replace at
-         * @param other_tree other tree to replace with
-         */
-        void replace_subtree(const subtree_point_t point, tree_t& other_tree)
-        {
-            replace_subtree(point, find_endpoint(point.pos), other_tree);
-        }
-
-        /**
-         * Deletes the subtree at a point, bounded by extent. This is useful if you already know the size of the child tree
-         * Note: if you provide an incorrectly sized extent this will create UB within the GP program
-         * extent must be one past the last element in the subtree, as returned by all helper functions here.
-         * @param point point to delete from
-         * @param extent end point of the tree
-         */
-        void delete_subtree(subtree_point_t point, ptrdiff_t extent);
-
-        /**
-         * Deletes the subtree at a point
-         * @param point point of subtree to recursively delete
-         */
-        void delete_subtree(const subtree_point_t point)
-        {
-            delete_subtree(point, find_endpoint(point.pos));
-        }
-
-        void delete_subtree(const child_t subtree)
-        {
-            delete_subtree(subtree_point_t{subtree.start}, subtree.end);
-        }
-
-        /**
-         * Insert a subtree before the specified point
-         * @param point point to insert into
-         * @param other_tree the tree to insert
-         * @return point + other_tree.size()
-         */
-        ptrdiff_t insert_subtree(subtree_point_t point, tree_t& other_tree);
-
-        /**
-         * temporarily moves the last bytes amount of data from the current stack. this can be useful for if you are going to do a lot
-         * of consecutive operations on the tree as this will avoid extra copy + reinsert.
-         * The object returned by this function will automatically move the data back in when it goes out of scope.
-         * @param operator_index operator index to move from. this is inclusive
-         */
-        void temporary_move(const size_t)
-        {
-            // return obt_move_t{*this, operator_index};
-        }
-
-        void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {});
 
         /**
         *   User function for evaluating this tree using a context reference. This function should only be used if the tree is expecting the context value
