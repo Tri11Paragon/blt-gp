@@ -503,6 +503,69 @@ namespace blt::gp
         return static_cast<ptrdiff_t>(point.get_spoint() + other_tree.size());
     }
 
+    void slow_tree_manipulator_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type) const
+    {
+        if (!return_type)
+            return_type = tree->m_program->get_operator_info(new_id).return_type;
+        tree_t::byte_only_transaction_t move_data{*tree};
+        if (tree->operations[point].is_value())
+        {
+            const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1, tree->operations.end());
+            move_data.move(after_bytes);
+            if (tree->operations[point].get_flags().is_ephemeral() && tree->operations[point].has_ephemeral_drop())
+            {
+                auto [val, ptr] = tree->values.access_pointer(tree->operations[point].type_size(), tree->operations[point].type_size());
+                --*ptr;
+                if (*ptr == 0)
+                    tree->handle_ptr_empty(ptr, val, tree->operations[point].id());
+            }
+            tree->values.pop_bytes(tree->operations[point].type_size());
+        }
+        tree->operations[point] = {
+            tree->m_program->get_typesystem().get_type(*return_type).size(),
+            new_id,
+            tree->m_program->is_operator_ephemeral(new_id),
+            tree->m_program->get_operator_flags(new_id)
+        };
+        if (tree->operations[point].get_flags().is_ephemeral())
+        {
+            if (move_data.empty())
+            {
+                const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1,
+                                                                    tree->operations.end());
+                move_data.move(after_bytes);
+            }
+            tree->handle_operator_inserted(tree->operations[point]);
+        }
+    }
+
+    void slow_tree_manipulator_t::swap_operators(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree, const subtree_point_t other_point,
+                                                 const ptrdiff_t other_extent) const
+    {
+        const auto our_end_point_iter = tree->operations.begin() + extent;
+        const auto other_end_point_iter = other_tree.operations.begin() + other_extent;
+
+        const auto our_bytes_after = calculate_ephemeral_size(our_end_point_iter, tree->operations.end());
+        const auto other_bytes_after = calculate_ephemeral_size(other_end_point_iter, other_tree.operations.end());
+
+        const auto our_after_ptr = get_thread_pointer_for_size<struct our_after>(our_bytes_after);
+        const auto other_after_ptr = get_thread_pointer_for_size<struct other_after>(other_bytes_after);
+
+        // save a copy of all the data after the operator subtrees
+        tree->values.copy_to(our_after_ptr, our_bytes_after);
+        tree->values.pop_bytes(our_bytes_after);
+        other_tree.values.copy_to(other_after_ptr, other_bytes_after);
+        other_tree.values.pop_bytes(other_bytes_after);
+
+
+    }
+
+    void slow_tree_manipulator_t::swap_operators(const size_t point, tree_t& other_tree, const size_t other_point) const
+    {
+        swap_operators(subtree_point_t{point}, tree->find_endpoint(static_cast<ptrdiff_t>(point)), other_tree, subtree_point_t{other_point},
+                       other_tree.find_endpoint(static_cast<ptrdiff_t>(other_point)));
+    }
+
 
     ptrdiff_t tree_t::find_endpoint(ptrdiff_t start) const
     {
@@ -855,46 +918,6 @@ namespace blt::gp
         BLT_ASSERT(file.read(&bytes_in_head, sizeof(size_t)) == sizeof(size_t));
         values.resize(bytes_in_head);
         BLT_ASSERT(file.read(values.data(), bytes_in_head) == static_cast<i64>(bytes_in_head));
-    }
-
-    void slow_tree_manipulator_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type) const
-    {
-        if (!return_type)
-            return_type = tree->m_program->get_operator_info(new_id).return_type;
-        tree_t::byte_only_transaction_t move_data{*tree};
-        if (tree->operations[point].is_value())
-        {
-            const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1, tree->operations.end());
-            move_data.move(after_bytes);
-            if (tree->operations[point].get_flags().is_ephemeral() && tree->operations[point].has_ephemeral_drop())
-            {
-                auto [val, ptr] = tree->values.access_pointer(tree->operations[point].type_size(), tree->operations[point].type_size());
-                --*ptr;
-                if (*ptr == 0)
-                    tree->handle_ptr_empty(ptr, val, tree->operations[point].id());
-            }
-            tree->values.pop_bytes(tree->operations[point].type_size());
-        }
-        tree->operations[point] = {
-            tree->m_program->get_typesystem().get_type(*return_type).size(),
-            new_id,
-            tree->m_program->is_operator_ephemeral(new_id),
-            tree->m_program->get_operator_flags(new_id)
-        };
-        if (tree->operations[point].get_flags().is_ephemeral())
-        {
-            if (move_data.empty())
-            {
-                const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1,
-                                                                    tree->operations.end());
-                move_data.move(after_bytes);
-            }
-            tree->handle_operator_inserted(tree->operations[point]);
-        }
-    }
-
-    void slow_tree_manipulator_t::swap_operators(size_t point, tree_t& other_tree, size_t other_point) const
-    {
     }
 
     bool operator==(const tree_t& a, const tree_t& b)

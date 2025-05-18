@@ -390,6 +390,8 @@ namespace blt::gp
 
         void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {}) const;
 
+        void swap_operators(subtree_point_t point, ptrdiff_t extent, tree_t& other_tree, subtree_point_t other_point, ptrdiff_t other_extent) const;
+
         void swap_operators(size_t point, tree_t& other_tree, size_t other_point) const;
 
         tree_t* tree;
@@ -406,7 +408,10 @@ namespace blt::gp
         {
         }
 
-        // if you are fine with operations being slowing, this is the function to use as it allows you to modify trees without worrying about byte orders
+        /**
+         * if you are fine with operations being slowing, this is the function to use as it allows you to modify trees without worrying about byte orders
+         * aka the operations you can perform with the returned object are completely atomic.
+         */
         [[nodiscard]] slow_tree_manipulator_t easy_manipulator() const
         {
             return slow_tree_manipulator_t{context};
