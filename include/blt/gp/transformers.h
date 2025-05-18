@@ -19,7 +19,6 @@
 #ifndef BLT_GP_TRANSFORMERS_H
 #define BLT_GP_TRANSFORMERS_H
 
-#include <blt/std/utility.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/tree.h>
 #include <blt/gp/generators.h>
@@ -120,8 +119,8 @@ namespace blt::gp
     public:
         struct crossover_point_t
         {
-            tree_t::subtree_point_t p1_crossover_point;
-            tree_t::subtree_point_t p2_crossover_point;
+            subtree_point_t p1_crossover_point;
+            subtree_point_t p2_crossover_point;
         };
 
 
@@ -152,7 +151,7 @@ namespace blt::gp
         ~subtree_crossover_t() override = default;
 
     protected:
-        [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
+        [[nodiscard]] std::optional<subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
     };
 
     class one_point_crossover_t : public crossover_t
@@ -204,7 +203,7 @@ namespace blt::gp
         virtual bool apply(gp_program& program, const tree_t& p, tree_t& c);
 
         // returns the point after the mutation
-        size_t mutate_point(gp_program& program, tree_t& c, tree_t::subtree_point_t node) const;
+        size_t mutate_point(gp_program& program, tree_t& c, subtree_point_t node) const;
 
         virtual ~mutation_t() = default;
 

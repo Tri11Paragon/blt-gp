@@ -52,6 +52,8 @@ namespace blt::gp
     struct single_operation_tree_manipulator_t;
 
     struct multi_operation_tree_manipulator_t;
+
+    struct subtree_point_t;
     
     class tree_t;
     

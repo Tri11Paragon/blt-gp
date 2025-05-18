@@ -125,13 +125,10 @@ namespace blt::gp
                     create_indent(out, indent, pretty_print) << ")" << end_indent(pretty_print);
                     continue;
                 }
-                else
-                {
-                    if (!pretty_print)
-                        out << " ";
-                    arguments_left.push(top - 1);
-                    break;
-                }
+                if (!pretty_print)
+                    out << " ";
+                arguments_left.push(top - 1);
+                break;
             }
         }
         while (!arguments_left.empty())
@@ -252,7 +249,7 @@ namespace blt::gp
     }
 
     std::optional<subtree_point_t> tree_t::select_subtree_traverse(const type_id type, const u32 max_tries, const double terminal_chance,
-                                                                           const double depth_multiplier) const
+                                                                   const double depth_multiplier) const
     {
         for (u32 i = 0; i < max_tries; ++i)
         {
@@ -262,7 +259,8 @@ namespace blt::gp
         return {};
     }
 
-    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators, stack_allocator& stack) const
+    void slow_tree_manipulator_t::copy_subtree(const subtree_point_t point, const ptrdiff_t extent, tracked_vector<op_container_t>& operators,
+                                               stack_allocator& stack) const
     {
         const auto point_begin_itr = tree->operations.begin() + point.get_spoint();
         const auto point_end_itr = tree->operations.begin() + extent;
@@ -310,7 +308,7 @@ namespace blt::gp
 
     void slow_tree_manipulator_t::copy_subtree(const child_t subtree, tree_t& out_tree) const
     {
-        copy_subtree(subtree_point_t{subtree.start, tree->m_program->get_operator_info(tree->operations[subtree.start].id())}, subtree.end, out_tree);
+        copy_subtree(subtree_point_t{subtree.start}, subtree.end, out_tree);
     }
 
     void slow_tree_manipulator_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree) const
@@ -385,7 +383,7 @@ namespace blt::gp
     void slow_tree_manipulator_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree) const
     {
         swap_subtrees(child_t{our_subtree.get_spoint(), tree->find_endpoint(our_subtree.get_spoint())}, other_tree,
-                      child_t{other_subtree.get_spoint(), tree->find_endpoint(other_subtree.get_spoint())});
+                      child_t{other_subtree.get_spoint(), other_tree.find_endpoint(other_subtree.get_spoint())});
     }
 
     void slow_tree_manipulator_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, const tree_t& other_tree) const
@@ -660,6 +658,17 @@ namespace blt::gp
     {
     }
 
+    type_id subtree_point_t::get_type() const
+    {
+#if BLT_DEBUG_LEVEL > 0
+        if (info == nullptr)
+            throw std::runtime_error(
+                "Invalid subtree point, operator info was null! (Point probably created with passthrough "
+                "intentions or operator info was not available, please manually acquire type)");
+#endif
+        return info->return_type;
+    }
+
     void single_operation_tree_manipulator_t::replace_subtree(tree_t& other_tree)
     {
         replace_subtree(other_tree.operations, other_tree.values);
@@ -667,7 +676,6 @@ namespace blt::gp
 
     void single_operation_tree_manipulator_t::replace_subtree(tracked_vector<op_container_t>& operations, stack_allocator& stack)
     {
-
     }
 
     void tree_t::copy_fast(const tree_t& copy)
@@ -877,11 +885,16 @@ namespace blt::gp
         {
             if (move_data.empty())
             {
-                const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1, tree->operations.end());
+                const size_t after_bytes = calculate_ephemeral_size(tree->operations.begin() + static_cast<ptrdiff_t>(point) + 1,
+                                                                    tree->operations.end());
                 move_data.move(after_bytes);
             }
             tree->handle_operator_inserted(tree->operations[point]);
         }
+    }
+
+    void slow_tree_manipulator_t::swap_operators(size_t point, tree_t& other_tree, size_t other_point) const
+    {
     }
 
     bool operator==(const tree_t& a, const tree_t& b)

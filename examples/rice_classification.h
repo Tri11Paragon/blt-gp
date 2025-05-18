@@ -79,7 +79,7 @@ namespace blt::gp::example
             BLT_DEBUG("Begin Generation Loop");
             while (!program.should_terminate())
             {
-                BLT_TRACE("------------{Begin Generation %ld}------------", program.get_current_generation());
+                BLT_TRACE("------------\\{Begin Generation {}}------------", program.get_current_generation());
                 BLT_TRACE("Creating next generation");
                 program.create_next_generation();
                 BLT_TRACE("Move to next generation");
@@ -87,7 +87,7 @@ namespace blt::gp::example
                 BLT_TRACE("Evaluate Fitness");
                 program.evaluate_fitness();
                 auto& stats = program.get_population_stats();
-                BLT_TRACE("Avg Fit: %lf, Best Fit: %lf, Worst Fit: %lf, Overall Fit: %lf",
+                BLT_TRACE("Avg Fit: {}, Best Fit: {}, Worst Fit: {}, Overall Fit: {}",
                           stats.average_fitness.load(std::memory_order_relaxed), stats.best_fitness.load(std::memory_order_relaxed),
                           stats.worst_fitness.load(std::memory_order_relaxed), stats.overall_fitness.load(std::memory_order_relaxed));
                 BLT_TRACE("----------------------------------------------");

@@ -80,7 +80,7 @@ namespace blt::gp
         if (!point)
             return false;
 
-        c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
+        c1.manipulate().easy_manipulator().swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
 
 #if BLT_DEBUG_LEVEL >= 2
         if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
@@ -94,7 +94,7 @@ namespace blt::gp
                                                                                    const tree_t& c2) const
     {
         const auto first = c1.select_subtree(config.terminal_chance);
-        const auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
+        const auto second = c2.select_subtree(first.get_type(), config.max_crossover_tries, config.terminal_chance);
 
         if (!second)
             return {};
@@ -108,13 +108,13 @@ namespace blt::gp
         auto c1_point_o = get_point_traverse_retry(c1, {});
         if (!c1_point_o)
             return {};
-        const auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
+        const auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->get_type());
         if (!c2_point_o)
             return {};
         return {{*c1_point_o, *c2_point_o}};
     }
 
-    std::optional<tree_t::subtree_point_t> subtree_crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
+    std::optional<subtree_point_t> subtree_crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
     {
         if (type)
             return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
@@ -126,25 +126,25 @@ namespace blt::gp
         // if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
             // return false;
 
-        tree_t::subtree_point_t point1, point2; // NOLINT
+        subtree_point_t point1, point2; // NOLINT
         if (config.traverse)
         {
             point1 = p1.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
-            if (const auto val = p2.select_subtree_traverse(point1.type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier))
+            if (const auto val = p2.select_subtree_traverse(point1.get_type(), config.max_crossover_tries, config.terminal_chance, config.depth_multiplier))
                 point2 = *val;
             else
                 return false;
         } else
         {
             point1 = p1.select_subtree(config.terminal_chance);
-            if (const auto val = p2.select_subtree(point1.type, config.max_crossover_tries, config.terminal_chance))
+            if (const auto val = p2.select_subtree(point1.get_type(), config.max_crossover_tries, config.terminal_chance))
                 point2 = *val;
             else
                 return false;
         }
 
-        const auto& p1_operator = p1.get_operator(point1.pos);
-        const auto& p2_operator = p2.get_operator(point2.pos);
+        const auto& p1_operator = p1.get_operator(point1.get_point());
+        const auto& p2_operator = p2.get_operator(point2.get_point());
 
         const auto& p1_info = program.get_operator_info(p1_operator.id());
         const auto& p2_info = program.get_operator_info(p2_operator.id());
@@ -163,8 +163,8 @@ namespace blt::gp
 
         thread_local struct type_resolver_t
         {
-            tracked_vector<tree_t::child_t> children_data_p1;
-            tracked_vector<tree_t::child_t> children_data_p2;
+            tracked_vector<child_t> children_data_p1;
+            tracked_vector<child_t> children_data_p2;
             hashmap_t<type_id, std::vector<size_t>> missing_p1_types;
             hashmap_t<type_id, std::vector<size_t>> missing_p2_types;
             hashset_t<size_t> correct_types;
@@ -231,7 +231,7 @@ namespace blt::gp
                 return correct_types.contains(index) || p2_correct_types.contains(index);
             }
 
-            void clear()
+            void clear(gp_program& program)
             {
                 children_data_p1.clear();
                 children_data_p2.clear();
@@ -249,7 +249,7 @@ namespace blt::gp
                     v.clear();
             }
         } resolver;
-        resolver.clear();
+        resolver.clear(program);
 
         auto min_size = std::min(p1_info.argument_types.size(), p2_info.argument_types.size());
 
@@ -321,19 +321,19 @@ namespace blt::gp
         }
 
         // now we do the swap
-        p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
-        p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
+        p1.find_child_extends(resolver.children_data_p1, point1.get_point(), p1_info.argument_types.size());
+        p2.find_child_extends(resolver.children_data_p2, point2.get_point(), p2_info.argument_types.size());
 
         for (const auto& [index1, index2] : resolver.p1_reorder_types)
         {
             BLT_DEBUG("Reordering in C1: {} -> {}", index1, index2);
-            c1.swap_subtrees(resolver.children_data_p1[index1], c1, resolver.children_data_p1[index2]);
+            c1.manipulate().easy_manipulator().swap_subtrees(resolver.children_data_p1[index1], c1, resolver.children_data_p1[index2]);
         }
 
         for (const auto& [index1, index2] : resolver.p2_reorder_types)
         {
             BLT_DEBUG("Reordering in C2: {} -> {}", index1, index2);
-            c2.swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
+            c2.manipulate().easy_manipulator().swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
         }
 
         auto c1_insert = resolver.children_data_p1.back().end;
@@ -342,14 +342,14 @@ namespace blt::gp
         for (const auto& [p1_index, p2_index] : resolver.swap_types)
         {
             if (p1_index < p1_info.argument_types.size() && p2_index < p2_info.argument_types.size())
-                c1.swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
+                c1.manipulate().easy_manipulator().swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
             else if (p1_index < p1_info.argument_types.size() && p2_index >= p2_info.argument_types.size())
             {
                 BLT_TRACE("(P1 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
                 BLT_TRACE("Inserting into P2 from P1!");
-                c1.copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_tree);
-                c1.delete_subtree(resolver.children_data_p1[p1_index]);
-                c2_insert = c2.insert_subtree(tree_t::subtree_point_t{c1_insert}, resolver.temp_tree);
+                c1.manipulate().easy_manipulator().copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_trees[0]);
+                c1.manipulate().easy_manipulator().delete_subtree(resolver.children_data_p1[p1_index]);
+                c2_insert = c2.manipulate().easy_manipulator().insert_subtree(subtree_point_t{c1_insert}, resolver.temp_trees[0]);
             } else if (p2_index < p2_info.argument_types.size() && p1_index >= p1_info.argument_types.size())
             {
                 BLT_TRACE("(P2 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
@@ -360,8 +360,8 @@ namespace blt::gp
         }
 
 
-        c1.modify_operator(point1.pos, p2_operator.id(), p2_info.return_type);
-        c2.modify_operator(point2.pos, p1_operator.id(), p1_info.return_type);
+        c1.manipulate().easy_manipulator().modify_operator(point1.get_point(), p2_operator.id(), p2_info.return_type);
+        c2.manipulate().easy_manipulator().modify_operator(point2.get_point(), p1_operator.id(), p1_info.return_type);
 
 #if BLT_DEBUG_LEVEL >= 2
         if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
@@ -413,17 +413,17 @@ namespace blt::gp
         return true;
     }
 
-    size_t mutation_t::mutate_point(gp_program& program, tree_t& c, const tree_t::subtree_point_t node) const
+    size_t mutation_t::mutate_point(gp_program& program, tree_t& c, const subtree_point_t node) const
     {
         auto& new_tree = tree_t::get_thread_local(program);
 #if BLT_DEBUG_LEVEL >= 2
         auto previous_size = new_tree.size();
         auto previous_bytes = new_tree.total_value_bytes();
 #endif
-        config.generator.get().generate(new_tree, {program, node.type, config.replacement_min_depth, config.replacement_max_depth});
+        config.generator.get().generate(new_tree, {program, node.get_type(), config.replacement_min_depth, config.replacement_max_depth});
 
 #if BLT_DEBUG_LEVEL >= 2
-        const auto old_op = c.get_operator(node.pos);
+        const auto old_op = c.get_operator(node.get_point());
         if (!new_tree.check(detail::debug::context_ptr))
         {
             BLT_ERROR("Mutate point new tree check failed!");
@@ -434,11 +434,11 @@ namespace blt::gp
         }
 #endif
 
-        c.replace_subtree(node, new_tree);
+        c.manipulate().easy_manipulator().replace_subtree(node, new_tree);
 
         // this will check to make sure that the tree is in a correct and executable state. it requires that the evaluation is context free!
 #if BLT_DEBUG_LEVEL >= 2
-        const auto new_op = c.get_operator(node.pos);
+        const auto new_op = c.get_operator(node.get_point());
         if (!c.check(detail::debug::context_ptr))
         {
             print_mutate_stats();
@@ -450,7 +450,7 @@ namespace blt::gp
 #if defined(BLT_TRACK_ALLOCATIONS) || BLT_DEBUG_LEVEL >= 2
         ++mutate_point_counter;
 #endif
-        return node.pos + new_tree.size();
+        return node.get_point() + new_tree.size();
     }
 
     bool advanced_mutation_t::apply(gp_program& program, [[maybe_unused]] const tree_t& p, tree_t& c)
@@ -496,7 +496,7 @@ namespace blt::gp
                         auto& replacement_func_info = program.get_operator_info(random_replacement);
 
                         // cache memory used for offset data.
-                        thread_local tracked_vector<tree_t::child_t> children_data;
+                        thread_local tracked_vector<child_t> children_data;
                         children_data.clear();
 
                         c.find_child_extends(children_data, c_node, current_func_info.argument_types.size());
@@ -512,7 +512,7 @@ namespace blt::gp
                                                                 {program, val.id, config.replacement_min_depth, config.replacement_max_depth});
 
                                 auto& [child_start, child_end] = children_data[children_data.size() - 1 - index];
-                                c.replace_subtree(c.subtree_from_point(child_start), child_end, tree);
+                                c.manipulate().easy_manipulator().replace_subtree(c.subtree_from_point(child_start), child_end, tree);
 
                                 // shift over everybody after.
                                 if (index > 0)
@@ -537,7 +537,7 @@ namespace blt::gp
                         {
                             auto end_index = children_data[(current_func_info.argc.argc - replacement_func_info.argc.argc) - 1].end;
                             auto start_index = children_data.begin()->start;
-                            c.delete_subtree(tree_t::subtree_point_t(start_index), end_index);
+                            c.manipulate().easy_manipulator().delete_subtree(subtree_point_t(start_index), end_index);
                         }
                         else if (current_func_info.argc.argc == replacement_func_info.argc.argc)
                         {
@@ -561,11 +561,11 @@ namespace blt::gp
                                                                     program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                                                     config.replacement_max_depth
                                                                 });
-                                start_index = c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
+                                start_index = c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
                             }
                         }
                         // now finally update the type.
-                        c.modify_operator(c_node, random_replacement, replacement_func_info.return_type);
+                        c.manipulate().easy_manipulator().modify_operator(c_node, random_replacement, replacement_func_info.return_type);
                     }
 #if BLT_DEBUG_LEVEL >= 2
                     if (!c.check(detail::debug::context_ptr))
@@ -636,7 +636,7 @@ namespace blt::gp
                                                             program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                                             config.replacement_max_depth
                                                         });
-                        start_index = c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
+                        start_index = c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
                     }
                     start_index += size;
                     // vals.copy_from(combined_ptr, for_bytes);
@@ -648,7 +648,7 @@ namespace blt::gp
                                                             program, replacement_func_info.argument_types[i].id, config.replacement_min_depth,
                                                             config.replacement_max_depth
                                                         });
-                        start_index = c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
+                        start_index = c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
                     }
                     // vals.copy_from(combined_ptr + for_bytes, after_bytes);
 
@@ -690,7 +690,7 @@ namespace blt::gp
                     if (argument_index == -1ul)
                         continue;
 
-                    thread_local tracked_vector<tree_t::child_t> child_data;
+                    thread_local tracked_vector<child_t> child_data;
                     child_data.clear();
 
                     c.find_child_extends(child_data, c_node, info.argument_types.size());
@@ -700,9 +700,9 @@ namespace blt::gp
 
                     thread_local tree_t child_tree{program};
 
-                    c.copy_subtree(tree_t::subtree_point_t(child.start), child.end, child_tree);
-                    c.delete_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)));
-                    c.insert_subtree(tree_t::subtree_point_t(static_cast<ptrdiff_t>(c_node)), child_tree);
+                    c.manipulate().easy_manipulator().copy_subtree(subtree_point_t(child.start), child.end, child_tree);
+                    c.manipulate().easy_manipulator().delete_subtree(subtree_point_t(static_cast<ptrdiff_t>(c_node)));
+                    c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(c_node)), child_tree);
                     child_tree.clear(program);
 
                     // auto for_bytes = c.total_value_bytes(child.start, child.end);
@@ -769,7 +769,7 @@ namespace blt::gp
                         continue;
                     const auto to_index = program.get_random().select(potential_indexes);
 
-                    thread_local tracked_vector<tree_t::child_t> child_data;
+                    thread_local tracked_vector<child_t> child_data;
                     child_data.clear();
 
                     c.find_child_extends(child_data, c_node, info.argument_types.size());
@@ -780,8 +780,8 @@ namespace blt::gp
                     const auto& [to_start, to_end] = child_data[child_to_index];
 
                     thread_local tree_t copy_tree{program};
-                    c.copy_subtree(tree_t::subtree_point_t{from_start}, from_end, copy_tree);
-                    c.replace_subtree(tree_t::subtree_point_t{to_start}, to_end, copy_tree);
+                    c.manipulate().easy_manipulator().copy_subtree(subtree_point_t{from_start}, from_end, copy_tree);
+                    c.manipulate().easy_manipulator().replace_subtree(subtree_point_t{to_start}, to_end, copy_tree);
                     copy_tree.clear(program);
 
 #if BLT_DEBUG_LEVEL >= 2

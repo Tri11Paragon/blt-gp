@@ -29,8 +29,6 @@
 #include <utility>
 #include <stack>
 
-#include "program.h"
-
 namespace blt::gp
 {
     namespace detail
@@ -234,6 +232,16 @@ namespace blt::gp
 
     struct subtree_point_t
     {
+        subtree_point_t() = default;
+
+        explicit subtree_point_t(const size_t point): point(point), info(nullptr)
+        {
+        }
+
+        explicit subtree_point_t(const ssize_t point): point(static_cast<size_t>(point)), info(nullptr)
+        {
+        }
+
         subtree_point_t(const size_t point, const operator_info_t& info): point(point), info(&info) // NOLINT
         {
         }
@@ -254,13 +262,17 @@ namespace blt::gp
 
         [[nodiscard]] const operator_info_t& get_info() const
         {
+#if BLT_DEBUG_LEVEL > 0
+            if (info == nullptr)
+                throw std::runtime_error(
+                    "Invalid subtree point, operator info was null! "
+                    "(Point probably created with passthrough intentions or operator info was not available, "
+                    "please manually acquire info from the program!)");
+#endif
             return *info;
         }
 
-        [[nodiscard]] type_id get_type() const
-        {
-            return info->return_type;
-        }
+        [[nodiscard]] type_id get_type() const;
 
         size_t point;
         const operator_info_t* info;
@@ -316,7 +328,7 @@ namespace blt::gp
          * @param operators vector for storing subtree operators
          * @param stack stack for storing subtree values
          */
-        void copy_subtree(const subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack) const;
+        void copy_subtree(subtree_point_t point, tracked_vector<op_container_t>& operators, stack_allocator& stack) const;
 
         void copy_subtree(subtree_point_t point, ptrdiff_t extent, tree_t& out_tree) const;
 
@@ -376,18 +388,9 @@ namespace blt::gp
          */
         ptrdiff_t insert_subtree(subtree_point_t point, tree_t& other_tree) const;
 
-        /**
-         * temporarily moves the last bytes amount of data from the current stack. this can be useful for if you are going to do a lot
-         * of consecutive operations on the tree as this will avoid extra copy + reinsert.
-         * The object returned by this function will automatically move the data back in when it goes out of scope.
-         * @param operator_index operator index to move from. this is inclusive
-         */
-        void temporary_move(const size_t)
-        {
-            // return obt_move_t{*this, operator_index};
-        }
-
         void modify_operator(size_t point, operator_id new_id, std::optional<type_id> return_type = {}) const;
+
+        void swap_operators(size_t point, tree_t& other_tree, size_t other_point) const;
 
         tree_t* tree;
     };
@@ -503,6 +506,11 @@ namespace blt::gp
         tree_t(tree_t&& move) = default;
 
         tree_t& operator=(tree_t&& move) = default;
+
+        tree_manipulator_t manipulate()
+        {
+            return tree_manipulator_t{*this};
+        }
 
         void clear(gp_program& program);
 
