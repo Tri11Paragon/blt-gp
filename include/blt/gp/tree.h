@@ -336,6 +336,8 @@ namespace blt::gp
 
         void copy_subtree(child_t subtree, tree_t& out_tree) const;
 
+        void swap_subtrees(child_t subtree1, child_t subtree2) const;
+
         void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree) const;
 
         /**
