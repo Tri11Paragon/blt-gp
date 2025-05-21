@@ -333,6 +333,33 @@ namespace blt::gp
         const auto size_after = calculate_ephemeral_size(last_end_itr, tree->operations.end());
 
         const auto size_total = size_first + size_between + size_last + size_after;
+
+        thread_local struct
+        {
+            buffer_wrapper_t byte_storage;
+            std::vector<op_container_t> ops_storage;
+        } storage;
+        storage.ops_storage.clear();
+        storage.ops_storage.reserve(std::distance(first_begin_itr, first_end_itr));
+
+        const auto ptr = storage.byte_storage.get(size_total);
+        tree->values.copy_to(ptr, size_total);
+        tree->values.pop_bytes(size_total);
+
+        tree->values.copy_from(ptr + size_first + size_between, size_last);
+        tree->values.copy_from(ptr + size_first, size_between);
+        tree->values.copy_from(ptr, size_first);
+        tree->values.copy_from(ptr + size_total - size_after, size_after);
+
+        const auto distance_between = subtree1.end - subtree2.start;
+
+        storage.ops_storage.insert(storage.ops_storage.end(), first_begin_itr, first_end_itr);
+        auto after = tree->operations.erase(first_begin_itr, first_end_itr);
+        after = tree->operations.insert(after, after + distance_between, after + distance_between + subtree2.size());
+        after += subtree2.size();
+        after += distance_between;
+        after = tree->operations.erase(after, after + subtree2.size());
+        tree->operations.insert(after, storage.ops_storage.begin(), storage.ops_storage.end());
     }
 
     void slow_tree_manipulator_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree) const
@@ -590,14 +617,17 @@ namespace blt::gp
             buffer_wrapper_t our_after;
             buffer_wrapper_t other_after;
             // argument index -> type_id for missing types
-            std::vector<std::pair<size_t, type_id>> our_types;
-            std::vector<std::pair<size_t, type_id>> other_types;
+            std::vector<std::tuple<size_t, type_id, bool>> our_types;
+            std::vector<std::tuple<size_t, type_id, bool>> other_types;
 
             std::vector<std::pair<size_t, size_t>> our_swaps;
             std::vector<std::pair<size_t, size_t>> other_swaps;
 
             std::vector<child_t> our_children;
             std::vector<child_t> other_children;
+
+            std::vector<type_id> our_current_types;
+            std::vector<type_id> other_current_types;
         } storage;
         storage.our_types.clear();
         storage.other_types.clear();
@@ -605,6 +635,10 @@ namespace blt::gp
         storage.other_swaps.clear();
         storage.our_children.clear();
         storage.other_children.clear();
+        storage.our_current_types.clear();
+        storage.other_current_types.clear();
+        storage.our_current_types.reserve(point_info.argument_types.size());
+        storage.other_current_types.reserve(other_point_info.argument_types.size());
 
         // const auto our_after_ptr = storage.our_after.get(our_bytes_after);
         // const auto other_after_ptr = storage.other_after.get(other_bytes_after);
@@ -620,33 +654,35 @@ namespace blt::gp
         {
             if (point_info.argument_types[i] != other_point_info.argument_types[i])
             {
-                storage.our_types.emplace_back(i, point_info.argument_types[i]);
-                storage.other_types.emplace_back(i, other_point_info.argument_types[i]);
+                storage.our_types.emplace_back(i, point_info.argument_types[i], false);
+                storage.other_types.emplace_back(i, other_point_info.argument_types[i], false);
             }
         }
         for (size_t i = common_size; i < point_info.argument_types.size(); ++i)
-            storage.our_types.emplace_back(i, point_info.argument_types[i]);
+            storage.our_types.emplace_back(i, point_info.argument_types[i], false);
         for (size_t i = common_size; i < other_point_info.argument_types.size(); ++i)
-            storage.other_types.emplace_back(i, other_point_info.argument_types[i]);
+            storage.other_types.emplace_back(i, other_point_info.argument_types[i], false);
 
-        for (const auto [index, type] : storage.our_types)
+        for (const auto& [index, type, _] : storage.our_types)
         {
-            for (const auto [other_index, other_type] : storage.other_types)
+            for (auto& [other_index, other_type, consumed] : storage.other_types)
             {
-                if (other_type == type)
+                if (other_type == type && !consumed)
                 {
                     storage.other_swaps.emplace_back(index, other_index);
+                    consumed = true;
                     break;
                 }
             }
         }
-        for (const auto [index, type] : storage.other_types)
+        for (const auto& [index, type, _] : storage.other_types)
         {
-            for (const auto [other_index, other_type] : storage.our_types)
+            for (auto& [other_index, other_type, consumed] : storage.our_types)
             {
-                if (other_type == type)
+                if (other_type == type && !consumed)
                 {
                     storage.our_swaps.emplace_back(index, other_index);
+                    consumed = true;
                     break;
                 }
             }
@@ -655,12 +691,49 @@ namespace blt::gp
         tree->find_child_extends(storage.our_children, point.get_point(), point_info.argc.argc);
 
         // apply the swaps
-        for (const auto [i, j] : storage.our_swaps)
+        for (const auto& [i, j] : storage.our_swaps)
         {
-            swap_subtrees(storage.our_children[i], *tree, storage.our_children[j]);
+            swap_subtrees(storage.our_children[i], storage.our_children[j]);
+            const auto s1 = storage.our_children[i].size();
+            const auto s2 = storage.our_children[j].size();
+            storage.our_children[i].end = storage.our_children[i].start + s1;
+            storage.our_children[j].end = storage.our_children[j].start + s2;
         }
 
         other_tree.find_child_extends(storage.other_children, other_point.get_point(), other_point_info.argc.argc);
+
+        for (const auto& [i, j] : storage.other_swaps)
+        {
+            swap_subtrees(storage.other_children[i], storage.other_children[j]);
+            const auto s1 = storage.other_children[i].size();
+            const auto s2 = storage.other_children[j].size();
+            storage.other_children[i].end = storage.other_children[i].start + s1;
+            storage.other_children[j].end = storage.other_children[j].start + s2;
+        }
+
+        auto insert_index = storage.other_children.back().end;
+        for (auto& [index, type, consumed] : storage.our_types)
+        {
+            if (consumed)
+                continue;
+            if (index >= other_point_info.argument_types.size())
+            {
+                insert_index = other_tree.manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, other_tree);
+                consumed = true;
+            }
+        }
+
+        insert_index = storage.our_children.back().end;
+        for (auto& [index, type, consumed] : storage.other_types)
+        {
+            if (consumed)
+                continue;
+            if (index >= point_info.argument_types.size())
+            {
+                insert_index = tree->manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, *tree);
+                consumed = true;
+            }
+        }
     }
 
     void slow_tree_manipulator_t::swap_operators(const size_t point, tree_t& other_tree, const size_t other_point) const

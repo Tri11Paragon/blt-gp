@@ -283,6 +283,11 @@ namespace blt::gp
         ptrdiff_t start;
         // one past the end
         ptrdiff_t end;
+
+        auto size() const
+        {
+            return end - start;
+        }
     };
 
     struct single_operation_tree_manipulator_t
