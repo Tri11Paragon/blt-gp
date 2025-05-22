@@ -21,6 +21,7 @@
 #include <blt/logging/logging.h>
 #include <blt/gp/program.h>
 #include <stack>
+#include <utility>
 
 namespace blt::gp
 {
@@ -35,6 +36,18 @@ namespace blt::gp
             return buffer.data();
         }
     };
+
+    void print_child(child_t child)
+    {
+        BLT_TRACE("\tChild: {} -> {} ( {} )", child.start, child.end, child.size());
+    }
+
+    void print_child_vec(const std::vector<child_t>& children)
+    {
+        BLT_TRACE("Children: ");
+        for (const auto& c : children)
+            print_child(c);
+    }
 
     std::ostream& create_indent(std::ostream& out, blt::size_t amount, bool pretty_print)
     {
@@ -346,6 +359,8 @@ namespace blt::gp
         tree->values.copy_to(ptr, size_total);
         tree->values.pop_bytes(size_total);
 
+        BLT_TRACE("Removing Bytes! {} = First {} + Between {} + Last {} + After {}", size_total, size_first, size_between, size_last, size_after);
+
         tree->values.copy_from(ptr + size_first + size_between, size_last);
         tree->values.copy_from(ptr + size_first, size_between);
         tree->values.copy_from(ptr, size_first);
@@ -597,8 +612,7 @@ namespace blt::gp
         }
     }
 
-    void slow_tree_manipulator_t::swap_operators(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree, const subtree_point_t other_point,
-                                                 const ptrdiff_t other_extent) const
+    void slow_tree_manipulator_t::swap_operators(const subtree_point_t point, tree_t& other_tree, const subtree_point_t other_point) const
     {
         const auto point_info = tree->m_program->get_operator_info(tree->operations[point.get_spoint()].id());
         const auto other_point_info = tree->m_program->get_operator_info(other_tree.operations[other_point.get_spoint()].id());
@@ -612,10 +626,12 @@ namespace blt::gp
         // const auto our_bytes_after = calculate_ephemeral_size(our_end_point_iter, tree->operations.end());
         // const auto other_bytes_after = calculate_ephemeral_size(other_end_point_iter, other_tree.operations.end());
 
-        thread_local struct
+        thread_local struct storage_t
         {
-            buffer_wrapper_t our_after;
-            buffer_wrapper_t other_after;
+            tree_t temp;
+
+            buffer_wrapper_t our_after{};
+            buffer_wrapper_t other_after{};
             // argument index -> type_id for missing types
             std::vector<std::tuple<size_t, type_id, bool>> our_types;
             std::vector<std::tuple<size_t, type_id, bool>> other_types;
@@ -628,7 +644,12 @@ namespace blt::gp
 
             std::vector<type_id> our_current_types;
             std::vector<type_id> other_current_types;
-        } storage;
+
+            explicit storage_t(tree_t tree): temp(std::move(tree))
+            {
+            }
+        } storage{tree_t{*tree->m_program}};
+        storage.temp.clear(*tree->m_program);
         storage.our_types.clear();
         storage.other_types.clear();
         storage.our_swaps.clear();
@@ -657,11 +678,19 @@ namespace blt::gp
                 storage.our_types.emplace_back(i, point_info.argument_types[i], false);
                 storage.other_types.emplace_back(i, other_point_info.argument_types[i], false);
             }
+            storage.our_current_types.emplace_back(point_info.argument_types[i]);
+            storage.other_current_types.emplace_back(other_point_info.argument_types[i]);
         }
         for (size_t i = common_size; i < point_info.argument_types.size(); ++i)
+        {
             storage.our_types.emplace_back(i, point_info.argument_types[i], false);
+            storage.our_current_types.emplace_back(point_info.argument_types[i]);
+        }
         for (size_t i = common_size; i < other_point_info.argument_types.size(); ++i)
+        {
             storage.other_types.emplace_back(i, other_point_info.argument_types[i], false);
+            storage.other_current_types.emplace_back(other_point_info.argument_types[i]);
+        }
 
         for (const auto& [index, type, _] : storage.our_types)
         {
@@ -689,6 +718,8 @@ namespace blt::gp
         }
 
         tree->find_child_extends(storage.our_children, point.get_point(), point_info.argc.argc);
+        BLT_DEBUG("Ours:");
+        print_child_vec(storage.our_children);
 
         // apply the swaps
         for (const auto& [i, j] : storage.our_swaps)
@@ -698,9 +729,18 @@ namespace blt::gp
             const auto s2 = storage.our_children[j].size();
             storage.our_children[i].end = storage.our_children[i].start + s1;
             storage.our_children[j].end = storage.our_children[j].start + s2;
+
+            const auto tmp = storage.our_current_types[i];
+            storage.our_current_types[i] = storage.our_current_types[j];
+            storage.our_current_types[j] = tmp;
         }
+        BLT_DEBUG("Ours (Swaps):");
+        print_child_vec(storage.our_children);
 
         other_tree.find_child_extends(storage.other_children, other_point.get_point(), other_point_info.argc.argc);
+        BLT_DEBUG("-----------");
+        BLT_DEBUG("Other:");
+        print_child_vec(storage.other_children);
 
         for (const auto& [i, j] : storage.other_swaps)
         {
@@ -709,37 +749,128 @@ namespace blt::gp
             const auto s2 = storage.other_children[j].size();
             storage.other_children[i].end = storage.other_children[i].start + s1;
             storage.other_children[j].end = storage.other_children[j].start + s2;
+
+            const auto tmp = storage.other_current_types[i];
+            storage.other_current_types[i] = storage.other_current_types[j];
+            storage.other_current_types[j] = tmp;
+        }
+
+        BLT_DEBUG("Other (Swaps):");
+        print_child_vec(storage.other_children);
+
+        BLT_INFO("-----------");
+
+        for (size_t i = 0; i < common_size; i++)
+        {
+            if (storage.our_current_types[i] != other_point_info.argument_types[i])
+            {
+                for (auto& [index, type, consumed] : storage.other_types)
+                {
+                    if (consumed)
+                        continue;
+                    if (type == other_point_info.argument_types[i])
+                    {
+                        consumed = true;
+                        const auto s1 = storage.other_children[index].size();
+                        const auto s2 = storage.our_children[i].size();
+                        swap_subtrees(storage.our_children[i], other_tree, storage.other_children[index]);
+                        storage.our_children[i].end = storage.our_children[i].start + s1;
+                        storage.other_children[index].end = storage.other_children[index].start + s2;
+                        goto b1;
+                    }
+                }
+#if BLT_DEBUG_LEVEL >= 1
+                BLT_ERROR("Unable to find type for position {}, expected type {} but found type {}. ", i, other_point_info.argument_types[i], storage.our_current_types[i]);
+                BLT_ABORT("Failure state in swap operators!");
+#endif
+                b1:{}
+            }
+            if (storage.other_current_types[i] != point_info.argument_types[i])
+            {
+                for (auto& [index, type, consumed] : storage.our_types)
+                {
+                    if (consumed)
+                        continue;
+                    if (type == point_info.argument_types[i])
+                    {
+                        consumed = true;
+                        const auto s1 = storage.our_children[index].size();
+                        const auto s2 = storage.other_children[i].size();
+                        other_tree.manipulate().easy_manipulator().swap_subtrees(storage.other_children[i], *tree, storage.our_children[index]);
+                        storage.other_children[i].end = storage.other_children[i].start + s1;
+                        storage.our_children[index].end = storage.our_children[index].start + s2;
+                        goto b2;
+                    }
+                }
+#if BLT_DEBUG_LEVEL >= 1
+                BLT_WARN("Unable to find type for position {}, expected type {} but found type {}. ", i, point_info.argument_types[i], storage.other_current_types[i]);
+                BLT_ABORT("Failure state in swap operators!");
+#endif
+                b2:{}
+            }
         }
 
         auto insert_index = storage.other_children.back().end;
-        for (auto& [index, type, consumed] : storage.our_types)
+        for (size_t i = common_size; i < point_info.argument_types.size(); i++)
         {
-            if (consumed)
-                continue;
-            if (index >= other_point_info.argument_types.size())
+            for (auto& [index, type, consumed] : storage.our_types)
             {
-                insert_index = other_tree.manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, other_tree);
-                consumed = true;
+                if (consumed)
+                    continue;
+                if (index != i)
+                    continue;
+                if (type == point_info.argument_types[i])
+                {
+                    storage.temp.clear(*tree->m_program);
+                    copy_subtree(storage.our_children[i], storage.temp);
+                    insert_index = other_tree.manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, storage.temp);
+                    consumed = true;
+                    goto b3;
+                }
             }
+#if BLT_DEBUG_LEVEL >= 1
+            BLT_WARN("Unable to find type for position {}, expected type {}", i, point_info.argument_types[i]);
+            BLT_ABORT("Failure state in swap operators!");
+#endif
+            b3:{}
         }
 
         insert_index = storage.our_children.back().end;
-        for (auto& [index, type, consumed] : storage.other_types)
+        for (size_t i = common_size; i < other_point_info.argument_types.size(); i++)
         {
-            if (consumed)
-                continue;
-            if (index >= point_info.argument_types.size())
+            for (auto& [index, type, consumed] : storage.other_types)
             {
-                insert_index = tree->manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, *tree);
-                consumed = true;
+                if (consumed)
+                    continue;
+                if (index != i)
+                    continue;
+                if (type == other_point_info.argument_types[i])
+                {
+                    storage.temp.clear(*tree->m_program);
+                    other_tree.manipulate().easy_manipulator().copy_subtree(storage.other_children[i], storage.temp);
+                    insert_index = insert_subtree(subtree_point_t{insert_index}, storage.temp);
+                    consumed = true;
+                    goto b4;
+                }
             }
+            b4:{}
         }
+
+#if BLT_DEBUG_LEVEL >= 1
+        for (const auto& [index, type, consumed] : storage.our_types)
+            BLT_ASSERT_MSG(consumed, ("Expected type to be consumed, was not at index " + std::to_string(index)).c_str());
+        for (const auto& [index, type, consumed] : storage.other_types)
+            BLT_ASSERT_MSG(consumed, ("Expected type to be consumed, was not at index " + std::to_string(index)).c_str());
+#endif
+
+        auto op = tree->operations[point.get_spoint()];
+        tree->operations[point.get_spoint()] = other_tree.operations[other_point.get_spoint()];
+        other_tree.operations[other_point.get_spoint()] = op;
     }
 
     void slow_tree_manipulator_t::swap_operators(const size_t point, tree_t& other_tree, const size_t other_point) const
     {
-        swap_operators(subtree_point_t{point}, tree->find_endpoint(static_cast<ptrdiff_t>(point)), other_tree, subtree_point_t{other_point},
-                       other_tree.find_endpoint(static_cast<ptrdiff_t>(other_point)));
+        swap_operators(subtree_point_t{point}, other_tree, subtree_point_t{other_point});
     }
 
 
