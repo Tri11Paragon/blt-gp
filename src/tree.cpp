@@ -836,7 +836,8 @@ namespace blt::gp
                             continue;
                         if (type == other_point_info.argument_types[i])
                         {
-                            BLT_TRACE("Consuming other type {} at index {} ", type, index);
+                            BLT_TRACE("Consuming other type {} (aka {}) at index {} replacing {} (aka {})", type, type.name(*tree->m_program), index,
+                                      i, storage.our_current_types[i].name(*tree->m_program));
                             consumed = true;
                             const auto s1 = storage.other_children[index].size();
                             const auto s2 = storage.our_children[i].size();
@@ -869,7 +870,8 @@ namespace blt::gp
                             continue;
                         if (type == point_info.argument_types[i])
                         {
-                            BLT_TRACE("Consuming our type {} at index {} ", type, index);
+                            BLT_TRACE("Consuming other type {} (aka {}) at index {} replacing {} (aka {})", type, type.name(*tree->m_program), index,
+                                      i, storage.other_current_types[i].name(*tree->m_program));
                             consumed = true;
                             const auto s1 = storage.our_children[index].size();
                             const auto s2 = storage.other_children[i].size();
@@ -895,11 +897,17 @@ namespace blt::gp
 
 #if BLT_DEBUG_LEVEL >= 1
             for (const auto& [i, a, b] : in_pairs(storage.our_current_types, other_point_info.argument_types).enumerate().take(common_size).flatten())
-                BLT_ASSERT_MSG(a == b, ("[Our] Mismatched types at index " + std::to_string(i) + " expected '" + std::string(tree->m_program->get_typesystem().get_type(a).name()) + "' but found '" +
-                               std::string(tree->m_program->get_typesystem().get_type(b).name()) + "'").c_str());
+                BLT_ASSERT_MSG(
+                a == b,
+                ("[Our] Mismatched types at index " + std::to_string(i) + " expected '" + std::string(tree->m_program->get_typesystem().get_type(a).
+                        name()) + "' but found '" +
+                    std::string(tree->m_program->get_typesystem().get_type(b).name()) + "'").c_str());
             for (const auto& [i, a, b] : in_pairs(storage.other_current_types, point_info.argument_types).enumerate().take(common_size).flatten())
-                BLT_ASSERT_MSG(a == b, ("[Other] Mismatched types at index " + std::to_string(i) + " expected '" + std::string(tree->m_program->get_typesystem().get_type(a).name()) + "' but found '" +
-                               std::string(tree->m_program->get_typesystem().get_type(b).name()) + "'").c_str());
+                BLT_ASSERT_MSG(
+                a == b,
+                ("[Other] Mismatched types at index " + std::to_string(i) + " expected '" + std::string(tree->m_program->get_typesystem().get_type(a).
+                        name()) + "' but found '" +
+                    std::string(tree->m_program->get_typesystem().get_type(b).name()) + "'").c_str());
 #endif
 
             auto insert_index = storage.other_children.back().end;
@@ -913,7 +921,7 @@ namespace blt::gp
                         continue;
                     if (type == point_info.argument_types[i])
                     {
-                        // BLT_TRACE("[Our] Consuming type {} at index {} being inserted into {}", type, index, insert_index);
+                        BLT_TRACE("[Our] Consuming type {} at index {} being inserted into {}", type, index, insert_index);
                         storage.temp.clear(*tree->m_program);
                         copy_subtree(storage.our_children[i], storage.temp);
                         insert_index = other_tree.manipulate().easy_manipulator().insert_subtree(subtree_point_t{insert_index}, storage.temp);
@@ -941,7 +949,7 @@ namespace blt::gp
                         continue;
                     if (type == other_point_info.argument_types[i])
                     {
-                        // BLT_TRACE("[Other] Consuming type {} at index {} being inserted into {}", type, index, insert_index);
+                        BLT_TRACE("[Other] Consuming type {} at index {} being inserted into {}", type, index, insert_index);
                         storage.temp.clear(*tree->m_program);
                         other_tree.manipulate().easy_manipulator().copy_subtree(storage.other_children[i], storage.temp);
                         insert_index = insert_subtree(subtree_point_t{insert_index}, storage.temp);
