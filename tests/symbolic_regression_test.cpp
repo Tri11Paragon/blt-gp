@@ -28,7 +28,7 @@ std::array crossover_chances = {0.8, 0.9, 1.0};
 std::array mutation_chances = {0.0, 0.1, 0.2, 0.9, 1.0};
 std::array reproduction_chances = {0.0, 0.1, 0.9, 1.0};
 std::array elite_amounts = {0, 2, 50};
-std::array population_sizes = {50, 500, 5000};
+std::array population_sizes = {50, 500};
 
 blt::gp::prog_config_t best_config;
 double best_fitness = 0;
