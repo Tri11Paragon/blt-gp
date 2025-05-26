@@ -165,4 +165,10 @@ int main()
     BLT_TRACE("Ephemeral dropped {} times", ephemeral_drop.load());
     BLT_TRACE("Max allocated {} times", max_allocated.load());
 
+    if (ephemeral_construct.load() != ephemeral_drop.load())
+        BLT_ABORT("Failed to drop all ephemeral objects");
+
+    if (normal_construct.load() != normal_drop.load())
+        BLT_ABORT("Failed to drop all objects during runtime");
+
 }

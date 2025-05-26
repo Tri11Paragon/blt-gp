@@ -86,7 +86,7 @@ prog_config_t config = prog_config_t()
                        .set_reproduction_chance(0.1)
                        .set_max_generations(50)
                        .set_pop_size(500)
-                       .set_thread_count(1);
+                       .set_thread_count(0);
 
 
 example::symbolic_regression_t regression{691ul, config};
@@ -191,4 +191,10 @@ int main()
     BLT_TRACE("Ephemeral created {} times", ephemeral_construct.load());
     BLT_TRACE("Ephemeral dropped {} times", ephemeral_drop.load());
     BLT_TRACE("Max allocated {} times", max_allocated.load());
+
+    if (ephemeral_construct.load() != ephemeral_drop.load())
+        BLT_ABORT("Failed to drop all ephemeral objects");
+
+    if (normal_construct.load() != normal_drop.load())
+        BLT_ABORT("Failed to drop all objects during runtime");
 }
