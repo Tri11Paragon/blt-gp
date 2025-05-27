@@ -419,6 +419,7 @@ namespace blt::gp
                                                             config.replacement_max_depth
                                                         });
                         start_index = c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
+                        tree.clear(program);
                     }
                     start_index += size;
                     // vals.copy_from(combined_ptr, for_bytes);
@@ -431,6 +432,7 @@ namespace blt::gp
                                                             config.replacement_max_depth
                                                         });
                         start_index = c.manipulate().easy_manipulator().insert_subtree(subtree_point_t(static_cast<ptrdiff_t>(start_index)), tree);
+                        tree.clear(program);
                     }
                     // vals.copy_from(combined_ptr + for_bytes, after_bytes);
 

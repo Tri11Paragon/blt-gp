@@ -170,10 +170,11 @@ namespace blt::gp
 
     class advanced_crossover_t : public crossover_t
     {
+    public:
         advanced_crossover_t(): crossover_t(config_t{})
         {
         }
-    public:
+
         bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };
 
