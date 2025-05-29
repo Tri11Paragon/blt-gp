@@ -49,8 +49,16 @@ namespace blt::gp::example
             return *this;
         }
 
-        gp_program& get_program() { return program; }
-        const gp_program& get_program() const { return program; }
+        example_base_t& set_all_selections(selection_t& sel)
+        {
+            crossover_sel = &sel;
+            mutation_sel = &sel;
+            reproduction_sel = &sel;
+            return *this;
+        }
+
+        [[nodiscard]] gp_program& get_program() { return program; }
+        [[nodiscard]] const gp_program& get_program() const { return program; }
 
     protected:
         gp_program program;

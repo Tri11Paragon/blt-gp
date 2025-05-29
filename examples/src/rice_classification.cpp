@@ -28,22 +28,13 @@
 #include <filesystem>
 #include "../rice_classification.h"
 #include "blt/fs/loader.h"
+#include "../../include/blt/gp/util/config_from_args.h"
 
 static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-blt::gp::prog_config_t config = blt::gp::prog_config_t()
-                                .set_initial_min_tree_size(2)
-                                .set_initial_max_tree_size(6)
-                                .set_elite_count(2)
-                                .set_crossover_chance(0.8)
-                                .set_mutation_chance(0.1)
-                                .set_reproduction_chance(0)
-                                .set_max_generations(50)
-                                .set_pop_size(500)
-                                .set_thread_count(0);
-
 int main(int argc, const char** argv)
 {
+    auto [config, selection] = blt::gp::make_config(argc, argv);
     blt::arg_parse parser;
     parser.addArgument(blt::arg_builder{"file"}
                        .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
@@ -59,6 +50,7 @@ int main(int argc, const char** argv)
     auto rice_file_path = args.get<std::string>("file");
 
     blt::gp::example::rice_classification_t rice_classification{SEED_FUNC, config};
+    rice_classification.set_all_selections(*selection);
 
     rice_classification.execute(rice_file_path);
 

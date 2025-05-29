@@ -104,6 +104,13 @@ namespace blt::gp
         {
         }
 
+        selection_t(const selection_t&) = default;
+        selection_t& operator=(const selection_t&) = default;
+        selection_t(selection_t&&) = default;
+        selection_t& operator=(selection_t&&) = default;
+
+        selection_t() = default;
+
         virtual ~selection_t() = default;
     };
 
@@ -147,7 +154,7 @@ namespace blt::gp
         const tree_t& select(gp_program& program, const population_t& pop) override;
 
     private:
-        const size_t selection_size;
+        size_t selection_size;
     };
 
     class select_fitness_proportionate_t final : public selection_t

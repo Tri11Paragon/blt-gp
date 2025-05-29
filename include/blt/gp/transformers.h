@@ -38,10 +38,9 @@ namespace blt::gp
             return init;
         }
 
-        template <size_t size, typename... Args>
-        static constexpr std::array<double, size> aggregate_array(Args... list)
+        template<size_t N>
+        static constexpr void aggregate_array(std::array<double, N>& data)
         {
-            std::array<double, size> data{list...};
             auto total_prob = sum(data);
             double sum_of_prob = 0;
             for (auto& d : data)
@@ -50,6 +49,13 @@ namespace blt::gp
                 d = prob + sum_of_prob;
                 sum_of_prob += prob;
             }
+        }
+
+        template <typename... Args>
+        static constexpr std::array<double, sizeof...(Args)> aggregate_array(Args... list)
+        {
+            std::array<double, sizeof...(Args)> data{list...};
+            aggregate_array(data);
             return data;
         }
     }
@@ -175,6 +181,10 @@ namespace blt::gp
         {
         }
 
+        explicit advanced_crossover_t(const config_t& config): crossover_t(config)
+        {
+        }
+
         bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };
 
@@ -222,8 +232,12 @@ namespace blt::gp
             SUB_FUNC, // subexpression becomes argument to new random function. Other args are generated.
             JUMP_FUNC, // subexpression becomes this new node. Other arguments discarded.
             COPY, // node can become copy of another subexpression.
-            END, // helper
+            END
         };
+    private:
+        static constexpr auto operators_size = static_cast<blt::i32>(mutation_operator::END);
+    public:
+
 
         advanced_mutation_t() = default;
 
@@ -239,14 +253,17 @@ namespace blt::gp
             return *this;
         }
 
-    private:
-        static constexpr auto operators_size = static_cast<blt::i32>(mutation_operator::END);
-
+        advanced_mutation_t set_mutation_operator_chances(const std::array<double, operators_size>& new_chances)
+        {
+            mutation_operator_chances = new_chances;
+            detail::aggregate_array(mutation_operator_chances);
+            return *this;
+        }
     private:
         // this value is adjusted inversely to the size of the tree.
         double per_node_mutation_chance = 5.0;
 
-        static constexpr std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array<operators_size>(
+        std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array(
             0.25, // EXPRESSION
             0.20, // ADJUST
             0.05, // SUB_FUNC
