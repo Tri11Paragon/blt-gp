@@ -19,10 +19,9 @@
 #ifndef BLT_GP_CONFIG_H
 #define BLT_GP_CONFIG_H
 
-#include <utility>
 #include <thread>
+#include <blt/gp/fwdecl.h>
 #include <blt/std/types.h>
-#include <blt/meta/config_generator.h>
 #include <blt/gp/generators.h>
 #include <blt/gp/transformers.h>
 
@@ -160,6 +159,11 @@ namespace blt::gp
             return *this;
         }
     };
+
+    std::tuple<prog_config_t, selection_t*> create_config_from_args(int argc, const char** argv);
+
+    // need to make parser for config file, update arg parser, make default config file.
+    // maybe make a system with basic tree but changes behaviour based on if there is a drop type, using weird type stuff? (we already return an object to modify)
 }
 
 #endif //BLT_GP_CONFIG_H

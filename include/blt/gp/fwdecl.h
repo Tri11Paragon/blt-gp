@@ -68,6 +68,8 @@ namespace blt::gp
     class full_generator_t;
     
     class stack_allocator;
+
+    class selection_t;
     
     template<typename T>
     class tracked_allocator_t;

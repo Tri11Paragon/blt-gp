@@ -15,11 +15,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "../../include/blt/gp/util/config_from_args.h"
-
+#include <blt/gp/config.h>
 #include <blt/parse/argparse_v2.h>
-
 #include "blt/std/string.h"
+#include <blt/gp/selection.h>
 
 namespace blt::gp
 {
@@ -51,7 +50,7 @@ namespace blt::gp
         return config;
     }
 
-    std::tuple<prog_config_t, selection_t*> make_config(int argc, const char** argv)
+    std::tuple<prog_config_t, selection_t*> create_config_from_args(int argc, const char** argv)
     {
         if (argc == 1)
         {
@@ -60,6 +59,7 @@ namespace blt::gp
             argc = arr.size();
         }
         argparse::argument_parser_t parser;
+        parser.with_help();
         parser.add_flag("--initial_tree_min").set_dest("initial_tree_min").set_default(2).as_type<i32>().set_help("The minimum number of nodes in the initial trees");
         parser.add_flag("--initial_tree_max").set_dest("initial_tree_max").set_default(6).as_type<i32>().set_help("The maximum number of nodes in the initial trees");
         parser.add_flag("--elites").set_dest("elites").set_default(2).as_type<i32>().set_help("Number of best fitness individuals to keep each generation");
@@ -151,9 +151,9 @@ namespace blt::gp
             return {config, &s_tournament_selection};
         if (args.get("mode") == "manual")
         {
-            selection_t* selection_op = nullptr;
-            crossover_t* crossover_op = nullptr;
-            mutation_t* mutation_op = nullptr;
+            selection_t* selection_op = &s_tournament_selection;
+            crossover_t* crossover_op = &s_subtree_crossover;
+            mutation_t* mutation_op = &s_single_point_mutation;
             const auto selection_arg = string::toLowerCase(args.get("selection_type"));
             if (selection_arg == "tournament")
             {

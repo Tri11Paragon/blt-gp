@@ -28,31 +28,30 @@
 #include <filesystem>
 #include "../rice_classification.h"
 #include "blt/fs/loader.h"
-#include "../../include/blt/gp/util/config_from_args.h"
 
 static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-int main(int argc, const char** argv)
+int main(const int argc, const char** argv)
 {
-    auto [config, selection] = blt::gp::make_config(argc, argv);
-    blt::arg_parse parser;
-    parser.addArgument(blt::arg_builder{"file"}
-                       .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
+    auto [config, selection] = blt::gp::create_config_from_args(argc, argv);
+    // blt::arg_parse parser;
+    // parser.addArgument(blt::arg_builder{"file"}
+                       // .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
 
-    auto args = parser.parse_args(argc, argv);
+    // auto args = parser.parse_args(argc, argv);
 
-    if (!args.contains("file"))
-    {
-        BLT_WARN("Please provide path to file with -f or --file");
-        return 1;
-    }
+    // if (!args.contains("file"))
+    // {
+        // BLT_WARN("Please provide path to file with -f or --file");
+        // return 1;
+    // }
 
-    auto rice_file_path = args.get<std::string>("file");
+    // auto rice_file_path = args.get<std::string>("file");
 
     blt::gp::example::rice_classification_t rice_classification{SEED_FUNC, config};
     rice_classification.set_all_selections(*selection);
 
-    rice_classification.execute(rice_file_path);
+    rice_classification.execute("../datasets/Rice_Cammeo_Osmancik.arff");
 
     return 0;
 }
