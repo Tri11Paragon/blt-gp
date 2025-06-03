@@ -25,17 +25,17 @@ namespace blt::gp
     inline void setup_crossover_parser(argparse::argument_parser_t& parser)
     {
         parser.add_flag("--max_crossover_tries").set_dest("max_crossover_tries").set_default(5u).as_type<u32>().set_help(
-            "number of times crossover will try to pick a valid point in the tree.");
+            "Number of times crossover will try to pick a valid point in the tree.");
         parser.add_flag("--max_crossover_iterations").set_dest("max_crossover_iterations").set_default(10u).as_type<u32>().set_help(
-            "how many times the crossover function can fail before we will skip this operation.");
-        parser.add_flag("--min_tree_size").set_dest("min_tree_size").set_default(5u).as_type<u32>().set_help("the minimum size of"
+            "How many times the crossover function can fail before we will skip this operation.");
+        parser.add_flag("--min_tree_size").set_dest("min_tree_size").set_default(5u).as_type<u32>().set_help("The minimum size of"
             " the tree to be considered for crossover.");
         parser.add_flag("--depth_multiplier").set_dest("depth_multiplier").set_default(0.25f).as_type<float>().set_help(
-            "at each depth level, what chance do we have to exit with this as our point?");
+            "At each depth level, what chance do we have to exit with this as our point?");
         parser.add_flag("--terminal_chance").set_dest("terminal_chance").set_default(0.1f).as_type<float>().set_help(
-            "how often should we select terminals over functions. By default, we only allow selection of terminals 10% of the time. "
+            "How often should we select terminals over functions. By default, we only allow selection of terminals 10% of the time. "
             "This applies to both types of crossover point functions. Traversal will use the parent if it should not pick a terminal.");
-        parser.add_flag("--traverse").set_dest("traverse").make_flag().set_help(" use traversal to select instead of random point selection.");
+        parser.add_flag("--traverse").set_dest("traverse").make_flag().set_help("Use traversal to select instead of random point selection.");
     }
 
     inline crossover_t::config_t create_crossover_config(const argparse::argument_storage_t& args)
