@@ -370,24 +370,20 @@ namespace blt::gp
 			#endif
 		}
 
-		void reset_program(type_id root_type, bool eval_fitness_now = true)
-		{
-			current_generation = 0;
-			current_pop = config.pop_initializer.get().generate({
-				*this,
-				root_type,
-				config.population_size,
-				config.initial_min_tree_size,
-				config.initial_max_tree_size
-			});
-			next_pop = population_t(current_pop);
-			BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
-							("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
-			BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
-							("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
-			if (eval_fitness_now)
-				evaluate_fitness_internal();
-		}
+        void reset_program(type_id root_type, bool eval_fitness_now = true)
+        {
+            current_generation = 0;
+            current_pop = config.pop_initializer.get().generate({
+                *this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size
+            });
+            next_pop = population_t(current_pop);
+            BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
+                           ("cur pop size: " + std::to_string(current_pop.get_individuals().size())).c_str());
+            BLT_ASSERT_MSG(next_pop.get_individuals().size() == config.population_size,
+                           ("next pop size: " + std::to_string(next_pop.get_individuals().size())).c_str());
+            if (eval_fitness_now)
+                evaluate_fitness_internal();
+        }
 
 		void kill()
 		{
@@ -397,11 +393,7 @@ namespace blt::gp
 		void generate_initial_population(const type_id root_type)
 		{
 			current_pop = config.pop_initializer.get().generate({
-				*this,
-				root_type,
-				config.population_size,
-				config.initial_min_tree_size,
-				config.initial_max_tree_size
+				*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size
 			});
 			next_pop = population_t(current_pop);
 			BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,

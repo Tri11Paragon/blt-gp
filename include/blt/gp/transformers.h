@@ -64,12 +64,6 @@ namespace blt::gp
             operator_info_t& type_operator_info;
         };
 
-        struct crossover_point_t
-        {
-            tree_t::subtree_point_t p1_crossover_point;
-            tree_t::subtree_point_t p2_crossover_point;
-        };
-
         struct config_t
         {
             // number of times crossover will try to pick a valid point in the tree. this is purely based on the return type of the operators
@@ -88,22 +82,60 @@ namespace blt::gp
             f32 terminal_chance = 0.1;
             // use traversal to select point instead of random selection
             bool traverse = false;
-        };
 
-        crossover_t() = default;
+            BLT_MAKE_SETTER_LVALUE(u32, max_crossover_tries);
+            BLT_MAKE_SETTER_LVALUE(u32, max_crossover_iterations);
+            BLT_MAKE_SETTER_LVALUE(u32, min_tree_size);
+            BLT_MAKE_SETTER_LVALUE(f32, depth_multiplier);
+            BLT_MAKE_SETTER_LVALUE(f32, terminal_chance);
+            BLT_MAKE_SETTER_LVALUE(bool, traverse);
+        };
 
         explicit crossover_t(const config_t& config): config(config)
         {
         }
+
+        /**
+         * Apply crossover to a set of parents. Note: c1 and c2 are already filled with thier respective parent's elements.
+         * @return true if the crossover succeeded, otherwise return false will erase progress.
+         */
+        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) = 0;
 
         [[nodiscard]] const config_t& get_config() const
         {
             return config;
         }
 
-        std::optional<crossover_point_t> get_crossover_point(const tree_t& c1, const tree_t& c2) const;
+        virtual ~crossover_t() = default;
 
-        std::optional<crossover_point_t> get_crossover_point_traverse(const tree_t& c1, const tree_t& c2) const;
+    protected:
+        config_t config;
+    };
+
+    /**
+     * Base class for crossover which performs basic subtree crossover on two random nodes in the parent tree
+     */
+    class subtree_crossover_t : public crossover_t
+    {
+    public:
+        struct crossover_point_t
+        {
+            tree_t::subtree_point_t p1_crossover_point;
+            tree_t::subtree_point_t p2_crossover_point;
+        };
+
+
+        subtree_crossover_t(): crossover_t(config_t{})
+        {
+        }
+
+        explicit subtree_crossover_t(const config_t& config): crossover_t(config)
+        {
+        }
+
+        [[nodiscard]] std::optional<crossover_point_t> get_crossover_point(const tree_t& c1, const tree_t& c2) const;
+
+        [[nodiscard]] std::optional<crossover_point_t> get_crossover_point_traverse(const tree_t& c1, const tree_t& c2) const;
 
         /**
          * child1 and child2 are copies of the parents, the result of selecting a crossover point and performing standard subtree crossover.
@@ -111,16 +143,39 @@ namespace blt::gp
          * @param program reference to the global program container responsible for managing these trees
          * @param p1 reference to the first parent
          * @param p2 reference to the second parent
-         * @return expected pair of child otherwise returns error enum
+         * @param c1 reference to output child 1
+         * @param c2 reference to output child 2
+         * @return true if function succeeded, otherwise false
          */
-        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2); // NOLINT
+        virtual bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override; // NOLINT
 
-        virtual ~crossover_t() = default;
+        ~subtree_crossover_t() override = default;
 
     protected:
         [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
+    };
 
-        config_t config;
+    class one_point_crossover_t : public crossover_t
+    {
+    public:
+        one_point_crossover_t(): crossover_t(config_t{})
+        {
+        }
+
+        explicit one_point_crossover_t(const config_t& config): crossover_t(config)
+        {
+        }
+
+        bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
+    };
+
+    class advanced_crossover_t : public crossover_t
+    {
+        advanced_crossover_t(): crossover_t(config_t{})
+        {
+        }
+    public:
+        bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };
 
     class mutation_t

@@ -293,13 +293,13 @@ namespace blt::gp
         stack.copy_from(values, for_bytes, after_bytes);
     }
 
-    void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
+    void tree_t::swap_subtrees(const child_t our_subtree, tree_t& other_tree, const child_t other_subtree)
     {
-        const auto c1_subtree_begin_itr = operations.begin() + our_subtree.pos;
-        const auto c1_subtree_end_itr = operations.begin() + find_endpoint(our_subtree.pos);
+        const auto c1_subtree_begin_itr = operations.begin() + our_subtree.start;
+        const auto c1_subtree_end_itr = operations.begin() + our_subtree.end;
 
-        const auto c2_subtree_begin_itr = other_tree.operations.begin() + other_subtree.pos;
-        const auto c2_subtree_end_itr = other_tree.operations.begin() + other_tree.find_endpoint(other_subtree.pos);
+        const auto c2_subtree_begin_itr = other_tree.operations.begin() + other_subtree.start;
+        const auto c2_subtree_end_itr = other_tree.operations.begin() + other_subtree.end;
 
         thread_local tracked_vector<op_container_t> c1_subtree_operators;
         thread_local tracked_vector<op_container_t> c2_subtree_operators;
@@ -349,8 +349,8 @@ namespace blt::gp
         const auto copy_ptr_c1 = get_thread_pointer_for_size<struct c1_t>(c1_total);
         const auto copy_ptr_c2 = get_thread_pointer_for_size<struct c2_t>(c2_total);
 
-        values.reserve(values.bytes_in_head() - c1_subtree_bytes + c2_subtree_bytes);
-        other_tree.values.reserve(other_tree.values.bytes_in_head() - c2_subtree_bytes + c1_subtree_bytes);
+        values.reserve(values.stored() - c1_subtree_bytes + c2_subtree_bytes);
+        other_tree.values.reserve(other_tree.values.stored() - c2_subtree_bytes + c1_subtree_bytes);
 
         values.copy_to(copy_ptr_c1, c1_total);
         values.pop_bytes(c1_total);
@@ -374,6 +374,12 @@ namespace blt::gp
 
         operations.insert(insert_point_c1, c2_subtree_operators.begin(), c2_subtree_operators.end());
         other_tree.operations.insert(insert_point_c2, c1_subtree_operators.begin(), c1_subtree_operators.end());
+    }
+
+    void tree_t::swap_subtrees(const subtree_point_t our_subtree, tree_t& other_tree, const subtree_point_t other_subtree)
+    {
+        swap_subtrees(child_t{our_subtree.pos, find_endpoint(our_subtree.pos)}, other_tree,
+                      child_t{other_subtree.pos, other_tree.find_endpoint(other_subtree.pos)});
     }
 
     void tree_t::replace_subtree(const subtree_point_t point, const ptrdiff_t extent, tree_t& other_tree)
@@ -535,7 +541,7 @@ namespace blt::gp
     bool tree_t::check(void* context) const
     {
         size_t bytes_expected = 0;
-        const auto bytes_size = values.size().total_used_bytes;
+        const auto bytes_size = values.stored();
 
         for (const auto& op : operations)
         {
@@ -545,7 +551,7 @@ namespace blt::gp
 
         if (bytes_expected != bytes_size)
         {
-            BLT_ERROR("Stack state: {}", values.size());
+            BLT_ERROR("Stack state: Stored: {}; Capacity: {}; Remainder: {}", values.stored(), values.capacity(), values.remainder());
             BLT_ERROR("Child tree bytes {} vs expected {}, difference: {}", bytes_size, bytes_expected,
                       static_cast<ptrdiff_t>(bytes_expected) - static_cast<ptrdiff_t>(bytes_size));
             BLT_ERROR("Amount of bytes in stack doesn't match the number of bytes expected for the operations");
@@ -580,7 +586,7 @@ namespace blt::gp
                 total_produced += m_program->get_typesystem().get_type(info.return_type).size();
             }
 
-            const auto v1 = results.values.bytes_in_head();
+            const auto v1 = static_cast<ptrdiff_t>(results.values.stored());
             const auto v2 = static_cast<ptrdiff_t>(operations.front().type_size());
 
             // ephemeral don't need to be dropped as there are no copies which matter when checking the tree
@@ -668,6 +674,91 @@ namespace blt::gp
         return {point, m_program->get_operator_info(operations[point].id()).return_type};
     }
 
+    size_t tree_t::required_size() const
+    {
+        // 2 size_t used to store expected_length of operations + size of the values stack
+        return 2 * sizeof(size_t) + operations.size() * sizeof(size_t) + values.stored();
+    }
+
+    void tree_t::to_byte_array(std::byte* out) const
+    {
+        const auto op_size = operations.size();
+        std::memcpy(out, &op_size, sizeof(size_t));
+        out += sizeof(size_t);
+        for (const auto& op : operations)
+        {
+            constexpr auto size_of_op = sizeof(operator_id);
+            auto id = op.id();
+            std::memcpy(out, &id, size_of_op);
+            out += size_of_op;
+        }
+        const auto val_size = values.stored();
+        std::memcpy(out, &val_size, sizeof(size_t));
+        out += sizeof(size_t);
+        std::memcpy(out, values.data(), val_size);
+    }
+
+    void tree_t::to_file(fs::writer_t& file) const
+    {
+        const auto op_size = operations.size();
+        BLT_ASSERT(file.write(&op_size, sizeof(size_t)) == sizeof(size_t));
+        for (const auto& op : operations)
+        {
+            auto id = op.id();
+            file.write(&id, sizeof(operator_id));
+        }
+        const auto val_size = values.stored();
+        BLT_ASSERT(file.write(&val_size, sizeof(size_t)) == sizeof(size_t));
+        BLT_ASSERT(file.write(values.data(), val_size) == static_cast<i64>(val_size));
+    }
+
+    void tree_t::from_byte_array(const std::byte* in)
+    {
+        size_t ops_to_read;
+        std::memcpy(&ops_to_read, in, sizeof(size_t));
+        in += sizeof(size_t);
+        operations.reserve(ops_to_read);
+        for (size_t i = 0; i < ops_to_read; i++)
+        {
+            operator_id id;
+            std::memcpy(&id, in, sizeof(operator_id));
+            in += sizeof(operator_id);
+            operations.emplace_back(
+                m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
+                id,
+                m_program->is_operator_ephemeral(id),
+                m_program->get_operator_flags(id)
+            );
+        }
+        size_t val_size;
+        std::memcpy(&val_size, in, sizeof(size_t));
+        in += sizeof(size_t);
+        // TODO replace instances of u8 that are used to alias types with the proper std::byte
+        values.copy_from(reinterpret_cast<const u8*>(in), val_size);
+    }
+
+    void tree_t::from_file(fs::reader_t& file)
+    {
+        size_t ops_to_read;
+        BLT_ASSERT(file.read(&ops_to_read, sizeof(size_t)) == sizeof(size_t));
+        operations.reserve(ops_to_read);
+        for (size_t i = 0; i < ops_to_read; i++)
+        {
+            operator_id id;
+            BLT_ASSERT(file.read(&id, sizeof(operator_id)) == sizeof(operator_id));
+            operations.emplace_back(
+                m_program->get_typesystem().get_type(m_program->get_operator_info(id).return_type).size(),
+                id,
+                m_program->is_operator_ephemeral(id),
+                m_program->get_operator_flags(id)
+            );
+        }
+        size_t bytes_in_head;
+        BLT_ASSERT(file.read(&bytes_in_head, sizeof(size_t)) == sizeof(size_t));
+        values.resize(bytes_in_head);
+        BLT_ASSERT(file.read(values.data(), bytes_in_head) == static_cast<i64>(bytes_in_head));
+    }
+
     void tree_t::modify_operator(const size_t point, operator_id new_id, std::optional<type_id> return_type)
     {
         if (!return_type)
@@ -701,5 +792,24 @@ namespace blt::gp
             }
             handle_operator_inserted(operations[point]);
         }
+    }
+
+    bool operator==(const tree_t& a, const tree_t& b)
+    {
+        if (a.operations.size() != b.operations.size())
+            return false;
+        if (a.values.stored() != b.values.stored())
+            return false;
+        return std::equal(a.operations.begin(), a.operations.end(), b.operations.begin());
+    }
+
+    bool operator==(const op_container_t& a, const op_container_t& b)
+    {
+        return a.id() == b.id();
+    }
+
+    bool operator==(const individual_t& a, const individual_t& b)
+    {
+        return a.tree == b.tree;
     }
 }

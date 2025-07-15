@@ -23,10 +23,6 @@
 #include <blt/logging/logging.h>
 #include <blt/std/types.h>
 #include <ostream>
-#include <cstdlib>
-#include <mutex>
-#include <atomic>
-#include <blt/std/mmap.h>
 #include <blt/gp/util/trackers.h>
 #include <blt/gp/allocator.h>
 

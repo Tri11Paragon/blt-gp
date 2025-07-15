@@ -29,7 +29,10 @@ namespace blt::gp
 {
     namespace detail
     {
-        static constexpr inline size_t MAX_ALIGNMENT = 8;
+#ifndef BLT_GP_MAX_ALIGNMENT
+#define BLT_GP_MAX_ALIGNMENT 8
+#endif
+        static constexpr inline size_t MAX_ALIGNMENT = BLT_GP_MAX_ALIGNMENT;
 
 #if BLT_DEBUG_LEVEL > 0
         static void check_alignment(const size_t bytes, const std::string& message = "Invalid alignment")

@@ -65,7 +65,7 @@ namespace blt::gp
     {
     }
 
-    bool crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
+    bool subtree_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) // NOLINT
     {
         if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
             return false;
@@ -80,13 +80,318 @@ namespace blt::gp
         if (!point)
             return false;
 
+        c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
+
+#if BLT_DEBUG_LEVEL >= 2
+        if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
+            throw std::runtime_error("Tree check failed");
+#endif
+
+        return true;
+    }
+
+    std::optional<subtree_crossover_t::crossover_point_t> subtree_crossover_t::get_crossover_point(const tree_t& c1,
+                                                                                   const tree_t& c2) const
+    {
+        const auto first = c1.select_subtree(config.terminal_chance);
+        const auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
+
+        if (!second)
+            return {};
+
+        return {{first, *second}};
+    }
+
+    std::optional<subtree_crossover_t::crossover_point_t> subtree_crossover_t::get_crossover_point_traverse(const tree_t& c1,
+                                                                                            const tree_t& c2) const
+    {
+        auto c1_point_o = get_point_traverse_retry(c1, {});
+        if (!c1_point_o)
+            return {};
+        const auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
+        if (!c2_point_o)
+            return {};
+        return {{*c1_point_o, *c2_point_o}};
+    }
+
+    std::optional<tree_t::subtree_point_t> subtree_crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
+    {
+        if (type)
+            return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
+        return t.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
+    }
+
+    bool one_point_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
+    {
+        // if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
+            // return false;
+
+        tree_t::subtree_point_t point1, point2; // NOLINT
+        if (config.traverse)
+        {
+            point1 = p1.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
+            if (const auto val = p2.select_subtree_traverse(point1.type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier))
+                point2 = *val;
+            else
+                return false;
+        } else
+        {
+            point1 = p1.select_subtree(config.terminal_chance);
+            if (const auto val = p2.select_subtree(point1.type, config.max_crossover_tries, config.terminal_chance))
+                point2 = *val;
+            else
+                return false;
+        }
+
+        const auto& p1_operator = p1.get_operator(point1.pos);
+        const auto& p2_operator = p2.get_operator(point2.pos);
+
+        const auto& p1_info = program.get_operator_info(p1_operator.id());
+        const auto& p2_info = program.get_operator_info(p2_operator.id());
+
+        struct reorder_index_t
+        {
+            size_t index1;
+            size_t index2;
+        };
+
+        struct swap_index_t
+        {
+            size_t p1_index;
+            size_t p2_index;
+        };
+
+        thread_local struct type_resolver_t
+        {
+            tracked_vector<tree_t::child_t> children_data_p1;
+            tracked_vector<tree_t::child_t> children_data_p2;
+            hashmap_t<type_id, std::vector<size_t>> missing_p1_types;
+            hashmap_t<type_id, std::vector<size_t>> missing_p2_types;
+            hashset_t<size_t> correct_types;
+            hashset_t<size_t> p1_correct_types;
+            hashset_t<size_t> p2_correct_types;
+            std::vector<reorder_index_t> p1_reorder_types;
+            std::vector<reorder_index_t> p2_reorder_types;
+            std::vector<swap_index_t> swap_types;
+            std::vector<tree_t> temp_trees;
+
+            void print_missing_types()
+            {
+                for (const auto& [id, v] : missing_p1_types)
+                {
+                    if (!v.empty())
+                    {
+                        BLT_INFO("(P1) For type {} missing indexes:", id);
+                        for (const auto idx : v)
+                            BLT_INFO("\t{}", idx);
+                        BLT_INFO("----");
+                    }
+                }
+                for (const auto& [id, v] : missing_p2_types)
+                {
+                    if (!v.empty())
+                    {
+                        BLT_INFO("(P2) For type {} missing indexes:", id);
+                        for (const auto idx : v)
+                            BLT_INFO("\t{}", idx);
+                        BLT_INFO("----");
+                    }
+                }
+            }
+
+            std::optional<size_t> get_p1_index(const type_id& id)
+            {
+                if (!missing_p1_types.contains(id))
+                    return {};
+                if (missing_p1_types[id].empty())
+                    return {};
+                auto idx = missing_p1_types[id].back();
+                missing_p1_types[id].pop_back();
+                return idx;
+            }
+
+            std::optional<size_t> get_p2_index(const type_id& id)
+            {
+                if (!missing_p2_types.contains(id))
+                    return {};
+                if (missing_p2_types[id].empty())
+                    return {};
+                auto idx = missing_p2_types[id].back();
+                missing_p2_types[id].pop_back();
+                return idx;
+            }
+
+            [[nodiscard]] bool handled_p1(const size_t index) const
+            {
+                return correct_types.contains(index) || p1_correct_types.contains(index);
+            }
+
+            [[nodiscard]] bool handled_p2(const size_t index) const
+            {
+                return correct_types.contains(index) || p2_correct_types.contains(index);
+            }
+
+            void clear(gp_program& program)
+            {
+                children_data_p1.clear();
+                children_data_p2.clear();
+                correct_types.clear();
+                p1_correct_types.clear();
+                p2_correct_types.clear();
+                p1_reorder_types.clear();
+                p2_reorder_types.clear();
+                swap_types.clear();
+                for (auto& tree : temp_trees)
+                    tree.clear(program);
+                for (auto& [id, v] : missing_p1_types)
+                    v.clear();
+                for (auto& [id, v] : missing_p2_types)
+                    v.clear();
+            }
+        } resolver;
+        resolver.clear(program);
+
+        auto min_size = std::min(p1_info.argument_types.size(), p2_info.argument_types.size());
+
+        // resolve type information
+        for (size_t i = 0; i < min_size; i++)
+        {
+            if (p1_info.argument_types[i] != p2_info.argument_types[i])
+            {
+                resolver.missing_p1_types[p1_info.argument_types[i].id].push_back(i);
+                resolver.missing_p2_types[p2_info.argument_types[i].id].push_back(i);
+            } else
+                resolver.correct_types.insert(i);
+        }
+
+        for (size_t i = min_size; i < p1_info.argument_types.size(); i++)
+            resolver.missing_p1_types[p1_info.argument_types[i].id].push_back(i);
+
+        for (size_t i = min_size; i < p2_info.argument_types.size(); i++)
+            resolver.missing_p2_types[p2_info.argument_types[i].id].push_back(i);
+
+        // if swaping p1 -> p2 and p2 -> p1, we may already have the types we need just in a different order
+
+        // first, make a list of types which can simply be reordered
+        for (size_t i = 0; i < p1_info.argument_types.size(); i++)
+        {
+            if (resolver.correct_types.contains(i))
+                continue;
+            if (auto index = resolver.get_p2_index(p1_info.argument_types[i].id))
+            {
+                resolver.p2_reorder_types.push_back({i, *index});
+                resolver.p2_correct_types.insert(i);
+            }
+        }
+
+        BLT_DEBUG("Operator C1 {} expects types: ", p1_operator.id());
+        for (const auto [i, type] : enumerate(p1_info.argument_types))
+            BLT_TRACE("{} -> {}", i, type);
+        BLT_DEBUG("Operator C2 {} expects types: ", p2_operator.id());
+        for (const auto [i, type] : enumerate(p2_info.argument_types))
+            BLT_TRACE("{} -> {}", i, type);
+        resolver.print_missing_types();
+
+        for (size_t i = 0; i < p2_info.argument_types.size(); i++)
+        {
+            if (resolver.correct_types.contains(i))
+                continue;
+            if (auto index = resolver.get_p1_index(p2_info.argument_types[i].id))
+            {
+                resolver.p1_reorder_types.push_back({i, *index});
+                resolver.p1_correct_types.insert(i);
+            }
+        }
+
+        // next we need to figure out which types need to be swapped
+        for (size_t i = 0; i < p1_info.argument_types.size(); i++)
+        {
+            if (resolver.handled_p2(i))
+                continue;
+            if (auto index = resolver.get_p1_index(p1_info.argument_types[i].id))
+                resolver.swap_types.push_back({*index, i});
+        }
+
+        for (size_t i = 0; i < p2_info.argument_types.size(); i++)
+        {
+            if (resolver.handled_p1(i))
+                continue;
+            if (auto index = resolver.get_p2_index(p2_info.argument_types[i].id))
+                resolver.swap_types.push_back({i, *index});
+        }
+
+        // now we do the swap
+        p1.find_child_extends(resolver.children_data_p1, point1.pos, p1_info.argument_types.size());
+        p2.find_child_extends(resolver.children_data_p2, point2.pos, p2_info.argument_types.size());
+
+        for (const auto& [index1, index2] : resolver.p1_reorder_types)
+        {
+            BLT_DEBUG("Reordering in C1: {} -> {}", index1, index2);
+            c1.swap_subtrees(resolver.children_data_p1[index1], c1, resolver.children_data_p1[index2]);
+        }
+
+        for (const auto& [index1, index2] : resolver.p2_reorder_types)
+        {
+            BLT_DEBUG("Reordering in C2: {} -> {}", index1, index2);
+            c2.swap_subtrees(resolver.children_data_p2[index1], c2, resolver.children_data_p2[index2]);
+        }
+
+        auto c1_insert = resolver.children_data_p1.back().end;
+        auto c2_insert = resolver.children_data_p2.back().end;
+
+        for (const auto& [p1_index, p2_index] : resolver.swap_types)
+        {
+            if (p1_index < p1_info.argument_types.size() && p2_index < p2_info.argument_types.size())
+                c1.swap_subtrees(resolver.children_data_p1[p1_index], c2, resolver.children_data_p2[p2_index]);
+            else if (p1_index < p1_info.argument_types.size() && p2_index >= p2_info.argument_types.size())
+            {
+                BLT_TRACE("(P1 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
+                BLT_TRACE("Inserting into P2 from P1!");
+                c1.copy_subtree(resolver.children_data_p1[p1_index], resolver.temp_trees[0]);
+                c1.delete_subtree(resolver.children_data_p1[p1_index]);
+                c2_insert = c2.insert_subtree(tree_t::subtree_point_t{c1_insert}, resolver.temp_trees[0]);
+            } else if (p2_index < p2_info.argument_types.size() && p1_index >= p1_info.argument_types.size())
+            {
+                BLT_TRACE("(P2 IS UNDER!) Trying to swap P1 {} for P2 {} (Sizes: P1: {} P2: {})", p1_index, p2_index, p1_info.argument_types.size(), p2_info.argument_types.size());
+            } else
+            {
+                BLT_WARN("This should be an impossible state!");
+            }
+        }
+
+
+        c1.modify_operator(point1.pos, p2_operator.id(), p2_info.return_type);
+        c2.modify_operator(point2.pos, p1_operator.id(), p1_info.return_type);
+
+#if BLT_DEBUG_LEVEL >= 2
+        if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
+            throw std::runtime_error("Tree check failed");
+#endif
+        return true;
+    }
+
+    bool advanced_crossover_t::apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2)
+    {
+        if (p1.size() < config.min_tree_size || p2.size() < config.min_tree_size)
+            return false;
+
         // TODO: more crossover!
         switch (program.get_random().get_u32(0, 2))
         {
+            // single point crossover (only if operators at this point are "compatible")
         case 0:
+            {
+
+                // check if can work
+                // otherwise goto case2
+            }
+            // Mating crossover analogs to same species breeding. Only works if tree is mostly similar
         case 1:
-            c1.swap_subtrees(point->p1_crossover_point, c2, point->p2_crossover_point);
-            break;
+            {
+            }
+            // Subtree crossover, select random points inside trees and swap their subtrees
+        case 2:
+            return subtree_crossover_t{}.apply(program, p1, p2, c1, c2);
         default:
 #if BLT_DEBUG_LEVEL > 0
             BLT_ABORT("This place should be unreachable!");
@@ -99,39 +404,6 @@ namespace blt::gp
         if (!c1.check(detail::debug::context_ptr) || !c2.check(detail::debug::context_ptr))
             throw std::runtime_error("Tree check failed");
 #endif
-
-        return true;
-    }
-
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point(const tree_t& c1,
-                                                                                   const tree_t& c2) const
-    {
-        auto first = c1.select_subtree(config.terminal_chance);
-        auto second = c2.select_subtree(first.type, config.max_crossover_tries, config.terminal_chance);
-
-        if (!second)
-            return {};
-
-        return {{first, *second}};
-    }
-
-    std::optional<crossover_t::crossover_point_t> crossover_t::get_crossover_point_traverse(const tree_t& c1,
-                                                                                            const tree_t& c2) const
-    {
-        auto c1_point_o = get_point_traverse_retry(c1, {});
-        if (!c1_point_o)
-            return {};
-        auto c2_point_o = get_point_traverse_retry(c2, c1_point_o->type);
-        if (!c2_point_o)
-            return {};
-        return {{*c1_point_o, *c2_point_o}};
-    }
-
-    std::optional<tree_t::subtree_point_t> crossover_t::get_point_traverse_retry(const tree_t& t, const std::optional<type_id> type) const
-    {
-        if (type)
-            return t.select_subtree_traverse(*type, config.max_crossover_tries, config.terminal_chance, config.depth_multiplier);
-        return t.select_subtree_traverse(config.terminal_chance, config.depth_multiplier);
     }
 
     bool mutation_t::apply(gp_program& program, const tree_t&, tree_t& c)

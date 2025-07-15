@@ -27,7 +27,7 @@ macro(compile_options target_name)
     sanitizers(${target_name})
 endmacro()
 
-project(blt-gp VERSION 0.4.9)
+project(blt-gp VERSION 0.5.28)
 
 include(CTest)
 
@@ -37,7 +37,8 @@ option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
 option(BUILD_EXAMPLES "Build example programs. This will build with CTest" OFF)
 option(BUILD_GP_TESTS "Build test programs." OFF)
 option(DEBUG_LEVEL "Enable debug features which prints extra information to the console, might slow processing down. [0, 3)" 0)
-option(TRACK_ALLOCATIONS "Track total allocations. Can be accessed with blt::gp::tracker" OFF)
+option(BLT_GP_DEBUG_CHECK_TREES "Enable checking of trees after every operation" OFF)
+option(BLT_GP_DEBUG_TRACK_ALLOCATIONS "Track total allocations. Can be accessed with blt::gp::tracker" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -122,5 +123,6 @@ if (${BUILD_GP_TESTS})
     blt_add_project(blt-symbolic-regression tests/symbolic_regression_test.cpp test)
     blt_add_project(blt-drop tests/drop_test.cpp test)
     blt_add_project(blt-drop-2-type tests/2_type_drop_test.cpp test)
+    blt_add_project(blt-serialization tests/serialization_test.cpp test)
 
 endif ()

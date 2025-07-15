@@ -24,6 +24,7 @@
 #include <blt/gp/stack.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/std/types.h>
+#include <blt/fs/fwddecl.h>
 
 #include <utility>
 #include <stack>
@@ -86,6 +87,8 @@ namespace blt::gp
         {
             return m_flags;
         }
+
+        friend bool operator==(const op_container_t& a, const op_container_t& b);
 
     private:
         size_t m_type_size;
@@ -185,17 +188,12 @@ namespace blt::gp
     class tree_t
     {
     public:
-        struct child_t
-        {
-            ptrdiff_t start;
-            // one past the end
-            ptrdiff_t end;
-        };
-
         struct subtree_point_t
         {
             ptrdiff_t pos;
             type_id type;
+
+            subtree_point_t() = default;
 
             explicit subtree_point_t(const ptrdiff_t pos): pos(pos), type(0)
             {
@@ -204,6 +202,15 @@ namespace blt::gp
             subtree_point_t(const ptrdiff_t pos, const type_id type): pos(pos), type(type)
             {
             }
+        };
+
+        struct child_t
+        {
+            ptrdiff_t start;
+            // one past the end
+            ptrdiff_t end;
+
+
         };
 
         struct byte_only_transaction_t
@@ -411,6 +418,13 @@ namespace blt::gp
             copy_subtree(point, find_endpoint(point.pos), out_tree);
         }
 
+        void copy_subtree(const child_t subtree, tree_t& out_tree)
+        {
+            copy_subtree(subtree_point_t{subtree.start}, subtree.end, out_tree);
+        }
+
+        void swap_subtrees(child_t our_subtree, tree_t& other_tree, child_t other_subtree);
+
         /**
          * Swaps the subtrees between this tree and the other tree
          * @param our_subtree
@@ -455,6 +469,11 @@ namespace blt::gp
         void delete_subtree(const subtree_point_t point)
         {
             delete_subtree(point, find_endpoint(point.pos));
+        }
+
+        void delete_subtree(const child_t subtree)
+        {
+            delete_subtree(subtree_point_t{subtree.start}, subtree.end);
         }
 
         /**
@@ -583,7 +602,8 @@ namespace blt::gp
         template <typename Context, typename... Operators>
         static auto make_execution_lambda(size_t call_reserve_size, Operators&... operators)
         {
-            return [call_reserve_size, &operators...](const tree_t& tree, void* context) -> evaluation_context& {
+            return [call_reserve_size, &operators...](const tree_t& tree, void* context) -> evaluation_context&
+            {
                 const auto& ops = tree.operations;
                 const auto& vals = tree.values;
 
@@ -608,12 +628,29 @@ namespace blt::gp
             };
         }
 
+        [[nodiscard]] size_t required_size() const;
+
+        void to_byte_array(std::byte* out) const;
+
+        void to_file(fs::writer_t& file) const;
+
+        void from_byte_array(const std::byte* in);
+
+        void from_file(fs::reader_t& file);
+
         ~tree_t()
         {
             clear(*m_program);
         }
 
         static tree_t& get_thread_local(gp_program& program);
+
+        friend bool operator==(const tree_t& a, const tree_t& b);
+
+        friend bool operator!=(const tree_t& a, const tree_t& b)
+        {
+            return !(a == b);
+        }
 
     private:
         void handle_operator_inserted(const op_container_t& op);
@@ -766,6 +803,13 @@ namespace blt::gp
         individual_t& operator=(const individual_t&) = delete;
 
         individual_t& operator=(individual_t&&) = default;
+
+        friend bool operator==(const individual_t& a, const individual_t& b);
+
+        friend bool operator!=(const individual_t& a, const individual_t& b)
+        {
+            return !(a == b);
+        }
     };
 
     class population_t

@@ -97,9 +97,9 @@ namespace blt::gp
         task_builder_t() = default;
 
         template <typename... Tasks>
-        static std::function<void(barrier&, EnumId, size_t)> make_callable(Tasks&&... tasks)
+        static std::function<void(barrier_t&, EnumId, size_t)> make_callable(Tasks&&... tasks)
         {
-            return [&tasks...](barrier& sync_barrier, EnumId task, size_t thread_index)
+            return [&tasks...](barrier_t& sync_barrier, EnumId task, size_t thread_index)
             {
                 call_jmp_table(sync_barrier, task, thread_index, tasks...);
             };
@@ -107,7 +107,7 @@ namespace blt::gp
 
     private:
         template <typename Task>
-        static void execute(barrier& sync_barrier, const size_t thread_index, Task&& task)
+        static void execute(barrier_t& sync_barrier, const size_t thread_index, Task&& task)
         {
             // sync_barrier.wait();
             if (task.requires_single_sync)
@@ -121,7 +121,7 @@ namespace blt::gp
         }
 
         template <typename Task>
-        static bool call(barrier& sync_barrier, const EnumId current_task, const size_t thread_index, Task&& task)
+        static bool call(barrier_t& sync_barrier, const EnumId current_task, const size_t thread_index, Task&& task)
         {
             if (static_cast<EnumInt>(current_task) == static_cast<EnumInt>(task.get_task_id()))
             {
@@ -132,7 +132,7 @@ namespace blt::gp
         }
 
         template <typename... Tasks>
-        static void call_jmp_table(barrier& sync_barrier, const EnumId current_task, const size_t thread_index, Tasks&&... tasks)
+        static void call_jmp_table(barrier_t& sync_barrier, const EnumId current_task, const size_t thread_index, Tasks&&... tasks)
         {
             if (static_cast<EnumInt>(current_task) >= sizeof...(tasks))
                 BLT_UNREACHABLE;
@@ -146,7 +146,7 @@ namespace blt::gp
         static_assert(std::is_enum_v<EnumId>, "Enum ID must be of enum type!");
 
     public:
-        explicit thread_manager_t(const size_t thread_count, std::function<void(barrier&, EnumId, size_t)> task_func,
+        explicit thread_manager_t(const size_t thread_count, std::function<void(barrier_t&, EnumId, size_t)> task_func,
                                   const bool will_main_block = true): barrier(thread_count), will_main_block(will_main_block)
         {
             thread_callable = [this, task_func = std::move(task_func)](const size_t thread_index)
@@ -226,7 +226,7 @@ namespace blt::gp
             return will_main_block ? threads.size() + 1 : threads.size();
         }
 
-        blt::barrier barrier;
+        blt::barrier_t barrier;
         std::atomic_bool should_run = true;
         bool will_main_block;
         std::vector<EnumId> tasks;
