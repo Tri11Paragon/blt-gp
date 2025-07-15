@@ -713,6 +713,27 @@ namespace blt::gp
         double standardized_fitness = 0;
         double adjusted_fitness = 0;
         i64 hits = 0;
+
+        /**
+         * Sets fitness such that larger values of raw_fitness are worse
+         */
+        void set_normal(const double raw_fit)
+        {
+            raw_fitness = raw_fit;
+            standardized_fitness = raw_fit;
+            adjusted_fitness = 1 / (1 + raw_fit);
+        }
+
+        /**
+         * Sets fitness such that smaller values of raw_fitness are worse
+         * Note: this function loses accuracy the larger the number. if your desired fitness is around 0-20 (raw) then this will work
+         */
+        void set_inverted_normal(const double raw_fit)
+        {
+            raw_fitness = raw_fit;
+            standardized_fitness = raw_fit;
+            adjusted_fitness = 1 - (1 / (1 + raw_fit));
+        }
     };
 
     struct individual_t

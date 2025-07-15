@@ -374,7 +374,11 @@ namespace blt::gp
 		{
 			current_generation = 0;
 			current_pop = config.pop_initializer.get().generate({
-				*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size
+				*this,
+				root_type,
+				config.population_size,
+				config.initial_min_tree_size,
+				config.initial_max_tree_size
 			});
 			next_pop = population_t(current_pop);
 			BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
@@ -393,7 +397,11 @@ namespace blt::gp
 		void generate_initial_population(const type_id root_type)
 		{
 			current_pop = config.pop_initializer.get().generate({
-				*this, root_type, config.population_size, config.initial_min_tree_size, config.initial_max_tree_size
+				*this,
+				root_type,
+				config.population_size,
+				config.initial_min_tree_size,
+				config.initial_max_tree_size
 			});
 			next_pop = population_t(current_pop);
 			BLT_ASSERT_MSG(current_pop.get_individuals().size() == config.population_size,
@@ -753,25 +761,13 @@ namespace blt::gp
 			storage = std::move(op);
 		}
 
-		template <blt::size_t size>
-		std::array<blt::size_t, size> get_best_indexes()
+		template <size_t size>
+		std::array<size_t, size> get_best_indexes() const
 		{
-			std::array<blt::size_t, size> arr;
+			std::array<size_t, size> arr;
 
-			tracked_vector<std::pair<blt::size_t, double>> values;
-			values.reserve(current_pop.get_individuals().size());
-
-			for (const auto& [index, value] : blt::enumerate(current_pop.get_individuals()))
-				values.emplace_back(index, value.fitness.adjusted_fitness);
-
-			std::sort(values.begin(), values.end(), [](const auto& a, const auto& b) {
-				return a.second > b.second;
-			});
-
-			for (blt::size_t i = 0; i < std::min(size, config.population_size); i++)
-				arr[i] = values[i].first;
-			for (blt::size_t i = std::min(size, config.population_size); i < size; i++)
-				arr[i] = 0;
+			for (auto [i, a] : enumerate(arr))
+				a = std::min(i, config.population_size);
 
 			return arr;
 		}
@@ -810,10 +806,6 @@ namespace blt::gp
 						current_stats.normalized_fitness.push_back(sum_of_prob + prob);
 						sum_of_prob += prob;
 					}
-					std::sort(current_pop.begin(), current_pop.end(), [](const auto& a, const auto& b)
-					{
-					    return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
-					});
 					thread_helper.evaluation_left = 0;
 				}
 			};
@@ -840,14 +832,6 @@ namespace blt::gp
 						perform_fitness_function(begin, end, fitness_function);
 					}
 					thread_helper.barrier.wait();
-					if (thread_id == 0)
-					{
-						std::sort(current_pop.begin(), current_pop.end(), [](const auto& a, const auto& b)
-						{
-							return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
-						});
-					}
-					thread_helper.barrier.wait();
 				}
 			};
 		}
@@ -870,15 +854,15 @@ namespace blt::gp
 					fitness_function(ind.tree, ind.fitness, i);
 				}
 
-				auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
-				while (ind.fitness.adjusted_fitness > old_best && !current_stats.best_fitness.compare_exchange_weak(
-					old_best, ind.fitness.adjusted_fitness, std::memory_order_relaxed, std::memory_order_relaxed))
-				{}
-
-				auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
-				while (ind.fitness.adjusted_fitness < old_worst && !current_stats.worst_fitness.compare_exchange_weak(
-					old_worst, ind.fitness.adjusted_fitness, std::memory_order_relaxed, std::memory_order_relaxed))
-				{}
+				// auto old_best = current_stats.best_fitness.load(std::memory_order_relaxed);
+				// while (ind.fitness.adjusted_fitness > old_best && !current_stats.best_fitness.compare_exchange_weak(
+				// 	old_best, ind.fitness.adjusted_fitness, std::memory_order_relaxed, std::memory_order_relaxed))
+				// {}
+				//
+				// auto old_worst = current_stats.worst_fitness.load(std::memory_order_relaxed);
+				// while (ind.fitness.adjusted_fitness < old_worst && !current_stats.worst_fitness.compare_exchange_weak(
+				// 	old_worst, ind.fitness.adjusted_fitness, std::memory_order_relaxed, std::memory_order_relaxed))
+				// {}
 
 				auto old_overall = current_stats.overall_fitness.load(std::memory_order_relaxed);
 				while (!current_stats.overall_fitness.compare_exchange_weak(old_overall, ind.fitness.adjusted_fitness + old_overall,
@@ -1003,6 +987,12 @@ namespace blt::gp
 			thread_helper.evaluation_left.store(config.population_size, std::memory_order_release);
 			(*thread_execution_service)(0);
 
+			std::sort(current_pop.begin(), current_pop.end(), [](const auto& a, const auto& b) {
+				return a.fitness.adjusted_fitness > b.fitness.adjusted_fitness;
+			});
+
+			current_stats.best_fitness = current_pop.get_individuals()[0].fitness.adjusted_fitness;
+			current_stats.worst_fitness = current_pop.get_individuals()[current_pop.get_individuals().size() - 1].fitness.adjusted_fitness;
 			current_stats.average_fitness = current_stats.overall_fitness / static_cast<double>(config.population_size);
 		}
 

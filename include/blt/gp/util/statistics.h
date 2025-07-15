@@ -178,22 +178,22 @@ namespace blt::gp
         {
             move.overall_fitness = 0;
             move.average_fitness = 0;
-            move.best_fitness = 0;
-            move.worst_fitness = 0;
+            move.best_fitness = std::numeric_limits<double>::min();
+            move.worst_fitness = std::numeric_limits<double>::max();
         }
 
         std::atomic<double> overall_fitness = 0;
         std::atomic<double> average_fitness = 0;
-        std::atomic<double> best_fitness = 0;
-        std::atomic<double> worst_fitness = 1;
+        std::atomic<double> best_fitness = std::numeric_limits<double>::min();
+        std::atomic<double> worst_fitness = std::numeric_limits<double>::max();
         tracked_vector<double> normalized_fitness{};
 
         void clear()
         {
             overall_fitness = 0;
             average_fitness = 0;
-            best_fitness = 0;
-            worst_fitness = 0;
+            best_fitness = std::numeric_limits<double>::min();
+            worst_fitness = std::numeric_limits<double>::max();
             normalized_fitness.clear();
         }
     };
