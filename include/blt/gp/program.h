@@ -56,6 +56,157 @@
 
 namespace blt::gp
 {
+namespace errors::serialization
+    {
+        struct error_to_string_t
+        {
+            virtual ~error_to_string_t() = default;
+            [[nodiscard]] virtual std::string to_string() const = 0;
+        };
+
+        struct invalid_read_t final : error_to_string_t
+        {
+            i64 read;
+            i64 expected;
+
+            invalid_read_t(const i64 read, const i64 expected): read(read), expected(expected)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Invalid read; unable to read sufficient bytes to populate the object. Expected " + std::to_string(expected) + " but read " +
+                    std::to_string(read);
+            }
+        };
+
+        struct unexpected_size_t final : error_to_string_t
+        {
+            size_t read_size;
+            size_t expected_size;
+
+            unexpected_size_t(const size_t read_size, const size_t expected_size): read_size(read_size), expected_size(expected_size)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Invalid read of a size type. Expected to find " + std::to_string(expected_size) + " found " + std::to_string(read_size);
+            }
+        };
+
+        struct invalid_operator_id_t final : error_to_string_t
+        {
+            operator_id read;
+            operator_id expected;
+
+            invalid_operator_id_t(const operator_id read, const operator_id expected): read(read), expected(expected)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Loaded invalid operator ID. Expected " + std::to_string(expected) + " but found " + std::to_string(read);
+            }
+        };
+
+        struct invalid_name_t final : error_to_string_t
+        {
+            operator_id id;
+            std::string found;
+            std::string expected;
+
+            invalid_name_t(const operator_id id, std::string found, const std::string& expected): id(id), found(std::move(found)), expected(expected)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Operator ID " + std::to_string(id) + " expected to have name '" + expected + "' but found '" + found + "'";
+            }
+        };
+
+        struct mismatched_bytes_t final : error_to_string_t
+        {
+            operator_id id;
+            size_t read_size;
+            size_t expected_size;
+
+            mismatched_bytes_t(const operator_id id, const size_t read_size, const size_t expected_size): id(id), read_size(read_size),
+                expected_size(expected_size)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Operator ID " + std::to_string(id) + " expected bytes " + std::to_string(expected_size) + " but found " +
+                    std::to_string(read_size);
+            }
+        };
+
+        struct mismatched_argc_t final : error_to_string_t
+        {
+            operator_id id;
+            size_t read_argc;
+            size_t expected_argc;
+
+            mismatched_argc_t(const operator_id id, const size_t read_argc, const size_t expected_argc): id(id), read_argc(read_argc),
+                expected_argc(expected_argc)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Operator ID " + std::to_string(id) + " expected argc " + std::to_string(expected_argc) + " but found " +
+                    std::to_string(read_argc);
+            }
+        };
+
+        struct mismatched_return_type_t final : error_to_string_t
+        {
+            operator_id id;
+            type_id read_type;
+            type_id expected_type;
+
+            mismatched_return_type_t(const operator_id id, const type_id read_type, const type_id expected_type): id(id), read_type(read_type),
+                expected_type(expected_type)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Operator ID " + std::to_string(id) +
+                    " expected return type " + std::to_string(expected_type) +
+                    " but got " + std::to_string(read_type);
+            }
+        };
+
+        struct mismatched_arg_type_t final : error_to_string_t
+        {
+            operator_id id;
+            size_t arg_index;
+            type_id read_type;
+            type_id expected_type;
+
+            mismatched_arg_type_t(const operator_id id, const size_t arg_index, const type_id read_type, const type_id expected_type): id(id),
+                arg_index(arg_index), read_type(read_type), expected_type(expected_type)
+            {
+            }
+
+            [[nodiscard]] std::string to_string() const override
+            {
+                return "Operator ID " + std::to_string(id) +
+                    " expected argument " + std::to_string(arg_index) +
+                    " to be of type " + std::to_string(expected_type) +
+                    " but got " + std::to_string(read_type);
+            }
+        };
+
+        using serializer_error_t = variant_t<invalid_read_t, unexpected_size_t, invalid_operator_id_t, invalid_name_t, mismatched_bytes_t,
+                                             mismatched_argc_t, mismatched_return_type_t, mismatched_arg_type_t>;
+    }
+
+
 	struct argc_t
 	{
 		blt::u32 argc = 0;
@@ -782,6 +933,14 @@ namespace blt::gp
 																						}, std::make_integer_sequence<blt::size_t, size>());
 		}
 
+		void save_generation(fs::writer_t& writer);
+
+		void save_state(fs::writer_t& writer);
+
+		bool load_generation(fs::reader_t& reader);
+
+		std::optional<errors::serialization::serializer_error_t> load_state(fs::reader_t& reader);
+
 	private:
 		template <typename FitnessFunc>
 		auto single_threaded_fitness_eval()
@@ -1032,7 +1191,7 @@ namespace blt::gp
 			std::atomic_uint64_t next_gen_left = 0;
 
 			std::atomic_bool lifetime_over = false;
-			blt::barrier barrier;
+			blt::barrier_t barrier;
 
 			explicit concurrency_storage(blt::size_t threads): barrier(threads, lifetime_over)
 			{}
