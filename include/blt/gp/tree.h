@@ -628,6 +628,8 @@ namespace blt::gp
             };
         }
 
+        void regen(tree_generator_t& generator, type_id root_type, size_t min_depth, size_t max_depth);
+
         [[nodiscard]] size_t required_size() const;
 
         void to_byte_array(std::byte* out) const;

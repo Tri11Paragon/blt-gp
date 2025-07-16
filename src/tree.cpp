@@ -674,6 +674,12 @@ namespace blt::gp
         return {point, m_program->get_operator_info(operations[point].id()).return_type};
     }
 
+    void tree_t::regen(tree_generator_t& generator, const type_id root_type, const size_t min_depth, const size_t max_depth)
+    {
+        clear(*m_program);
+        generator.generate(*this, generator_arguments{*m_program, root_type, min_depth, max_depth});
+    }
+
     size_t tree_t::required_size() const
     {
         // 2 size_t used to store expected_length of operations + size of the values stack
