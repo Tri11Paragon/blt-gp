@@ -31,36 +31,27 @@
 
 static const auto SEED_FUNC = [] { return std::random_device()(); };
 
-blt::gp::prog_config_t config = blt::gp::prog_config_t()
-                                .set_initial_min_tree_size(2)
-                                .set_initial_max_tree_size(6)
-                                .set_elite_count(2)
-                                .set_crossover_chance(0.8)
-                                .set_mutation_chance(0.1)
-                                .set_reproduction_chance(0)
-                                .set_max_generations(50)
-                                .set_pop_size(500)
-                                .set_thread_count(0);
-
-int main(int argc, const char** argv)
+int main(const int argc, const char** argv)
 {
-    blt::arg_parse parser;
-    parser.addArgument(blt::arg_builder{"file"}
-                       .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
+    auto [config, selection] = blt::gp::create_config_from_args(argc, argv);
+    // blt::arg_parse parser;
+    // parser.addArgument(blt::arg_builder{"file"}
+                       // .setHelp("File for rice data. Should be in .arff format.").setDefault("../datasets/Rice_Cammeo_Osmancik.arff").build());
 
-    auto args = parser.parse_args(argc, argv);
+    // auto args = parser.parse_args(argc, argv);
 
-    if (!args.contains("file"))
-    {
-        BLT_WARN("Please provide path to file with -f or --file");
-        return 1;
-    }
+    // if (!args.contains("file"))
+    // {
+        // BLT_WARN("Please provide path to file with -f or --file");
+        // return 1;
+    // }
 
-    auto rice_file_path = args.get<std::string>("file");
+    // auto rice_file_path = args.get<std::string>("file");
 
     blt::gp::example::rice_classification_t rice_classification{SEED_FUNC, config};
+    rice_classification.set_all_selections(*selection);
 
-    rice_classification.execute(rice_file_path);
+    rice_classification.execute("../datasets/Rice_Cammeo_Osmancik.arff");
 
     return 0;
 }

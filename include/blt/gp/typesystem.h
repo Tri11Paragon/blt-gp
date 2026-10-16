@@ -38,6 +38,9 @@ namespace blt::gp
     struct type_id : integer_type<u64>
     {
         using integer_type::integer_type;
+
+        // debug helper.
+        [[nodiscard]] std::string name(gp_program& program) const;
     };
 
     class type

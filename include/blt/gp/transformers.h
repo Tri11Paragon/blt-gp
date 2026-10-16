@@ -19,7 +19,6 @@
 #ifndef BLT_GP_TRANSFORMERS_H
 #define BLT_GP_TRANSFORMERS_H
 
-#include <blt/std/utility.h>
 #include <blt/gp/fwdecl.h>
 #include <blt/gp/tree.h>
 #include <blt/gp/generators.h>
@@ -39,10 +38,9 @@ namespace blt::gp
             return init;
         }
 
-        template <size_t size, typename... Args>
-        static constexpr std::array<double, size> aggregate_array(Args... list)
+        template<size_t N>
+        static constexpr void aggregate_array(std::array<double, N>& data)
         {
-            std::array<double, size> data{list...};
             auto total_prob = sum(data);
             double sum_of_prob = 0;
             for (auto& d : data)
@@ -51,6 +49,13 @@ namespace blt::gp
                 d = prob + sum_of_prob;
                 sum_of_prob += prob;
             }
+        }
+
+        template <typename... Args>
+        static constexpr std::array<double, sizeof...(Args)> aggregate_array(Args... list)
+        {
+            std::array<double, sizeof...(Args)> data{list...};
+            aggregate_array(data);
             return data;
         }
     }
@@ -120,8 +125,8 @@ namespace blt::gp
     public:
         struct crossover_point_t
         {
-            tree_t::subtree_point_t p1_crossover_point;
-            tree_t::subtree_point_t p2_crossover_point;
+            subtree_point_t p1_crossover_point;
+            subtree_point_t p2_crossover_point;
         };
 
 
@@ -152,7 +157,7 @@ namespace blt::gp
         ~subtree_crossover_t() override = default;
 
     protected:
-        [[nodiscard]] std::optional<tree_t::subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
+        [[nodiscard]] std::optional<subtree_point_t> get_point_traverse_retry(const tree_t& t, std::optional<type_id> type) const;
     };
 
     class one_point_crossover_t : public crossover_t
@@ -171,10 +176,15 @@ namespace blt::gp
 
     class advanced_crossover_t : public crossover_t
     {
+    public:
         advanced_crossover_t(): crossover_t(config_t{})
         {
         }
-    public:
+
+        explicit advanced_crossover_t(const config_t& config): crossover_t(config)
+        {
+        }
+
         bool apply(gp_program& program, const tree_t& p1, const tree_t& p2, tree_t& c1, tree_t& c2) override;
     };
 
@@ -204,7 +214,7 @@ namespace blt::gp
         virtual bool apply(gp_program& program, const tree_t& p, tree_t& c);
 
         // returns the point after the mutation
-        size_t mutate_point(gp_program& program, tree_t& c, tree_t::subtree_point_t node) const;
+        size_t mutate_point(gp_program& program, tree_t& c, subtree_point_t node) const;
 
         virtual ~mutation_t() = default;
 
@@ -222,8 +232,12 @@ namespace blt::gp
             SUB_FUNC, // subexpression becomes argument to new random function. Other args are generated.
             JUMP_FUNC, // subexpression becomes this new node. Other arguments discarded.
             COPY, // node can become copy of another subexpression.
-            END, // helper
+            END
         };
+    private:
+        static constexpr auto operators_size = static_cast<blt::i32>(mutation_operator::END);
+    public:
+
 
         advanced_mutation_t() = default;
 
@@ -239,14 +253,17 @@ namespace blt::gp
             return *this;
         }
 
-    private:
-        static constexpr auto operators_size = static_cast<blt::i32>(mutation_operator::END);
-
+        advanced_mutation_t set_mutation_operator_chances(const std::array<double, operators_size>& new_chances)
+        {
+            mutation_operator_chances = new_chances;
+            detail::aggregate_array(mutation_operator_chances);
+            return *this;
+        }
     private:
         // this value is adjusted inversely to the size of the tree.
         double per_node_mutation_chance = 5.0;
 
-        static constexpr std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array<operators_size>(
+        std::array<double, operators_size> mutation_operator_chances = detail::aggregate_array(
             0.25, // EXPRESSION
             0.20, // ADJUST
             0.05, // SUB_FUNC

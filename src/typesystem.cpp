@@ -16,8 +16,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/typesystem.h>
+#include <blt/gp/program.h>
 
 namespace blt::gp
 {
-
+    std::string type_id::name(gp_program& program) const
+    {
+        return std::string(program.get_typesystem().get_type(id).name());
+    }
 }

@@ -47,11 +47,13 @@ namespace blt::gp
     template <typename T>
     class evaluation_ref;
 
-    class tree_manipulator_t;
+    struct tree_manipulator_t;
 
-    class single_operation_tree_manipulator_t;
+    struct single_operation_tree_manipulator_t;
 
-    class multi_operation_tree_manipulator_t;
+    struct multi_operation_tree_manipulator_t;
+
+    struct subtree_point_t;
     
     class tree_t;
     
@@ -66,6 +68,8 @@ namespace blt::gp
     class full_generator_t;
     
     class stack_allocator;
+
+    class selection_t;
     
     template<typename T>
     class tracked_allocator_t;
