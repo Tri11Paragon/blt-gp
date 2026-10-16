@@ -231,7 +231,7 @@ namespace blt::gp
                 return correct_types.contains(index) || p2_correct_types.contains(index);
             }
 
-            void clear()
+            void clear(gp_program& program)
             {
                 children_data_p1.clear();
                 children_data_p2.clear();
@@ -249,7 +249,7 @@ namespace blt::gp
                     v.clear();
             }
         } resolver;
-        resolver.clear();
+        resolver.clear(program);
 
         auto min_size = std::min(p1_info.argument_types.size(), p2_info.argument_types.size());
 
