@@ -19,7 +19,7 @@
 #ifndef BLT_GP_EXAMPLESEXAMPLES_BASE_H
 #define BLT_GP_EXAMPLESEXAMPLES_BASE_H
 
-#include <blt/gp/program.h>
+#include <../include/blt/gp/v1/program.h>
 
 namespace blt::gp::example
 {

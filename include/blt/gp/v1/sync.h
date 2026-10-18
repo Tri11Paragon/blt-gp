@@ -20,7 +20,7 @@
 #define BLT_GP_SYNC_H
 
 #include <blt/std/types.h>
-#include <blt/gp/fwdecl.h>
+#include <fwdecl.h>
 
 namespace blt::gp
 {

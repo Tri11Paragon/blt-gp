@@ -15,10 +15,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/gp/config.h>
+#include <../include/blt/gp/v1/config.h>
 #include <blt/parse/argparse_v2.h>
-#include "blt/std/string.h"
-#include <blt/gp/selection.h>
+#include "blt/std/string_algo.h"
+#include <../include/blt/gp/v1/selection.h>
 
 namespace blt::gp
 {

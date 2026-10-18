@@ -15,7 +15,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/gp/program.h>
+#include <../include/blt/gp/v1/program.h>
 #include <iostream>
 #include <blt/std/variant.h>
 

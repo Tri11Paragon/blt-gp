@@ -19,10 +19,10 @@
 #ifndef BLT_GP_SELECTION_H
 #define BLT_GP_SELECTION_H
 
-#include <blt/gp/fwdecl.h>
+#include <v1/fwdecl.h>
 #include <blt/gp/util/statistics.h>
-#include <blt/gp/tree.h>
-#include <blt/gp/config.h>
+#include <v1/tree.h>
+#include <config.h>
 #include <blt/gp/random.h>
 #include <blt/std/assert.h>
 #include "blt/format/format.h"

@@ -43,15 +43,15 @@
 #include <blt/std/memory.h>
 #include <blt/std/thread.h>
 #include <blt/gp/fwdecl.h>
-#include <blt/gp/typesystem.h>
-#include <blt/gp/operations.h>
-#include <blt/gp/transformers.h>
+#include <v1/typesystem.h>
+#include <operations.h>
+#include <transformers.h>
 #include <blt/gp/selection.h>
 #include <blt/gp/tree.h>
-#include <blt/gp/stack.h>
+#include <v1/stack.h>
 #include <blt/gp/config.h>
-#include <blt/gp/random.h>
-#include <blt/gp/threading.h>
+#include <v1/random.h>
+#include <v1/threading.h>
 #include "blt/format/format.h"
 #include "blt/std/variant.h"
 

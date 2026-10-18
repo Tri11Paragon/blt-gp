@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CidrCTestProjectState">
+    <ctestState>
+      <lineNumber testId="path:CMakeLists.txt test:blt-drop-2-type-test" value="94" />
+      <lineNumber testId="path:CMakeLists.txt test:blt-drop-test" value="94" />
+      <lineNumber testId="path:CMakeLists.txt test:blt-rice-classification-example" value="94" />
+      <lineNumber testId="path:CMakeLists.txt test:blt-serialization-test" value="94" />
+      <lineNumber testId="path:CMakeLists.txt test:blt-symbolic-regression-example" value="94" />
+      <lineNumber testId="path:CMakeLists.txt test:blt-symbolic-regression-test" value="94" />
+    </ctestState>
+  </component>
+</project>

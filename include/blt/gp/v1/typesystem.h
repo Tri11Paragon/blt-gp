@@ -24,8 +24,8 @@
 #include <blt/std/ranges.h>
 #include <blt/std/utility.h>
 #include <blt/std/memory.h>
-#include <blt/gp/fwdecl.h>
-#include <blt/gp/stack.h>
+#include <v1/fwdecl.h>
+#include <v1/stack.h>
 #include <random>
 
 namespace blt::gp

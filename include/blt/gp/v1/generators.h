@@ -19,8 +19,8 @@
 #ifndef BLT_GP_GENERATORS_H
 #define BLT_GP_GENERATORS_H
 
-#include <blt/gp/fwdecl.h>
-#include <blt/gp/tree.h>
+#include <v1/fwdecl.h>
+#include <v1/tree.h>
 
 namespace blt::gp
 {

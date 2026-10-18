@@ -20,8 +20,8 @@
 #define BLT_GP_OPERATIONS_H
 
 #include <blt/std/types.h>
-#include <blt/gp/typesystem.h>
-#include <blt/gp/stack.h>
+#include <v1/typesystem.h>
+#include <v1/stack.h>
 #include <blt/gp/util/meta.h>
 #include <functional>
 #include <type_traits>

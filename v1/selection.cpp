@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <blt/gp/selection.h>
-#include <blt/gp/program.h>
+#include <../include/blt/gp/v1/program.h>
 
 namespace blt::gp
 {

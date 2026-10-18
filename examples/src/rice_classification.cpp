@@ -18,9 +18,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/gp/program.h>
+#include <../../include/blt/gp/v1/program.h>
 #include <blt/profiling/profiler_v2.h>
-#include <blt/gp/tree.h>
+#include <../../include/blt/gp/v1/tree.h>
 #include <blt/logging/logging.h>
 #include <blt/format/format.h>
 #include <blt/parse/argparse.h>

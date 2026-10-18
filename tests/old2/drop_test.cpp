@@ -15,8 +15,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "../examples/symbolic_regression.h"
-#include <blt/gp/program.h>
+#include "../../examples/symbolic_regression.h"
+#include <../../include/blt/gp/v1/program.h>
 #include <blt/logging/logging.h>
 
 using namespace blt::gp;

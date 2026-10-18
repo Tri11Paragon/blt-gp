@@ -20,10 +20,10 @@
 #define BLT_GP_CONFIG_H
 
 #include <thread>
-#include <blt/gp/fwdecl.h>
+#include <v1/fwdecl.h>
 #include <blt/std/types.h>
-#include <blt/gp/generators.h>
-#include <blt/gp/transformers.h>
+#include <v1/generators.h>
+#include <v1/transformers.h>
 
 namespace blt::gp
 {

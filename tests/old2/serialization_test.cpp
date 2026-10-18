@@ -17,8 +17,8 @@
  */
 #include <filesystem>
 
-#include "../examples/symbolic_regression.h"
-#include <blt/gp/program.h>
+#include "../../examples/symbolic_regression.h"
+#include <../../include/blt/gp/v1/program.h>
 #include <blt/logging/logging.h>
 #include <ostream>
 #include <istream>

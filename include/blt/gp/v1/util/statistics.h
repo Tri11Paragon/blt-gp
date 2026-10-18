@@ -20,8 +20,8 @@
 #define BLT_GP_UTIL_STATISTICS_H
 
 #include <blt/gp/util/trackers.h>
-#include <blt/gp/allocator.h>
-#include <blt/gp/fwdecl.h>
+#include <../v1/allocator.h>
+#include <../v1/fwdecl.h>
 
 namespace blt::gp
 {

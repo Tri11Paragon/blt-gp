@@ -1,6 +1,6 @@
 /*
  *  <Short Description>
- *  Copyright (C) 2024  Brett Terpstra
+ *  Copyright (C) 2026  Brett Terpstra
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,13 +15,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <blt/gp/typesystem.h>
-#include <blt/gp/program.h>
+#include <blt/gp/tree.h>
 
-namespace blt::gp
+int main()
 {
-    std::string type_id::name(gp_program& program) const
-    {
-        return std::string(program.get_typesystem().get_type(id).name());
-    }
+
 }
