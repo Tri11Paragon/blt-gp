@@ -1007,6 +1007,360 @@ namespace
             TEST_ASSERT(dst.size() == 0);
         }
     }
+
+    void test_top_with_offset()
+    {
+        std::cout << "[TEST] test_top_with_offset..." << std::endl;
+
+        byte_stack_t stack;
+
+        // Push 3 distinct arguments: arg1 (int32_t), arg2 (double), arg3 (Pod12)
+        // Stack layout (bottom to top):
+        // [0..7]   : int32_t(42)              -> aligned size 8
+        // [8..15]  : double(3.14159)          -> aligned size 8
+        // [16..31] : Pod12{10, 20, 30}        -> aligned size 16
+        // Total size: 32 bytes
+        stack.push(int32_t{42});
+        stack.push(double{3.14159});
+        stack.push(Pod12{10, 20, 30});
+
+        TEST_ASSERT(stack.size() == 32);
+
+        // 1. Verify default offset (0) accesses the top element
+        TEST_ASSERT(stack.top<Pod12>() == (Pod12{10, 20, 30}));
+        TEST_ASSERT(stack.top<Pod12>(0) == (Pod12{10, 20, 30}));
+
+        // 2. Extract arguments using offsets relative to top
+        // Offset for top element (Pod12) = 0
+        const Pod12& arg3 = stack.top<Pod12>(0);
+        TEST_ASSERT(arg3 == (Pod12{10, 20, 30}));
+
+        // Offset for second element (double) = aligned_size<Pod12> = 16
+        const size_t offset_arg2 = detail::aligned_size<Pod12>;
+        const double& arg2 = stack.top<double>(offset_arg2);
+        TEST_ASSERT(arg2 == 3.14159);
+
+        // Offset for third element (int32_t) = aligned_size<Pod12> + aligned_size<double> = 16 + 8 = 24
+        const size_t offset_arg1 = offset_arg2 + detail::aligned_size<double>;
+        const int32_t& arg1 = stack.top<int32_t>(offset_arg1);
+        TEST_ASSERT(arg1 == 42);
+
+        // 3. Simulate function argument evaluation and invocation
+        auto eval_fn = [](int32_t a, double b, const Pod12& c) -> double {
+            return static_cast<double>(a) + b + static_cast<double>(c.a + c.b + c.c);
+        };
+        double result = eval_fn(arg1, arg2, arg3);
+        double expected_result = 42.0 + 3.14159 + (10.0 + 20.0 + 30.0);
+        TEST_ASSERT(result == expected_result);
+
+        // 4. Verify in-place mutation via returned reference at offset
+        stack.top<int32_t>(offset_arg1) = 100;
+        stack.top<double>(offset_arg2) = 2.71828;
+        stack.top<Pod12>(0).b = 555;
+
+        TEST_ASSERT(stack.top<int32_t>(offset_arg1) == 100);
+        TEST_ASSERT(stack.top<double>(offset_arg2) == 2.71828);
+        TEST_ASSERT(stack.top<Pod12>(0) == (Pod12{10, 555, 30}));
+
+        // 5. Remove all extracted arguments at once via pop_bytes
+        size_t total_args_bytes = detail::aligned_size<Pod12> + detail::aligned_size<double> + detail::aligned_size<int32_t>;
+        size_t popped = stack.pop_bytes(total_args_bytes);
+        TEST_ASSERT(popped == 32);
+        TEST_ASSERT(stack.size() == 0);
+
+        // 6. Test deeper stack with multiple nested frame parameters
+        // Frame 0: [uint64_t(111)] (8 bytes)
+        // Frame 1: [uint8_t(2), Pod16{33, 44}, float(5.5f)] (8 + 16 + 8 = 32 bytes)
+        stack.push(uint64_t{111});
+        stack.push(uint8_t{2});
+        stack.push(Pod16{33, 44});
+        stack.push(float{5.5f});
+
+        TEST_ASSERT(stack.size() == 40);
+
+        // Extract Frame 1 parameters
+        float param_float = stack.top<float>(0);
+        TEST_ASSERT(param_float == 5.5f);
+
+        Pod16 param_pod16 = stack.top<Pod16>(detail::aligned_size<float>);
+        TEST_ASSERT(param_pod16 == (Pod16{33, 44}));
+
+        uint8_t param_u8 = stack.top<uint8_t>(detail::aligned_size<float> + detail::aligned_size<Pod16>);
+        TEST_ASSERT(param_u8 == 2);
+
+        // Pop Frame 1 (32 bytes)
+        stack.pop_bytes(detail::aligned_size<float> + detail::aligned_size<Pod16> + detail::aligned_size<uint8_t>);
+        TEST_ASSERT(stack.size() == 8);
+
+        // Verify Frame 0 is still intact and accessible
+        TEST_ASSERT(stack.top<uint64_t>() == 111);
+        TEST_ASSERT(stack.pop<uint64_t>() == 111);
+        TEST_ASSERT(stack.size() == 0);
+    }
+
+    int free_fn_sub(int a, int b)
+    {
+        return a - b;
+    }
+
+    struct CustomCallableStruct
+    {
+        int multiplier;
+        int operator()(int a, int b) const
+        {
+            return (a + b) * multiplier;
+        }
+    };
+
+    void test_call_with_arguments()
+    {
+        std::cout << "[TEST] test_call_with_arguments..." << std::endl;
+
+        // 1. Validate argument order (LIFO stack layout: first arg is deepest, last arg is top)
+        {
+            byte_stack_t stack;
+            // Function: (a - b) / c
+            auto div_sub = [](int a, int b, int c) -> int {
+                return (a - b) / c;
+            };
+
+            // Push args in sequential order: a = 100, b = 20, c = 4
+            // Stack layout (bottom to top): [100 (a), 20 (b), 4 (c)]
+            // c is at top of stack (offset 0), b is at offset 8, a is at offset 16
+            stack.push(100);
+            stack.push(20);
+            stack.push(4);
+
+            TEST_ASSERT(stack.size() == 24);
+
+            int result = stack.call_with_arguments(div_sub);
+            TEST_ASSERT(result == (100 - 20) / 4); // (100 - 20) / 4 = 20
+
+            // Verify call does not remove elements from stack
+            TEST_ASSERT(stack.size() == 24);
+            TEST_ASSERT(stack.top<int>(0) == 4);
+            TEST_ASSERT(stack.top<int>(8) == 20);
+            TEST_ASSERT(stack.top<int>(16) == 100);
+        }
+
+        // 2. Heterogeneous argument types of varied sizes and alignments
+        {
+            byte_stack_t stack;
+            // Arguments:
+            // Arg1: uint8_t (aligned 8)
+            // Arg2: Pod12 (aligned 16)
+            // Arg3: double (aligned 8)
+            // Arg4: Pod16 (aligned 16)
+            auto complex_fn = [](uint8_t a, const Pod12& b, double c, const Pod16& d) -> double {
+                return static_cast<double>(a)
+                     + static_cast<double>(b.a + b.b + b.c)
+                     + c
+                     + static_cast<double>(d.a + d.b);
+            };
+
+            stack.push(static_cast<uint8_t>(5));
+            stack.push(Pod12{10, 20, 30});
+            stack.push(0.5);
+            stack.push(Pod16{100, 200});
+
+            size_t expected_size = 8 + 16 + 8 + 16;
+            TEST_ASSERT(stack.size() == expected_size);
+
+            double res = stack.call_with_arguments(complex_fn);
+            double expected_val = 5.0 + (10.0 + 20.0 + 30.0) + 0.5 + (100.0 + 200.0); // 365.5
+            TEST_ASSERT(res == expected_val);
+
+            // Stack contents unchanged
+            TEST_ASSERT(stack.size() == expected_size);
+        }
+
+        // 3. Multiple chained function calls where 1st result is pushed and used by 2nd function
+        {
+            byte_stack_t stack;
+
+            // Pipeline:
+            // Step 1: add(a, b) -> sum
+            stack.push(25);
+            stack.push(15);
+            TEST_ASSERT(stack.size() == 16);
+
+            int sum = stack.call_with_arguments([](int a, int b) { return a + b; });
+            TEST_ASSERT(sum == 40);
+
+            // Pop args used for 1st function call
+            stack.pop_bytes(detail::aligned_size<int> * 2);
+            TEST_ASSERT(stack.size() == 0);
+
+            // Step 2: Push newly computed sum and second argument 'multiplier'
+            stack.push(sum); // 40
+            stack.push(3);   // factor
+            TEST_ASSERT(stack.size() == 16);
+
+            int product = stack.call_with_arguments([](int val, int factor) { return val * factor; });
+            TEST_ASSERT(product == 120);
+
+            // Pop args used for 2nd function call
+            stack.pop_bytes(detail::aligned_size<int> * 2);
+            TEST_ASSERT(stack.size() == 0);
+
+            // Step 3: Push product and floating point offset
+            stack.push(product); // 120
+            stack.push(0.75);    // offset
+            TEST_ASSERT(stack.size() == 16);
+
+            double final_result = stack.call_with_arguments([](int val, double off) { return static_cast<double>(val) + off; });
+            TEST_ASSERT(final_result == 120.75);
+
+            // Pop args used for 3rd function call and push result
+            stack.pop_bytes(detail::aligned_size<int> + detail::aligned_size<double>);
+            TEST_ASSERT(stack.size() == 0);
+
+            stack.push(final_result);
+            TEST_ASSERT(stack.size() == 8);
+            TEST_ASSERT(stack.pop<double>() == 120.75);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 4. Nested sub-expression tree evaluation with an existing base frame
+        {
+            byte_stack_t stack;
+
+            // Base frame (e.g. context ID)
+            stack.push(uint64_t{99999});
+
+            // Sub-expression 1: a + b (where a=10, b=20)
+            stack.push(10);
+            stack.push(20);
+            int sub1 = stack.call_with_arguments([](int a, int b) { return a + b; });
+            TEST_ASSERT(sub1 == 30);
+            stack.pop_bytes(detail::aligned_size<int> * 2);
+            stack.push(sub1); // push 30 on top of base frame
+
+            // Sub-expression 2: c * d (where c=4, d=5)
+            stack.push(4);
+            stack.push(5);
+            int sub2 = stack.call_with_arguments([](int c, int d) { return c * d; });
+            TEST_ASSERT(sub2 == 20);
+            stack.pop_bytes(detail::aligned_size<int> * 2);
+            stack.push(sub2); // push 20 on top of [base frame, sub1]
+
+            // Stack layout now: [uint64_t(99999), int(30), int(20)]
+            TEST_ASSERT(stack.size() == 8 + 8 + 8);
+
+            // Evaluate top-level function combining base context and sub-expression results
+            uint64_t total = stack.call_with_arguments([](uint64_t base, int r1, int r2) {
+                return base + static_cast<uint64_t>(r1 * r2);
+            });
+            TEST_ASSERT(total == 99999 + (30 * 20)); // 99999 + 600 = 100599
+
+            // Verify stack frame integrity
+            TEST_ASSERT(stack.pop<int>() == 20);
+            TEST_ASSERT(stack.pop<int>() == 30);
+            TEST_ASSERT(stack.pop<uint64_t>() == 99999);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 5. Various callable forms (free functions, lambdas with captures, std::function, custom functor)
+        {
+            byte_stack_t stack;
+            stack.push(50);
+            stack.push(18);
+
+            // Free function pointer
+            int r1 = stack.call_with_arguments(&free_fn_sub);
+            TEST_ASSERT(r1 == 32);
+
+            // Stateful lambda with capture
+            int capture_val = 1000;
+            auto stateful_lambda = [&capture_val](int a, int b) {
+                return a + b + capture_val;
+            };
+            int r2 = stack.call_with_arguments(stateful_lambda);
+            TEST_ASSERT(r2 == 50 + 18 + 1000);
+
+            // std::function
+            std::function<int(int, int)> std_fn = [](int a, int b) { return a * b; };
+            int r3 = stack.call_with_arguments(std_fn);
+            TEST_ASSERT(r3 == 50 * 18);
+
+            // Custom functor object
+            CustomCallableStruct custom_obj{10};
+            int r4 = stack.call_with_arguments(custom_obj);
+            TEST_ASSERT(r4 == (50 + 18) * 10);
+
+            // Noexcept lambda
+            auto noexcept_fn = [](int a, int b) noexcept -> int { return a ^ b; };
+            int r5 = stack.call_with_arguments(noexcept_fn);
+            TEST_ASSERT(r5 == (50 ^ 18));
+
+            stack.pop_bytes(16);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 6. In-place argument mutation via non-const references
+        {
+            byte_stack_t stack;
+            stack.push(Pod12{1, 2, 3});
+            stack.push(100);
+
+            // Function taking non-const reference to mutate arguments in-place on stack
+            stack.call_with_arguments([](Pod12& p, int& x) {
+                p.a += 10;
+                p.b += 20;
+                p.c += 30;
+                x *= 2;
+            });
+
+            TEST_ASSERT(stack.top<int>() == 200);
+            TEST_ASSERT(stack.top<Pod12>(detail::aligned_size<int>) == (Pod12{11, 22, 33}));
+
+            stack.pop_bytes(detail::aligned_size<int> + detail::aligned_size<Pod12>);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 7. Const stack support
+        {
+            byte_stack_t stack;
+            stack.push(Pod12{7, 8, 9});
+            stack.push(42);
+
+            const byte_stack_t<>& const_ref = stack;
+            int sum = const_ref.call_with_arguments([](const Pod12& p, int x) {
+                return p.a + p.b + p.c + x;
+            });
+            TEST_ASSERT(sum == 7 + 8 + 9 + 42);
+
+            stack.pop_bytes(detail::aligned_size<int> + detail::aligned_size<Pod12>);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 8. Zero-argument function (arity = 0)
+        {
+            byte_stack_t stack;
+            stack.push(12345); // existing data on stack
+
+            int zero_res = stack.call_with_arguments([]() {
+                return 777;
+            });
+            TEST_ASSERT(zero_res == 777);
+            TEST_ASSERT(stack.size() == 8);
+            TEST_ASSERT(stack.pop<int>() == 12345);
+            TEST_ASSERT(stack.size() == 0);
+        }
+
+        // 9. Single-argument function (arity = 1)
+        {
+            byte_stack_t stack;
+            stack.push(Pod12{100, 200, 300});
+
+            int sum = stack.call_with_arguments([](const Pod12& p) {
+                return p.a + p.b + p.c;
+            });
+            TEST_ASSERT(sum == 600);
+            TEST_ASSERT(stack.pop<Pod12>() == (Pod12{100, 200, 300}));
+            TEST_ASSERT(stack.size() == 0);
+        }
+    }
 }
 
 int main()
@@ -1030,6 +1384,8 @@ int main()
     test_copy_range();
     test_copy_back();
     test_copy_back_offset();
+    test_top_with_offset();
+    test_call_with_arguments();
 
     std::cout << "========================================" << std::endl;
     std::cout << " All byte_stack_t tests PASSED!         " << std::endl;

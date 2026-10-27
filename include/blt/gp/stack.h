@@ -24,7 +24,8 @@
 
 #include <blt/std/utility.h>
 
-#include "alloc.h"
+#include <blt/gp/util/traits.h>
+#include <blt/gp/alloc.h>
 
 namespace blt::gp
 {
@@ -40,6 +41,33 @@ namespace blt::gp
 
         template<typename T>
         constexpr auto aligned_size = align_bytes(sizeof(std::decay_t<T>));
+
+        template<typename...>
+        struct offsets_of
+        {
+            constexpr static size_t align_size = 0;
+            constexpr static auto offset_tuple = std::make_tuple();
+        };
+
+        template<typename First, typename... Args>
+        struct offsets_of<First, Args...>
+        {
+            // aligned size of all template arguments together
+            constexpr static size_t align_size = aligned_size<First> + offsets_of<Args...>::align_size;
+            // offset of the first template argument
+            constexpr static size_t offset = align_size - aligned_size<First>;
+
+            // offsets of all template arguments
+            constexpr static auto offset_tuple = std::tuple_cat(std::make_tuple(offset), offsets_of<Args...>::offset_tuple);
+
+            using args = std::tuple<First, Args...>;
+        };
+
+        template<typename... Args>
+        struct apply_offset
+        {
+
+        };
     }
 
     /**
@@ -47,7 +75,7 @@ namespace blt::gp
      * Copy operations are not supported.
      * Move operations are supported but do NOT call the stored type's move constructors. It is a single pointer swap.
      */
-    template <template<typename, typename> typename Vec = std::vector>
+    template <template<typename...> typename Vec = std::vector>
     struct byte_stack_t
     {
         constexpr static size_t PAGE_SIZE = 0x100;
@@ -116,33 +144,46 @@ namespace blt::gp
         template<typename T>
         T pop()
         {
-            if constexpr (std::is_trivially_copyable_v<T>)
-            {
-                T t {top<T>()};
-                pop_bytes<T>();
-                return t;
-            } else if constexpr (std::is_move_constructible_v<T>)
-            {
-                T t {std::move(top<T>())};
-                pop_bytes<T>();
-                return t;
-            } else if constexpr (std::is_copy_constructible_v<T>)
-            {
-                T t {top<T>()};
-                pop_bytes<T>();
-                return static_cast<const T&>(t);
-            } else
-            {
-                static_assert(std::is_trivially_copyable_v<T> || std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>,
-                    "Type must be copyable or movable to use pop. If not, consider using `.top()` or `.pop_bytes()");
-            }
-            BLT_UNREACHABLE;
+            static_assert(std::is_trivially_copyable_v<T>, "Types must be trivially copyable");
+            T t {top<T>()};
+            pop_bytes<T>();
+            return t;
         }
 
-        template<typename T>
-        T& top()
+        template<typename T, typename U = std::decay_t<T>>
+        U& top(const size_t offset = 0)
         {
-            return *reinterpret_cast<T*>((m_data.data() + sp()) - detail::aligned_size<T>);
+            return *reinterpret_cast<U*>((m_data.data() + sp() - offset) - detail::aligned_size<U>);
+        }
+
+        template<typename T, typename U = std::decay_t<T>>
+        const U& top(const size_t offset = 0) const
+        {
+            return *reinterpret_cast<const U*>((m_data.data() + sp() - offset) - detail::aligned_size<U>);
+        }
+
+        /**
+         * Calls the function with the function argument's taken from the stack.
+         * Arguments are passed as references or const references depending on the constness of the stack.
+         *
+         * The last argument to the function is the last argument pushed to the stack.
+         * The other types are taken from the stack in reverse order, following such logic.
+         *
+         * Alignment and offset of the values stored in the stack are managed by this stack.
+         * No automatic type conversion is allowed. Types stored must be valid for the arguments of the function call.
+         */
+        template<typename Func>
+        auto call_with_arguments(Func& func) -> decltype(auto)
+        {
+            using Reflect = util::function_traits<std::decay_t<Func>>;
+            return call_with_args_internal(func, std::make_index_sequence<Reflect::arity>{});
+        }
+
+        template<typename Func>
+        auto call_with_arguments(Func& func) const -> decltype(auto)
+        {
+            using Reflect = util::function_traits<std::decay_t<Func>>;
+            return call_with_args_internal(func, std::make_index_sequence<Reflect::arity>{});
         }
 
         byte_stack_t& reserve(size_t reserve)
@@ -158,6 +199,24 @@ namespace blt::gp
 
     private:
         Vec<char, aligned_allocator<char, detail::MAX_ALIGNMENT>> m_data;
+
+        template<typename Func, size_t... Is>
+        auto call_with_args_internal(Func& func, std::index_sequence<Is...>) -> decltype(auto)
+        {
+            using Reflect = util::function_traits<std::decay_t<Func>>;
+            constexpr auto tuple = util::apply_t<detail::offsets_of, typename Reflect::args_tuple>::offset_tuple;
+            static_assert(std::tuple_size_v<decltype(tuple)> == Reflect::arity, "arity mismatch");
+            return func(top<std::tuple_element_t<Is, typename Reflect::args_tuple>>(std::get<Is>(tuple))...);
+        }
+
+        template<typename Func, size_t... Is>
+        auto call_with_args_internal(Func& func, std::index_sequence<Is...>) const -> decltype(auto)
+        {
+            using Reflect = util::function_traits<std::decay_t<Func>>;
+            constexpr auto tuple = util::apply_t<detail::offsets_of, typename Reflect::args_tuple>::offset_tuple;
+            static_assert(std::tuple_size_v<decltype(tuple)> == Reflect::arity, "arity mismatch");
+            return func(top<std::tuple_element_t<Is, typename Reflect::args_tuple>>(std::get<Is>(tuple))...);
+        }
 
         [[nodiscard]] void* get_aligned_pointer(const size_t bytes) noexcept
         {

@@ -137,5 +137,6 @@ if (${BUILD_GP_TESTS})
     blt_add_project(gp-stack tests/stack.cpp test)
     blt_add_project(gp-tree tests/tree.cpp test)
     blt_add_project(gp-util-traits tests/util/traits.cpp test)
+    blt_add_project(gp-function-indirection tests/function_indirection.cpp test)
 
 endif ()

@@ -136,6 +136,49 @@ namespace blt::gp::util
     {
     };
 
+    template<template<typename...> typename Func, typename T>
+    struct apply;
+
+    template<template<typename...> typename Func, template<typename...> typename C, typename... Args>
+    struct apply<Func, C<Args...>>
+    {
+        using type = Func<Args...>;
+    };
+
+    template<template<typename...> typename Func, typename T>
+    using apply_t = typename apply<Func, T>::type;
+
+    template<typename T>
+    struct skip_once;
+
+    template<template<typename...> typename C>
+    struct skip_once<C<>>
+    {
+    };
+
+    template<template<typename...> typename C, typename First, typename... Args>
+    struct skip_once<C<First, Args...>>
+    {
+        using first = First;
+        using remainder = C<Args...>;
+        using next = skip_once<remainder>;
+    };
+
+    template<typename Func, typename... Args>
+    class has_backward
+    {
+        template <typename Subs>
+        static auto test(int) -> decltype(std::declval<Subs>().backward(std::declval<Args>()...), std::true_type())
+        {
+            return std::declval<std::true_type>();
+        }
+
+        template <typename>
+        static auto test(...) -> std::false_type { return std::declval<std::false_type>(); }
+    public:
+        static constexpr bool value = decltype(test<Func>(0))::value;
+    };
+
 }
 
 #endif //BLT_GP_TRAITS_H

@@ -17,7 +17,13 @@
  */
 #include <blt/gp/tree.h>
 
-int main()
+#include "blt/logging/logging.h"
+
+using namespace blt::gp;
+
+
+
+int main(const int argc, const char** argv)
 {
 
 }
