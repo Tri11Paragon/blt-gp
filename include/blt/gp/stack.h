@@ -71,9 +71,7 @@ namespace blt::gp
     }
 
     /**
-     * This class manages a stack of bytes. Any type can be pushed into the stack.
-     * Copy operations are not supported.
-     * Move operations are supported but do NOT call the stored type's move constructors. It is a single pointer swap.
+     * This class manages a stack of bytes.
      */
     template <template<typename...> typename Vec = std::vector>
     struct byte_stack_t
@@ -87,6 +85,9 @@ namespace blt::gp
             this->reserve(reserve);
         }
 
+        /**
+         * Inserts another byte stack to the end of this byte stack.
+         */
         byte_stack_t& insert(byte_stack_t& other)
         {
             m_data.insert(m_data.end(), other.m_data.begin(), other.m_data.end());
@@ -94,25 +95,41 @@ namespace blt::gp
             return *this;
         }
 
-        byte_stack_t& copy(byte_stack_t& other, const size_t from)
+        /**
+         * Replaces a range in this byte stack with the complete range from the supplied other byte stack.
+         */
+        byte_stack_t& replace(const byte_stack_t& other, const size_t from, const size_t to)
+        {
+            m_data.erase(m_data.begin() + from, m_data.begin() + to);
+            m_data.insert(m_data.begin() + from, other.m_data.begin(), other.m_data.end());
+            return *this;
+        }
+
+        byte_stack_t& erase(const size_t from, const size_t to)
+        {
+            m_data.erase(m_data.begin() + from, m_data.begin() + to);
+            return *this;
+        }
+
+        byte_stack_t& copy(const byte_stack_t& other, const size_t from)
         {
             m_data.insert(m_data.end(), other.m_data.begin() + from, other.m_data.end());
             return *this;
         }
 
-        byte_stack_t& copy(byte_stack_t& other, const size_t from, const size_t to)
+        byte_stack_t& copy(const byte_stack_t& other, const size_t from, const size_t to)
         {
             m_data.insert(m_data.end(), other.m_data.begin() + from, other.m_data.begin() + to);
             return *this;
         }
 
-        byte_stack_t& copy_back(byte_stack_t& other, const size_t bytes)
+        byte_stack_t& copy_back(const byte_stack_t& other, const size_t bytes)
         {
             m_data.insert(m_data.end(), other.m_data.begin() + other.sp() - bytes, other.m_data.end());
             return *this;
         }
 
-        byte_stack_t& copy_back(byte_stack_t& other, const size_t bytes, const size_t offset)
+        byte_stack_t& copy_back(const byte_stack_t& other, const size_t bytes, const size_t offset)
         {
             m_data.insert(m_data.end(), other.m_data.begin() + other.sp() - bytes - offset, other.m_data.end() - offset);
             return *this;
@@ -192,10 +209,12 @@ namespace blt::gp
             return *this;
         }
 
+        void clear() { m_data.clear(); }
         char* data() { return m_data.data(); }
         [[nodiscard]] const char* data() const { return m_data.data(); }
         [[nodiscard]] size_t size() const { return m_data.size(); }
         [[nodiscard]] size_t capacity() const { return m_data.capacity(); }
+        [[nodiscard]] bool empty() const { return m_data.empty(); }
 
     private:
         Vec<char, aligned_allocator<char, detail::MAX_ALIGNMENT>> m_data;
