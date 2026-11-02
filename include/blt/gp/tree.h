@@ -22,6 +22,7 @@
 #include <algorithm>
 #include "stack.h"
 #include <blt/std/hashmap.h>
+#include "functional.h"
 
 #include "blt/logging/logging.h"
 #include "blt/std/assert.h"
@@ -29,271 +30,6 @@
 
 namespace blt::gp
 {
-    namespace detail
-    {
-        template <template<typename...> typename Vec>
-        struct function_wrapper_t
-        {
-            using Callback = void (*)(void*, byte_stack_t<Vec>&, byte_stack_t<Vec>&);
-
-            template <typename Func>
-            explicit function_wrapper_t(Func& func) : context(reinterpret_cast<void*>(&func)), forward_callback(
-                                                          [](void* ctx, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
-                                                          {
-                                                              using Reflect = util::function_traits<std::decay_t<Func>>;
-                                                              static_assert(std::is_trivially_copyable_v<typename Reflect::return_type>,
-                                                                            "Function doesn't return trivially copyable type!");
-
-                                                              decltype(auto) result = in.template call_with_arguments<Func
-                                                                  &>(*static_cast<Func*>(ctx));
-                                                              in.pop_bytes(util::apply_t<offsets_of, typename Reflect::args_tuple>::align_size);
-
-                                                              out.push(result);
-                                                          })
-            {
-            }
-
-            void operator()(byte_stack_t<Vec>& in, byte_stack_t<Vec>& out) const noexcept
-            {
-                return forward_callback(context, in, out);
-            }
-
-        private:
-            void* context;
-            Callback forward_callback;
-        };
-    }
-
-    struct type_id_t
-    {
-        type_id_t() = default;
-
-        explicit type_id_t(const size_t id) : id(id)
-        {
-        }
-
-        explicit operator size_t() const
-        {
-            return id;
-        }
-
-        [[nodiscard]] size_t get() const
-        {
-            return id;
-        }
-
-    private:
-        size_t id = 0;
-    };
-
-    struct type_info_t
-    {
-        type_id_t id = type_id_t{0};
-        size_t size = 0;
-        size_t aligned_size = 0;
-
-        template <typename T>
-        static type_info_t build(const type_id_t id)
-        {
-            type_info_t info;
-            info.id = id;
-            info.size = sizeof(T);
-            info.aligned_size = detail::align_bytes(sizeof(T));
-            return info;
-        }
-    };
-
-    struct type_resolver_t
-    {
-        template <typename T>
-        type_info_t register_type()
-        {
-            const auto type_index = type_indexes.find(typeid(T).hash_code());
-            if (type_index == type_indexes.end())
-            {
-                type_indexes[typeid(T).hash_code()] = type_id_t{next_type_index};
-                type_infos.push_back(type_info_t::build<T>(type_id_t{next_type_index}));
-                type_names.push_back(blt::type_string<T>());
-                ++next_type_index;
-            }
-            return type_infos[type_indexes[typeid(T).hash_code()].get()];
-        }
-
-        template <typename T>
-        [[nodiscard]] type_id_t get() const
-        {
-            return type_indexes.at(typeid(T).hash_code());
-        }
-
-        template <typename T>
-        [[nodiscard]] const type_info_t& get_info() const
-        {
-            return type_infos.at(get<T>());
-        }
-
-        [[nodiscard]] const type_info_t& get_info(const type_id_t type_id) const
-        {
-            return type_infos.at(type_id.get());
-        }
-
-        [[nodiscard]] const std::string& get_name(const type_id_t type_id) const
-        {
-            return type_names.at(type_id.get());
-        }
-
-    private:
-        hashmap_t<size_t, type_id_t> type_indexes;
-        size_t next_type_index = 0;
-
-        std::vector<type_info_t> type_infos;
-        std::vector<std::string> type_names;
-    };
-
-    struct function_id_t
-    {
-        explicit function_id_t(const size_t id) : id(id)
-        {
-        }
-
-        explicit operator size_t() const
-        {
-            return id;
-        }
-
-        [[nodiscard]] size_t get() const
-        {
-            return id;
-        }
-
-    private:
-        size_t id;
-    };
-
-    template <template<typename...> typename Vec = std::vector>
-    struct function_info_t
-    {
-        function_id_t id;
-        type_info_t return_type;
-        Vec<type_info_t> argument_types;
-
-        function_info_t(const function_id_t id, const type_info_t& return_type, Vec<type_info_t> argument_types) :
-            id(id), return_type(return_type), argument_types(std::move(argument_types))
-        {
-        }
-
-        [[nodiscard]] bool is_terminal() const
-        {
-            return argument_types.empty();
-        }
-    };
-
-    template <template<typename...> typename Vec = std::vector>
-    struct function_resolver_t
-    {
-        explicit function_resolver_t(type_resolver_t& resolver) : resolver(&resolver)
-        {
-        }
-
-        template <typename Func>
-        function_id_t push(Func& func, bool store_in_ephemeral_stack = false)
-        {
-            return push(func, void_function(), store_in_ephemeral_stack);
-        }
-
-        template <typename Func, typename AntiFunc>
-        function_id_t push(Func& func, AntiFunc& anti_func, bool store_in_ephemeral_stack = false)
-        {
-            // resolve types
-            using traits = util::function_traits<std::decay_t<Func>>;
-            using applied_register_t = util::apply_t<register_t, typename traits::args_tuple>;
-
-            applied_register_t arguments{*resolver};
-            auto return_type = resolver->register_type<typename traits::return_type>();
-
-            // storage
-            auto id = functions.size();
-            functions.emplace_back(detail::function_wrapper_t<Vec>{func});
-            anti_functions.emplace_back(detail::function_wrapper_t<Vec>{anti_func});
-            function_information.emplace_back(function_info_t<Vec>{function_id_t{id}, return_type, std::move(arguments.argument_types)});
-            store_in_stack.emplace_back(store_in_ephemeral_stack);
-
-            return function_id_t{id};
-        }
-
-        void forward(const function_id_t operator_id, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
-        {
-            functions[operator_id.get()](in, out);
-        }
-
-        void backward(const function_id_t operator_id, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
-        {
-            if (!has_backwards(operator_id))
-                return;
-            anti_functions[operator_id.get()](in, out);
-        }
-
-        const function_info_t<Vec>& get(const function_id_t operator_id) const
-        {
-            return function_information[operator_id.get()];
-        }
-
-        [[nodiscard]] bool has_backwards(const function_id_t operator_id) const
-        {
-            return anti_functions[operator_id.get()].context != &void_function();
-        }
-
-        [[nodiscard]] bool stores_in_stack(const function_id_t operator_id) const
-        {
-            return store_in_stack[operator_id.get()];
-        }
-
-        [[nodiscard]] std::string to_string(const function_id_t operator_id) const
-        {
-            std::string data;
-            auto function_info = function_information[operator_id.get()];
-            data += '[';
-            data += std::to_string(operator_id.get());
-            data += " => (";
-            for (const auto arg : function_info.argument_types)
-            {
-                data += resolver->get_name(arg);
-                data += ", ";
-            }
-            data += ") -> ";
-            data += resolver->get_name(function_info.return_type);
-            data += ']';
-            return data;
-        }
-
-    protected:
-        type_resolver_t* resolver;
-        Vec<u32> store_in_stack;
-        Vec<detail::function_wrapper_t<Vec>> functions;
-        Vec<detail::function_wrapper_t<Vec>> anti_functions;
-        Vec<function_info_t<Vec>> function_information;
-
-        static auto& void_function()
-        {
-            static auto func = []()
-            {
-                return 0.f;
-            };
-            return func;
-        }
-
-    private:
-        template <typename... Args>
-        struct register_t
-        {
-            explicit register_t(type_resolver_t& resolver)
-            {
-                (argument_types.emplace_back(resolver.register_type<Args>()), ...);
-            }
-
-            Vec<type_info_t> argument_types;
-        };
-    };
-
     /**
      * Used for user defined manually generated trees as examples in code
      */
@@ -311,6 +47,8 @@ namespace blt::gp
     {
         struct subtree_span_t
         {
+            subtree_span_t() = default;
+
             subtree_span_t(const tree_t* tree, const size_t begin, const size_t end) : tree(tree), begin(begin), end(end)
             {
             }
@@ -341,22 +79,22 @@ namespace blt::gp
 
             auto children() const
             {
-                return children_t{ *this };
+                return children_t{*this};
             }
 
             /**
              * Returns a copy of the underlying subtree
              */
-            tree_t to_tree(function_resolver_t<Vec>& resolver)
+            tree_t to_tree()
             {
-                size_t prev_ephem = tree->leading_ephemeral_size(resolver, begin);
+                size_t prev_ephem = tree->leading_ephemeral_size(begin);
                 // copy operators and make use of known ephemeral sizes to copy only the subtree's ephemeral values
                 tree_t subtree;
                 subtree.operators.reserve(size());
                 for (auto it = tree->operators.begin() + begin; it != tree->operators.begin() + end; ++it)
                 {
                     subtree.operators.push_back(*it);
-                    if (resolver.stores_in_stack(it->id))
+                    if (it->stores_in_stack)
                     {
                         subtree.ephemeral_stack.copy(tree->ephemeral_stack, prev_ephem, prev_ephem + it->return_type.aligned_size);
                         prev_ephem += it->return_type.aligned_size;
@@ -445,7 +183,7 @@ namespace blt::gp
 
             struct children_t
             {
-                explicit children_t(const subtree_span_t span): span(span)
+                explicit children_t(const subtree_span_t span) : span(span)
                 {
                 }
 
@@ -461,18 +199,20 @@ namespace blt::gp
 
                 subtree_span_t span;
             };
+
         private:
             friend tree_t;
-            const tree_t* tree;
-            size_t begin;
-            size_t end;
+            const tree_t* tree = nullptr;
+            size_t begin = 0;
+            size_t end = 0;
         };
 
-        template<typename T>
+        template <typename T>
         struct postorder_t
         {
-            explicit postorder_t(T& tree): tree(&tree)
-            {}
+            explicit postorder_t(T& tree) : tree(&tree)
+            {
+            }
 
             auto begin() const
             {
@@ -506,7 +246,7 @@ namespace blt::gp
             size_t ephemeral_offset = 0;
             for (const auto& op : operators)
             {
-                if (resolver.stores_in_stack(op.id))
+                if (op.stores_in_stack)
                 {
                     stack.copy(ephemeral_stack, ephemeral_offset, ephemeral_offset + op.return_type.aligned_size);
                     ephemeral_offset += op.return_type.aligned_size;
@@ -545,27 +285,27 @@ namespace blt::gp
          * Replaces this subtree with the given replacement subtree.
          * This invalidates ALL spans after the beginning of this subtree.
          */
-        void replace(function_resolver_t<Vec>& resolver, const subtree_span_t subtree, const tree_t& replacement)
+        void replace(const subtree_span_t subtree, const tree_t& replacement)
         {
             BLT_ASSERT(subtree.tree == this);
             BLT_ASSERT(subtree.begin < operators.size());
             BLT_ASSERT(subtree.end <= operators.size());
 
-            auto before_bytes = leading_ephemeral_size(resolver, subtree.begin);
-            auto after_bytes = trailing_ephemeral_size(resolver, subtree.end);
+            auto before_bytes = leading_ephemeral_size(subtree.begin);
+            auto after_bytes = trailing_ephemeral_size(subtree.end);
             ephemeral_stack.replace(replacement.ephemeral_stack, before_bytes, ephemeral_stack.size() - after_bytes);
             operators.erase(operators.begin() + subtree.begin, operators.begin() + subtree.end);
             operators.insert(operators.begin() + subtree.begin, replacement.operators.begin(), replacement.operators.end());
         }
 
-        void erase(function_resolver_t<Vec>& resolver, const subtree_span_t subtree)
+        void erase(const subtree_span_t subtree)
         {
             BLT_ASSERT(subtree.tree == this);
             BLT_ASSERT(subtree.begin < operators.size());
             BLT_ASSERT(subtree.end <= operators.size());
 
-            auto before_bytes = leading_ephemeral_size(resolver, subtree.begin);
-            auto after_bytes = trailing_ephemeral_size(resolver, subtree.end);
+            auto before_bytes = leading_ephemeral_size(subtree.begin);
+            auto after_bytes = trailing_ephemeral_size(subtree.end);
             ephemeral_stack.erase(before_bytes, ephemeral_stack.size() - after_bytes);
             operators.erase(operators.begin() + subtree.begin, operators.begin() + subtree.end);
         }
@@ -584,15 +324,13 @@ namespace blt::gp
         /**
          * Returns the number of bytes of ephemeral values before the start of the subtree according to standard order.
          * @param end_index: the index corresponding to the start of the subtree. Not included in the calculation.
-         * @param resolver: your function resolver associated with this tree.
          */
-        size_t leading_ephemeral_size(function_resolver_t<Vec>& resolver, size_t end_index) const
+        [[nodiscard]] size_t leading_ephemeral_size(size_t end_index) const
         {
             size_t prev_ephem = 0;
             for (auto it = operators.begin(); it != operators.begin() + end_index; ++it)
             {
-                // TODO: maybe function info should store if it is ephemeral
-                if (resolver.stores_in_stack(it->id))
+                if (it->stores_in_stack)
                     prev_ephem += it->return_type.aligned_size;
             }
             return prev_ephem;
@@ -601,15 +339,13 @@ namespace blt::gp
         /**
          * Returns the number of bytes of ephemeral values after the end of the subtree according to standard order.
          * @param begin_index: The index one past the last operator in the subtree. Is included as part of the calculation.
-         * @param resolver: your function resolver associated with this tree.
          */
-        size_t trailing_ephemeral_size(function_resolver_t<Vec>& resolver, size_t begin_index) const
+        [[nodiscard]] size_t trailing_ephemeral_size(size_t begin_index) const
         {
             size_t post_ephem = 0;
             for (auto it = operators.begin() + begin_index; it != operators.end(); ++it)
             {
-                // TODO: maybe function info should store if it is ephemeral
-                if (resolver.stores_in_stack(it->id))
+                if (it->stores_in_stack)
                     post_ephem += it->return_type.aligned_size;
             }
             return post_ephem;
@@ -860,7 +596,7 @@ namespace blt::gp
     private:
         struct pending_node_t
         {
-            explicit pending_node_t(const function_id_t id): id(id)
+            explicit pending_node_t(const function_id_t id) : id(id)
             {
             }
 

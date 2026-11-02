@@ -87,7 +87,7 @@ if (${TRACK_ALLOCATIONS})
     target_compile_definitions(blt-gp PRIVATE BLT_TRACK_ALLOCATIONS=1)
 endif ()
 
-macro(blt_add_project name source type)
+macro(blt_add_project name source type )
 
     project(${name}-${type})
 
@@ -102,7 +102,7 @@ macro(blt_add_project name source type)
         target_compile_definitions(${name}-${type} PRIVATE BLT_TRACK_ALLOCATIONS=1)
     endif ()
 
-    add_test(NAME ${name}-${type} COMMAND ${name}-${type})
+    add_test(NAME ${name}-${type} COMMAND ${name}-${type} ${ARGN})
 
     set_property(TEST ${name}-${type} PROPERTY FAIL_REGULAR_EXPRESSION "FAIL;ERROR;FATAL;exception")
 
@@ -111,32 +111,16 @@ endmacro()
 
 if (${BUILD_EXAMPLES})
 
-    blt_add_project(blt-symbolic-regression examples/src/symbolic_regression.cpp example)
-    blt_add_project(blt-rice-classification examples/src/rice_classification.cpp example)
-
 endif ()
 
 if (${BUILD_GP_TESTS})
-
-#    blt_add_project(blt-stack tests/old/stack_tests.cpp test)
-#    blt_add_project(blt-eval tests/old/evaluation_tests.cpp test)
-#    blt_add_project(blt-order tests/old/order_tests.cpp test)
-    #blt_add_project(blt-destructor tests/destructor_test.cpp test)
-#    blt_add_project(blt-gp1 tests/old/gp_test_1.cpp test)
-#    blt_add_project(blt-gp2 tests/old/gp_test_2.cpp test)
-#    blt_add_project(blt-gp3 tests/old/gp_test_3.cpp test)
-#    blt_add_project(blt-gp4 tests/old/gp_test_4.cpp test)
-#    blt_add_project(blt-gp5 tests/old/gp_test_5.cpp test)
-#    blt_add_project(blt-gp6 tests/old/gp_test_6.cpp test)
-#    blt_add_project(blt-gp7 tests/old/gp_test_7.cpp test)
-
-#    blt_add_project(blt-symbolic-regression tests/symbolic_regression_test.cpp test)
-#    blt_add_project(blt-drop tests/drop_test.cpp test)
-#    blt_add_project(blt-drop-2-type tests/2_type_drop_test.cpp test)
-#    blt_add_project(blt-serialization tests/serialization_test.cpp test)
     blt_add_project(gp-stack tests/stack.cpp test)
+    blt_add_project(gp-tree-types tests/tree_types.cpp test)
+    blt_add_project(gp-tree-execution tests/tree_execution.cpp test)
+    blt_add_project(gp-tree-builders tests/tree_builders.cpp test)
+    blt_add_project(gp-tree-mutation tests/tree_mutation.cpp test)
     blt_add_project(gp-tree tests/tree.cpp test)
     blt_add_project(gp-util-traits tests/util/traits.cpp test)
-    blt_add_project(gp-function-indirection tests/function_indirection.cpp test)
+    blt_add_project(gp-function-indirection tests/function_indirection.cpp test 10)
 
 endif ()

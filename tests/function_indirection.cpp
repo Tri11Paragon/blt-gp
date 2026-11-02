@@ -140,7 +140,7 @@ static void print_stack(byte_stack_t<>& stack, std::optional<float> assert_value
     }
 }
 
-int main(const int argc, const char** argv)
+int main(int argc, char** argv)
 {
     if (argc < 2)
     {
@@ -225,7 +225,7 @@ int main(const int argc, const char** argv)
     stack = tree.evaluate(f_resolver);
     print_stack(stack, 12.56637096405029);
 
-    auto new_tree = tree.root().child(0).to_tree(f_resolver);
+    auto new_tree = tree.root().child(0).to_tree();
 
     stack = new_tree.evaluate(f_resolver);
     print_stack(stack, 4);
@@ -247,7 +247,7 @@ int main(const int argc, const char** argv)
     stack = cos_tree.evaluate(f_resolver);
     print_stack(stack, -1);
 
-    tree.replace(f_resolver, tree.root().child(1).child(0), cos_tree);
+    tree.replace(tree.root().child(1).child(0), cos_tree);
     stack = tree.evaluate(f_resolver);
     print_stack(stack, -12.56637096405029);
 
