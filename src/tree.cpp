@@ -15,3 +15,16 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <blt/gp/tree.h>
+
+namespace blt::gp
+{
+    template struct tree_t<float>;
+    template struct tree_t<double>;
+    template struct tree_t<i8>;
+    template struct tree_t<u8>;
+    template struct tree_t<u32>;
+    template struct tree_t<i32>;
+    template struct tree_t<i64>;
+    template struct tree_t<u64>;
+}

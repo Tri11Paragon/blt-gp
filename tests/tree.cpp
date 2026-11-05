@@ -36,8 +36,7 @@ namespace
     {
         std::cout << "[Test] test_end_to_end_gp_crossover_and_mutation..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float, std::allocator> f_resolver;
 
         float input_x = 0.0f;
         float input_y = 0.0f;
@@ -104,11 +103,11 @@ namespace
         input_x = 4.0f;
         input_y = 10.0f;
         auto stack_p1 = parent1.evaluate(f_resolver);
-        TEST_ASSERT(stack_p1.pop<float>() == 14.0f);
+        TEST_ASSERT(stack_p1 == 14.0f);
 
         // Evaluate Parent 2 on (x=4, y=10): (-10) * (4 + 2.5) = -10 * 6.5 = -65
         auto stack_p2 = parent2.evaluate(f_resolver);
-        TEST_ASSERT(stack_p2.pop<float>() == -65.0f);
+        TEST_ASSERT(stack_p2 == -65.0f);
 
         // Crossover: Take child 0 of parent 2 (which is add(x, 2.5)) and replace child 0 of parent 1 (which is sub(y, 2.0))
         // In parent 1: root is add(mul(x, 1.5), sub(y, 2.0)). child(0) in reverse postorder is sub(y, 2.0).
@@ -122,17 +121,17 @@ namespace
         // Offspring is now: add(mul(x, 1.5), add(x, 2.5))
         // For (x=4, y=10): (4 * 1.5) + (4 + 2.5) = 6 + 6.5 = 12.5
         auto stack_off = offspring.evaluate(f_resolver);
-        TEST_ASSERT(stack_off.pop<float>() == 12.5f);
+        TEST_ASSERT(stack_off == 12.5f);
 
         // Point Mutation: replace the leaf 'x' in mul(x, 1.5) with 'y'
         // child(1) of offspring root is mul(x, 1.5). In mul(x, 1.5), child(1) is 'x'.
-        auto leaf_y = tree_builder_t{f_resolver}.root(r_y).build();
+        auto leaf_y = tree_builder_t<float>{f_resolver}.root(r_y).build();
         offspring.replace(offspring.root().child(1).child(1), leaf_y);
 
         // Offspring after mutation: add(mul(y, 1.5), add(x, 2.5))
         // For (x=4, y=10): (10 * 1.5) + (4 + 2.5) = 15 + 6.5 = 21.5
         auto stack_mut = offspring.evaluate(f_resolver);
-        TEST_ASSERT(stack_mut.pop<float>() == 21.5f);
+        TEST_ASSERT(stack_mut == 21.5f);
 
         // Test stability across multiple input cases
         std::vector<SampleData> dataset = {
@@ -145,8 +144,7 @@ namespace
         {
             input_x = sample.x;
             input_y = sample.y;
-            auto s = offspring.evaluate(f_resolver);
-            auto res = s.pop<float>();
+            auto res = offspring.evaluate(f_resolver);
             TEST_ASSERT(std::abs(res - sample.expected) < 1e-5f);
         }
     }

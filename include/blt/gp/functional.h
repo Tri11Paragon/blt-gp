@@ -19,47 +19,58 @@
 #ifndef BLT_GP_FUNCTIONAL_H
 #define BLT_GP_FUNCTIONAL_H
 
-#include <blt/gp/typing.h>
 #include <blt/std/types.h>
 #include <blt/gp/stack.h>
 
 namespace blt::gp
 {
-    template <template<typename...> typename Vec>
-    struct function_resolver_t;
 
     namespace detail
     {
-        template <template<typename...> typename Vec>
+        template <typename Type, typename Alloc = std::allocator<Type>>
         struct function_wrapper_t
         {
-            friend struct function_resolver_t<Vec>;
-
-            using Callback = void (*)(void*, byte_stack_t<Vec>&, byte_stack_t<Vec>&);
+            using Callback = void (*)(void*, std::vector<Type, Alloc>&, std::vector<Type, Alloc>&);
 
             template <typename Func>
             explicit function_wrapper_t(Func& func) : context(reinterpret_cast<void*>(&func)), forward_callback(
-                                                          [](void* ctx, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
+                                                          [](void* ctx, std::vector<Type, Alloc>& in, std::vector<Type, Alloc>& out)
                                                           {
                                                               using Reflect = util::function_traits<std::decay_t<Func>>;
-                                                              static_assert(std::is_trivially_copyable_v<typename Reflect::return_type>,
-                                                                            "Function doesn't return trivially copyable type!");
 
-                                                              decltype(auto) result = in.template call_with_arguments<Func
-                                                                  &>(*static_cast<Func*>(ctx));
-                                                              in.pop_bytes(util::apply_t<offsets_of, typename Reflect::args_tuple>::align_size);
 
-                                                              out.push(result);
+                                                              Type result = call_func_internal(*static_cast<Func*>(ctx), in,
+                                                                  std::make_index_sequence<Reflect::arity>{});
+                                                              in.erase(in.end() - Reflect::arity, in.end());
+
+                                                              if constexpr (std::is_trivially_copyable_v<Type>)
+                                                              {
+                                                                  out.emplace_back(result);
+                                                              }
+                                                              else if constexpr (std::is_move_constructible_v<Type>)
+                                                              {
+                                                                  out.emplace_back(std::move(result));
+                                                              }
+                                                              else
+                                                              {
+                                                                  out.emplace_back(result);
+                                                              }
                                                           })
             {
             }
 
-            void operator()(byte_stack_t<Vec>& in, byte_stack_t<Vec>& out) const noexcept
+            void operator()(std::vector<Type, Alloc>& in, std::vector<Type, Alloc>& out) const noexcept
             {
                 return forward_callback(context, in, out);
             }
 
         private:
+            template <typename Func, size_t... Is>
+            static Type call_func_internal(Func& func, std::vector<Type, Alloc>& in, std::index_sequence<Is...>)
+            {
+                return func(in[in.size() - sizeof...(Is) + Is]...);
+            }
+
             void* context;
             Callback forward_callback;
         };
@@ -85,80 +96,53 @@ namespace blt::gp
         size_t id;
     };
 
-    template <template<typename...> typename Vec = std::vector>
     struct function_info_t
     {
         function_id_t id;
-        type_info_t return_type;
-        Vec<type_info_t> argument_types;
+        size_t argument_count;
         bool stores_in_stack;
 
-        function_info_t(const function_id_t id, const type_info_t& return_type, Vec<type_info_t> argument_types, const bool stores_in_stack) :
-            id(id), return_type(return_type), argument_types(std::move(argument_types)), stores_in_stack(stores_in_stack)
+        function_info_t(const function_id_t id, const size_t argument_count, const bool stores_in_stack) :
+            id(id), argument_count(argument_count), stores_in_stack(stores_in_stack)
         {
         }
 
         [[nodiscard]] bool is_terminal() const
         {
-            return argument_types.empty();
+            return argument_count == 0;
         }
     };
 
-    template <template<typename...> typename Vec = std::vector>
+    template <typename Type, template<typename> typename Alloc = std::allocator>
     struct function_resolver_t
     {
-        explicit function_resolver_t(type_resolver_t& resolver) : resolver(&resolver)
-        {
-        }
+        explicit function_resolver_t() = default;
 
         template <typename Func>
         function_id_t push(Func& func, bool store_in_ephemeral_stack = false)
         {
-            return push(func, void_function(), store_in_ephemeral_stack);
-        }
-
-        template <typename Func, typename AntiFunc>
-        function_id_t push(Func& func, AntiFunc& anti_func, bool store_in_ephemeral_stack = false)
-        {
             // resolve types
             using traits = util::function_traits<std::decay_t<Func>>;
-            using applied_register_t = util::apply_t<register_t, typename traits::args_tuple>;
-
-            applied_register_t arguments{*resolver};
-            auto return_type = resolver->register_type<typename traits::return_type>();
 
             // storage
             auto id = functions.size();
-            functions.emplace_back(detail::function_wrapper_t<Vec>{func});
-            anti_functions.emplace_back(detail::function_wrapper_t<Vec>{anti_func});
-            function_information.emplace_back(function_info_t<Vec>{
-                function_id_t{id}, return_type, std::move(arguments.argument_types), store_in_ephemeral_stack
+            functions.emplace_back(detail::function_wrapper_t<Type, Alloc<Type>>{func});
+            function_information.emplace_back(function_info_t{
+                function_id_t{id}, traits::arity, store_in_ephemeral_stack
             });
             store_in_stack.emplace_back(store_in_ephemeral_stack);
 
             return function_id_t{id};
         }
 
-        void forward(const function_id_t operator_id, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
+        void forward(const function_id_t operator_id, std::vector<Type, Alloc<Type>>& in, std::vector<Type, Alloc<Type>>& out)
         {
             functions[operator_id.get()](in, out);
         }
 
-        void backward(const function_id_t operator_id, byte_stack_t<Vec>& in, byte_stack_t<Vec>& out)
-        {
-            if (!has_backwards(operator_id))
-                return;
-            anti_functions[operator_id.get()](in, out);
-        }
-
-        const function_info_t<Vec>& get(const function_id_t operator_id) const
+        [[nodiscard]] const function_info_t& get(const function_id_t operator_id) const
         {
             return function_information[operator_id.get()];
-        }
-
-        [[nodiscard]] bool has_backwards(const function_id_t operator_id) const
-        {
-            return anti_functions[operator_id.get()].context != &void_function();
         }
 
         [[nodiscard]] bool stores_in_stack(const function_id_t operator_id) const
@@ -169,48 +153,24 @@ namespace blt::gp
         [[nodiscard]] std::string to_string(const function_id_t operator_id) const
         {
             std::string data;
-            auto function_info = function_information[operator_id.get()];
             data += '[';
             data += std::to_string(operator_id.get());
             data += " => (";
-            for (const auto& arg : function_info.argument_types)
+            for (size_t i = 0; i < function_information[operator_id.get()].argument_count; ++i)
             {
-                data += resolver->get_name(arg.id);
+                data += blt::type_string<Type>();
                 data += ", ";
             }
             data += ") -> ";
-            data += resolver->get_name(function_info.return_type.id);
+            data += blt::type_string<Type>();
             data += ']';
             return data;
         }
 
     protected:
-        type_resolver_t* resolver;
-        Vec<u32> store_in_stack;
-        Vec<detail::function_wrapper_t<Vec>> functions;
-        Vec<detail::function_wrapper_t<Vec>> anti_functions;
-        Vec<function_info_t<Vec>> function_information;
-
-        static auto& void_function()
-        {
-            static auto func = []()
-            {
-                return 0.f;
-            };
-            return func;
-        }
-
-    private:
-        template <typename... Args>
-        struct register_t
-        {
-            explicit register_t(type_resolver_t& resolver)
-            {
-                (argument_types.emplace_back(resolver.register_type<Args>()), ...);
-            }
-
-            Vec<type_info_t> argument_types;
-        };
+        std::vector<u32, Alloc<u32>> store_in_stack;
+        std::vector<detail::function_wrapper_t<Type, Alloc<Type>>, Alloc<detail::function_wrapper_t<Type, Alloc<Type>>>> functions;
+        std::vector<function_info_t, Alloc<function_info_t>> function_information;
     };
 }
 

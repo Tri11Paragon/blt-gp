@@ -29,8 +29,7 @@ namespace
     {
         std::cout << "[Test] test_subtree_span_and_navigation..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_a = []() -> float { return 1.0f; };
         auto term_b = []() -> float { return 2.0f; };
@@ -53,7 +52,7 @@ namespace
         // ternary(add(a, b), neg(c), d)
         // Operators in postorder:
         // [0: a, 1: b, 2: add, 3: c, 4: neg, 5: d, 6: ternary]
-        auto tree = tree_builder_t{f_resolver}
+        auto tree = tree_builder_t<float>{f_resolver}
             .root(r_ternary, [&](auto& n) {
                 n.child(r_add, [&](auto& n2) {
                     n2.child(r_a);
@@ -138,8 +137,7 @@ namespace
     {
         std::cout << "[Test] test_children_iterator_semantics..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_a = []() -> float { return 1.0f; };
         auto term_b = []() -> float { return 2.0f; };
@@ -159,7 +157,7 @@ namespace
         auto r_ternary = f_resolver.push(op_ternary);
 
         // Build tree: ternary(add(a, b), neg(c), d)
-        auto tree = tree_builder_t{f_resolver}
+        auto tree = tree_builder_t<float>{f_resolver}
             .root(r_ternary, [&](auto& n) {
                 n.child(r_add, [&](auto& n2) {
                     n2.child(r_a);
@@ -174,7 +172,7 @@ namespace
 
         // 1. Iterate over children of root (3 children)
         auto root = tree.root();
-        std::vector<tree_t<std::vector>::subtree_span_t> root_children;
+        std::vector<tree_t<float>::subtree_span_t> root_children;
         for (auto child_span : root.children())
         {
             root_children.push_back(child_span);
@@ -220,8 +218,7 @@ namespace
     {
         std::cout << "[Test] test_to_tree_extraction..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_a = []() -> float { return 10.0f; };
         auto ephem_b = []() -> float { return 25.0f; };
@@ -238,7 +235,7 @@ namespace
 
         // Build tree: mul(sub(a, ephem_b), sub(ephem_c, a))
         // mul(10 - 25, 5 - 10) = -15 * -5 = 75
-        auto tree = tree_builder_t{f_resolver}
+        auto tree = tree_builder_t<float>{f_resolver}
             .root(r_mul, [&](auto& n) {
                 n.child(r_sub, [&](auto& n2) {
                     n2.child(r_a);
@@ -255,30 +252,29 @@ namespace
         auto child0 = tree.root().child(0);
         auto tree_sub1 = child0.to_tree();
         TEST_ASSERT(tree_sub1.root().size() == 3);
-        auto stack1 = tree_sub1.evaluate(f_resolver);
-        TEST_ASSERT(stack1.pop<float>() == -5.0f);
+        auto res1 = tree_sub1.evaluate(f_resolver);
+        TEST_ASSERT(res1 == -5.0f);
 
         // Subtree 2: leftmost child of mul = sub(a, ephem_b) = 10 - 25 = -15
         auto child1 = tree.root().child(1);
         auto tree_sub2 = child1.to_tree();
         TEST_ASSERT(tree_sub2.root().size() == 3);
-        auto stack2 = tree_sub2.evaluate(f_resolver);
-        TEST_ASSERT(stack2.pop<float>() == -15.0f);
+        auto res2 = tree_sub2.evaluate(f_resolver);
+        TEST_ASSERT(res2 == -15.0f);
 
         // Leaf extract: ephem_b
         auto leaf_b = child1.child(0); // in sub(a, ephem_b), child(0) is ephem_b
         auto tree_leaf_b = leaf_b.to_tree();
         TEST_ASSERT(tree_leaf_b.root().size() == 1);
-        auto stack_b = tree_leaf_b.evaluate(f_resolver);
-        TEST_ASSERT(stack_b.pop<float>() == 25.0f);
+        auto res_b = tree_leaf_b.evaluate(f_resolver);
+        TEST_ASSERT(res_b == 25.0f);
     }
 
     void test_replace_and_erase_mutations()
     {
         std::cout << "[Test] test_replace_and_erase_mutations..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_a = []() -> float { return 100.0f; };
         auto term_b = []() -> float { return 20.0f; };
@@ -302,7 +298,7 @@ namespace
         // Base tree: add(sub(a, ephem_e1), mul(ephem_e2, b))
         // add(100 - 7, 3 * 20) = 93 + 60 = 153
         auto make_base_tree = [&]() {
-            return tree_builder_t{f_resolver}
+            return tree_builder_t<float>{f_resolver}
                 .root(r_add, [&](auto& n) {
                     n.child(r_sub, [&](auto& n2) {
                         n2.child(r_a);
@@ -323,12 +319,12 @@ namespace
             auto span_mul = tree.root().child(0);
             auto span_b = span_mul.child(0);
 
-            auto leaf_a = tree_builder_t{f_resolver}.root(r_a).build();
+            auto leaf_a = tree_builder_t<float>{f_resolver}.root(r_a).build();
             tree.replace(span_b, leaf_a);
 
             // Now add(100 - 7, 3 * 100) = 93 + 300 = 393
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 393.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 393.0f);
         }
 
         // 2. Replace standard leaf 'b' (20) with ephemeral leaf 'e1' (7)
@@ -337,7 +333,7 @@ namespace
             auto span_mul = tree.root().child(0);
             auto span_b = span_mul.child(0);
 
-            auto leaf_e1 = tree_builder_t{f_resolver}.root(r_add, [&](auto& n) {
+            auto leaf_e1 = tree_builder_t<float>{f_resolver}.root(r_add, [&](auto& n) {
                 n.ephemeral(r_e1);
                 n.child(r_a);
             }).build().root().child(1).to_tree(); // extract ephemeral e1
@@ -345,8 +341,8 @@ namespace
             tree.replace(span_b, leaf_e1);
 
             // Now add(100 - 7, 3 * 7) = 93 + 21 = 114
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 114.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 114.0f);
         }
 
         // 3. Replace ephemeral leaf 'e1' (7) with composite subtree 'neg(b)' (-20)
@@ -355,7 +351,7 @@ namespace
             auto span_sub = tree.root().child(1);
             auto span_e1 = span_sub.child(0); // in sub(a, e1), child(0) is e1
 
-            auto subtree_neg = tree_builder_t{f_resolver}
+            auto subtree_neg = tree_builder_t<float>{f_resolver}
                 .root(r_neg, [&](auto& n) {
                     n.child(r_b);
                 })
@@ -364,8 +360,8 @@ namespace
             tree.replace(span_e1, subtree_neg);
 
             // Now add(100 - (-20), 3 * 20) = 120 + 60 = 180
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 180.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 180.0f);
         }
 
         // 4. Replace entire composite subtree 'mul(ephem_e2, b)' with standard leaf 'a' (100)
@@ -373,26 +369,26 @@ namespace
             auto tree = make_base_tree();
             auto span_mul = tree.root().child(0);
 
-            auto leaf_a = tree_builder_t{f_resolver}.root(r_a).build();
+            auto leaf_a = tree_builder_t<float>{f_resolver}.root(r_a).build();
             tree.replace(span_mul, leaf_a);
 
             // Now add(100 - 7, 100) = 93 + 100 = 193
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 193.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 193.0f);
         }
 
         // 5. Replace entire root
         {
             auto tree = make_base_tree();
-            auto new_tree = tree_builder_t{f_resolver}
+            auto new_tree = tree_builder_t<float>{f_resolver}
                 .root(r_neg, [&](auto& n) {
                     n.ephemeral(r_e2);
                 })
                 .build();
 
             tree.replace(tree.root(), new_tree);
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == -3.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == -3.0f);
         }
 
         // 6. Subtree erasure via erase()
@@ -409,8 +405,7 @@ namespace
     {
         std::cout << "[Test] test_postorder_traversal..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_a = []() -> float { return 1.0f; };
         auto term_b = []() -> float { return 2.0f; };
@@ -420,7 +415,7 @@ namespace
         auto r_b = f_resolver.push(term_b);
         auto r_add = f_resolver.push(op_add);
 
-        auto tree = tree_builder_t{f_resolver}
+        auto tree = tree_builder_t<float>{f_resolver}
             .root(r_add, [&](auto& n) {
                 n.child(r_a);
                 n.child(r_b);

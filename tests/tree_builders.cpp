@@ -30,8 +30,7 @@ namespace
     {
         std::cout << "[Test] test_tree_builder_declarative_happy_paths..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_c = []() -> float { return 10.0f; };
         auto ephem_gen = []() -> float { return 2.5f; };
@@ -49,23 +48,23 @@ namespace
 
         // 1. Terminal-only tree (standard terminal)
         {
-            auto tree = tree_builder_t{f_resolver}
+            auto tree = tree_builder_t<float>{f_resolver}
                 .root(r_c)
                 .build();
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 10.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 10.0f);
         }
 
         // 2. Terminal-only tree (ephemeral terminal via root)
         {
-            auto tree = tree_builder_t{f_resolver}
+            auto tree = tree_builder_t<float>{f_resolver}
                 .root(r_add, [&](auto& n) {
                     n.ephemeral(r_ephem);
                     n.child(r_c);
                 })
                 .build();
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 12.5f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 12.5f);
         }
 
         // 3. Nested multi-level expression: ternary(add(c, ephem), neg(c), mul(c, ephem))
@@ -74,7 +73,7 @@ namespace
         // mul = 10 * 2.5 = 25.0
         // ternary = 12.5 * -10 + 25.0 = -125.0 + 25.0 = -100.0
         {
-            auto tree = tree_builder_t{f_resolver}
+            auto tree = tree_builder_t<float>{f_resolver}
                 .root(r_ternary, [&](auto& n) {
                     n.child(r_add, [&](auto& n2) {
                         n2.child(r_c);
@@ -90,8 +89,8 @@ namespace
                 })
                 .build();
 
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == -100.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == -100.0f);
         }
     }
 
@@ -99,8 +98,7 @@ namespace
     {
         std::cout << "[Test] test_tree_builder_declarative_error_handling..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_c = []() -> float { return 5.0f; };
         auto op_neg = [](float a) -> float { return -a; };
@@ -115,7 +113,7 @@ namespace
             bool threw = false;
             try
             {
-                auto tree = tree_builder_t{f_resolver}
+                auto tree = tree_builder_t<float>{f_resolver}
                     .root(r_add, [&](auto& n) {
                         n.child(r_neg); // non-terminal used as leaf
                         n.child(r_c);
@@ -136,7 +134,7 @@ namespace
             bool threw = false;
             try
             {
-                auto tree = tree_builder_t{f_resolver}
+                auto tree = tree_builder_t<float>{f_resolver}
                     .root(r_neg, [&](auto& n) {
                         n.child(r_add, [&](auto& n2) {
                             n2.child(r_c); // only 1 child for add
@@ -158,7 +156,7 @@ namespace
             bool threw = false;
             try
             {
-                auto tree = tree_builder_t{f_resolver}
+                auto tree = tree_builder_t<float>{f_resolver}
                     .root(r_add, [&](auto& n) {
                         n.child(r_neg, [&](auto& n2) {
                             n2.child(r_c);
@@ -182,8 +180,7 @@ namespace
     {
         std::cout << "[Test] test_generative_tree_builder_happy_paths_and_states..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_c = []() -> float { return 3.0f; };
         auto ephem_c = []() -> float { return 7.0f; };
@@ -197,7 +194,7 @@ namespace
 
         // 1. Single leaf root
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             TEST_ASSERT(builder.empty());
             TEST_ASSERT(builder.pending_count() == 0);
 
@@ -206,22 +203,22 @@ namespace
             TEST_ASSERT(builder.pending_count() == 0);
 
             auto tree = builder.build();
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 3.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 3.0f);
         }
 
         // 2. Single ephemeral root
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.ephemeral(r_ephem);
             auto tree = builder.build();
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 7.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 7.0f);
         }
 
         // 3. Composite tree: sub(ephem(7), neg(c(3))) = 7 - (-3) = 10
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             TEST_ASSERT(builder.empty());
 
             builder.begin(r_sub);
@@ -243,8 +240,8 @@ namespace
             TEST_ASSERT(builder.pending_count() == 0);
 
             auto tree = builder.build();
-            auto stack = tree.evaluate(f_resolver);
-            TEST_ASSERT(stack.pop<float>() == 10.0f);
+            auto res = tree.evaluate(f_resolver);
+            TEST_ASSERT(res == 10.0f);
         }
     }
 
@@ -252,8 +249,7 @@ namespace
     {
         std::cout << "[Test] test_generative_tree_builder_error_handling..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<float> f_resolver;
 
         auto term_c = []() -> float { return 1.0f; };
         auto ephem_c = []() -> float { return 2.0f; };
@@ -267,7 +263,7 @@ namespace
 
         // Error 1: begin() with terminal function ID
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.begin(r_c); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -281,7 +277,7 @@ namespace
 
         // Error 2: leaf() with non-terminal function ID
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.leaf(r_add); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -290,7 +286,7 @@ namespace
 
         // Error 3: ephemeral() with non-terminal
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.ephemeral(r_add); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -299,7 +295,7 @@ namespace
 
         // Error 4: ephemeral() with terminal that is NOT registered as ephemeral
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.ephemeral(r_c); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -308,7 +304,7 @@ namespace
 
         // Error 5: end() when pending is empty
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.end(); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -317,7 +313,7 @@ namespace
 
         // Error 6: end() with child count mismatch (too few children)
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.begin(r_add);
             builder.leaf(r_c); // only 1 of 2 children
             bool threw = false;
@@ -328,7 +324,7 @@ namespace
 
         // Error 7: count_child() with too many children emitted
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.begin(r_neg); // expects 1 child
             builder.leaf(r_c);
             bool threw = false;
@@ -339,7 +335,7 @@ namespace
 
         // Error 8: build() with unclosed pending nodes
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.begin(r_neg);
             builder.leaf(r_c);
             bool threw = false;
@@ -350,7 +346,7 @@ namespace
 
         // Error 9: build() without emitting any root
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             bool threw = false;
             try { builder.build(); }
             catch (const std::runtime_error& e) { threw = true; }
@@ -359,7 +355,7 @@ namespace
 
         // Error 10: multiple root emissions
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.leaf(r_c); // root complete
             bool threw = false;
             try { builder.leaf(r_c); }
@@ -368,7 +364,7 @@ namespace
         }
 
         {
-            generative_tree_builder_t builder{f_resolver};
+            generative_tree_builder_t<float> builder{f_resolver};
             builder.leaf(r_c); // root complete
             bool threw = false;
             try { builder.begin(r_neg); }
@@ -381,8 +377,7 @@ namespace
     {
         std::cout << "[Test] test_cross_builder_equivalence..." << std::endl;
 
-        type_resolver_t t_resolver;
-        function_resolver_t f_resolver{t_resolver};
+        function_resolver_t<double> f_resolver;
 
         auto term_a = []() -> double { return 12.0; };
         auto ephem_b = []() -> double { return 4.0; };
@@ -398,7 +393,7 @@ namespace
         // mul(12 - 4, 4 - 12) = 8 * -8 = -64
 
         // 1. Build via tree_builder_t
-        auto tree1 = tree_builder_t{f_resolver}
+        auto tree1 = tree_builder_t<double>{f_resolver}
             .root(r_mul, [&](auto& n) {
                 n.child(r_sub, [&](auto& n2) {
                     n2.child(r_a);
@@ -412,7 +407,7 @@ namespace
             .build();
 
         // 2. Build via generative_tree_builder_t
-        generative_tree_builder_t builder{f_resolver};
+        generative_tree_builder_t<double> builder{f_resolver};
         builder.begin(r_mul);
         {
             builder.begin(r_sub);
@@ -437,11 +432,8 @@ namespace
         TEST_ASSERT(tree1.root().size() == 7); // [a, b, sub, b, a, sub, mul]
 
         // Check evaluated results
-        auto stack1 = tree1.evaluate(f_resolver);
-        auto stack2 = tree2.evaluate(f_resolver);
-
-        auto val1 = stack1.pop<double>();
-        auto val2 = stack2.pop<double>();
+        auto val1 = tree1.evaluate(f_resolver);
+        auto val2 = tree2.evaluate(f_resolver);
 
         TEST_ASSERT(val1 == -64.0);
         TEST_ASSERT(val2 == -64.0);

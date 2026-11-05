@@ -112,10 +112,10 @@ namespace
         return static_cast<float>(M_PI);
     };
 
-    using F = detail::function_wrapper_t<std::vector>;
+    using F = detail::function_wrapper_t<float>;
 
     template <size_t S>
-    BLT_ATTRIB_NO_INLINE void run(const std::array<F, S>& funcs, byte_stack_t<>& stack, const size_t index)
+    BLT_ATTRIB_NO_INLINE void run(const std::array<F, S>& funcs, std::vector<float>& stack, const size_t index)
     {
         if (index >= funcs.size())
         {
@@ -126,18 +126,6 @@ namespace
 
     const std::array funcs{F{lam}, F{neg}, F{mul}, F{gul}, F{nul}, F{pul}, F{npul}, F{bul}, F{ln}, F{sim}, F{com}, F{randf}, F{fixed}};
     constexpr size_t N = funcs.size();
-}
-
-static void print_stack(byte_stack_t<>& stack, std::optional<float> assert_value = std::nullopt)
-{
-    BLT_INFO("S -> {}", stack.size());
-    auto i = 0;
-    while (!stack.empty())
-    {
-        auto value = stack.pop<float>();
-        BLT_INFO("\t{}: {}", ++i, value);
-        TEST_ASSERT(value == assert_value.value_or(value));
-    }
 }
 
 int main(int argc, char** argv)
@@ -156,10 +144,10 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < count; ++i)
         program_indices.push_back(rng.get_size_t(0, funcs.size()));
 
-    byte_stack_t stack;
-    stack.push(1.0f);
-    stack.push(32.0f);
-    stack.push(4.0f);
+    std::vector<float> stack;
+    stack.push_back(1.0f);
+    stack.push_back(32.0f);
+    stack.push_back(4.0f);
 
     run(funcs, stack, 2);
     run(funcs, stack, 2);
@@ -167,14 +155,14 @@ int main(int argc, char** argv)
     size_t i = 0;
     while (!stack.empty())
     {
-        auto value = stack.pop<float>();
+        auto value = stack.back();
+        stack.pop_back();
         BLT_INFO("Stack {}: {}", ++i, value);
         TEST_ASSERT(value == 128.f);
         BLT_INFO("Standalone stack test passed");
     }
 
-    type_resolver_t t_resolver;
-    function_resolver_t f_resolver{t_resolver};
+    function_resolver_t<float> f_resolver;
 
     const auto rlam = f_resolver.push(lam);
     const auto rneg = f_resolver.push(neg);
@@ -194,7 +182,7 @@ int main(int argc, char** argv)
     const auto rthree = f_resolver.push(three);
     const auto rpi = f_resolver.push(pi);
 
-    auto tree = tree_builder_t{f_resolver}
+    auto tree = tree_builder_t<float>{f_resolver}
     .root(rmul, [&](auto& n)
     {
         n.child(rpi);
@@ -202,10 +190,10 @@ int main(int argc, char** argv)
     })
     .build();
 
-    stack = tree.evaluate(f_resolver);
-    print_stack(stack, 9.424777984619141);
+    auto res1 = tree.evaluate(f_resolver);
+    TEST_ASSERT(std::abs(res1 - 9.424777984619141f) < 1e-4f);
 
-    tree = tree_builder_t{f_resolver}
+    tree = tree_builder_t<float>{f_resolver}
     .root(rmul, [&](auto& n)
     {
         n.child(rmul, [&](auto& n)
@@ -222,15 +210,15 @@ int main(int argc, char** argv)
     })
     .build();
 
-    stack = tree.evaluate(f_resolver);
-    print_stack(stack, 12.56637096405029);
+    auto res2 = tree.evaluate(f_resolver);
+    TEST_ASSERT(std::abs(res2 - 12.56637096405029f) < 1e-4f);
 
     auto new_tree = tree.root().child(0).to_tree();
 
-    stack = new_tree.evaluate(f_resolver);
-    print_stack(stack, 4);
+    auto res3 = new_tree.evaluate(f_resolver);
+    TEST_ASSERT(std::abs(res3 - 4.0f) < 1e-4f);
 
-    generative_tree_builder_t builder{f_resolver};
+    generative_tree_builder_t<float> builder{f_resolver};
 
     builder.begin(rcom);
     {
@@ -244,11 +232,11 @@ int main(int argc, char** argv)
     builder.end();
 
     auto cos_tree = builder.build();
-    stack = cos_tree.evaluate(f_resolver);
-    print_stack(stack, -1);
+    auto res4 = cos_tree.evaluate(f_resolver);
+    TEST_ASSERT(std::abs(res4 - (-1.0f)) < 1e-4f);
 
     tree.replace(tree.root().child(1).child(0), cos_tree);
-    stack = tree.evaluate(f_resolver);
-    print_stack(stack, -12.56637096405029);
+    auto res5 = tree.evaluate(f_resolver);
+    TEST_ASSERT(std::abs(res5 - (-12.56637096405029f)) < 1e-4f);
 
 }

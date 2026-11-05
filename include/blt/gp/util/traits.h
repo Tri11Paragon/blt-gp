@@ -164,20 +164,60 @@ namespace blt::gp::util
         using next = skip_once<remainder>;
     };
 
-    template<typename Func, typename... Args>
-    class has_backward
+    template<bool V, typename... Args>
+    struct yield_types
     {
-        template <typename Subs>
-        static auto test(int) -> decltype(std::declval<Subs>().backward(std::declval<Args>()...), std::true_type())
+        static constexpr bool value = V;
+        using value_type = bool;
+        using type = yield_types<V, Args...>;
+        constexpr operator value_type() const noexcept { return value; }
+        constexpr value_type operator()() const noexcept { return value; }
+    };
+
+    template<bool V, typename... Args>
+    constexpr static bool yield_types_v = yield_types<V, Args...>::value;
+
+    template<bool V, size_t... Args>
+    struct yield_index
+    {
+        static constexpr bool value = V;
+        using value_type = bool;
+        using type = yield_index<V, Args...>;
+        constexpr operator value_type() const noexcept { return value; }
+        constexpr value_type operator()() const noexcept { return value; }
+    };
+
+    template<bool V, size_t... Args>
+    constexpr static bool yield_index_v = yield_index<V, Args...>::value;
+
+    template<typename... TupleArgs>
+    struct assert_equals_t
+    {
+        template<typename A, typename B, size_t I>
+        static constexpr void assert_types()
         {
-            return std::declval<std::true_type>();
+            static_assert(yield_index_v<std::is_same_v<std::decay_t<A>, std::decay_t<B>>, I>, "Argument Type Mismatch");
         }
 
-        template <typename>
-        static auto test(...) -> std::false_type { return std::declval<std::false_type>(); }
-    public:
-        static constexpr bool value = decltype(test<Func>(0))::value;
+        template<typename... Args, size_t... Is>
+        static constexpr void with_indexes(std::index_sequence<Is...>)
+        {
+            (assert_types<Args, TupleArgs, Is>(), ...);
+        }
+
+        template<typename... Args>
+        static constexpr auto compare()
+        {
+            with_indexes<Args...>(std::index_sequence_for<Args...>{});
+            return true;
+        }
     };
+
+    template<typename Tuple, typename... Args>
+    constexpr void assert_tuple_contains() {
+        apply_t<assert_equals_t, Tuple>{}.template compare<Args...>();
+    }
+
 
 }
 

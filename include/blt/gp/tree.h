@@ -20,7 +20,6 @@
 #define BLT_GP_TREE_H
 
 #include <algorithm>
-#include "stack.h"
 #include <blt/std/hashmap.h>
 #include "functional.h"
 
@@ -33,16 +32,16 @@ namespace blt::gp
     /**
      * Used for user defined manually generated trees as examples in code
      */
-    template <template<typename...> typename Vec = std::vector>
+    template <typename Type, template<typename> typename Alloc = std::allocator>
     class tree_builder_t;
 
     /**
      * Used for generating trees in code by algorithms
      */
-    template <template<typename...> typename Vec = std::vector>
+    template <typename Type, template<typename> typename Alloc = std::allocator>
     class generative_tree_builder_t;
 
-    template <template<typename...> typename Vec = std::vector>
+    template <typename Type, template<typename> typename Alloc = std::allocator>
     struct tree_t
     {
         struct subtree_span_t
@@ -66,7 +65,7 @@ namespace blt::gp
             /**
              * Return the subtree span corresponding to this tree's `index` child.
              */
-            subtree_span_t child(size_t index) const
+            [[nodiscard]] subtree_span_t child(size_t index) const
             {
                 auto child_index = root_index() - 1;
                 while (index--)
@@ -77,7 +76,7 @@ namespace blt::gp
                 return tree->subtree_span(child_index);
             }
 
-            auto children() const
+            [[nodiscard]] auto children() const
             {
                 return children_t{*this};
             }
@@ -87,7 +86,8 @@ namespace blt::gp
              */
             tree_t to_tree()
             {
-                size_t prev_ephem = tree->leading_ephemeral_size(begin);
+                const size_t prev_ephem = tree->leading_ephemeral_size(begin);
+                size_t end_ephem = prev_ephem;
                 // copy operators and make use of known ephemeral sizes to copy only the subtree's ephemeral values
                 tree_t subtree;
                 subtree.operators.reserve(size());
@@ -95,12 +95,31 @@ namespace blt::gp
                 {
                     subtree.operators.push_back(*it);
                     if (it->stores_in_stack)
+                        end_ephem += 1;
+                }
+                subtree.ephemeral_stack.insert(subtree.ephemeral_stack.end(), tree->ephemeral_stack.begin() + prev_ephem,
+                                               tree->ephemeral_stack.begin() + end_ephem);
+                return subtree;
+            }
+
+            Type evaluate(function_resolver_t<Type, Alloc>& resolver)
+            {
+                std::vector<Type, Alloc<Type>> stack;
+                size_t ephemeral_offset = tree->leading_ephemeral_size(begin);
+                for (auto it = tree->operators.begin() + begin; it != tree->operators.begin() + end; ++it)
+                {
+                    auto& op = *it;
+                    if (op.stores_in_stack)
                     {
-                        subtree.ephemeral_stack.copy(tree->ephemeral_stack, prev_ephem, prev_ephem + it->return_type.aligned_size);
-                        prev_ephem += it->return_type.aligned_size;
+                        stack.push_back(tree->ephemeral_stack[ephemeral_offset]);
+                        ephemeral_offset += 1;
+                    }
+                    else
+                    {
+                        resolver.forward(op.id, stack, stack);
                     }
                 }
-                return subtree;
+                return stack.back();
             }
 
             friend bool operator==(const subtree_span_t& a, const subtree_span_t& b)
@@ -124,7 +143,7 @@ namespace blt::gp
                 explicit children_iter_t(const subtree_span_t parent, const bool is_end = false)
                     : parent(parent)
                 {
-                    max_child = parent.tree->operators[parent.root_index()].argument_types.size();
+                    max_child = parent.tree->operators[parent.root_index()].argument_count;
 
                     if (is_end || max_child == 0)
                     {
@@ -187,12 +206,12 @@ namespace blt::gp
                 {
                 }
 
-                children_iter_t begin() const
+                [[nodiscard]] children_iter_t begin() const
                 {
                     return children_iter_t{span, false};
                 }
 
-                children_iter_t end() const
+                [[nodiscard]] children_iter_t end() const
                 {
                     return children_iter_t{span, true};
                 }
@@ -240,31 +259,17 @@ namespace blt::gp
 
         explicit tree_t() = default;
 
-        byte_stack_t<Vec> evaluate(function_resolver_t<Vec>& resolver)
+        Type evaluate(function_resolver_t<Type, Alloc>& resolver)
         {
-            byte_stack_t<Vec> stack;
-            size_t ephemeral_offset = 0;
-            for (const auto& op : operators)
-            {
-                if (op.stores_in_stack)
-                {
-                    stack.copy(ephemeral_stack, ephemeral_offset, ephemeral_offset + op.return_type.aligned_size);
-                    ephemeral_offset += op.return_type.aligned_size;
-                }
-                else
-                {
-                    resolver.forward(op.id, stack, stack);
-                }
-            }
-            return stack;
+            return root().evaluate(resolver);
         }
 
-        subtree_span_t root() const
+        [[nodiscard]] subtree_span_t root() const
         {
             return subtree_span_t{this, 0, operators.size()};
         }
 
-        subtree_span_t subtree_span(const size_t root_operator_index) const
+        [[nodiscard]] subtree_span_t subtree_span(const size_t root_operator_index) const
         {
             size_t needed = 1;
 
@@ -273,7 +278,7 @@ namespace blt::gp
                 if (i >= operators.size())
                     break;
                 --needed;
-                needed += operators[i].argument_types.size();
+                needed += operators[i].argument_count;
 
                 if (needed == 0)
                     return subtree_span_t{this, i, root_operator_index + 1};
@@ -293,7 +298,8 @@ namespace blt::gp
 
             auto before_bytes = leading_ephemeral_size(subtree.begin);
             auto after_bytes = trailing_ephemeral_size(subtree.end);
-            ephemeral_stack.replace(replacement.ephemeral_stack, before_bytes, ephemeral_stack.size() - after_bytes);
+            ephemeral_stack.erase(ephemeral_stack.begin() + before_bytes, ephemeral_stack.begin() + ephemeral_stack.size() - after_bytes);
+            ephemeral_stack.insert(ephemeral_stack.begin() + before_bytes, replacement.ephemeral_stack.begin(), replacement.ephemeral_stack.end());
             operators.erase(operators.begin() + subtree.begin, operators.begin() + subtree.end);
             operators.insert(operators.begin() + subtree.begin, replacement.operators.begin(), replacement.operators.end());
         }
@@ -306,23 +312,23 @@ namespace blt::gp
 
             auto before_bytes = leading_ephemeral_size(subtree.begin);
             auto after_bytes = trailing_ephemeral_size(subtree.end);
-            ephemeral_stack.erase(before_bytes, ephemeral_stack.size() - after_bytes);
+            ephemeral_stack.erase(ephemeral_stack.begin() + before_bytes, ephemeral_stack.begin() + ephemeral_stack.size() - after_bytes);
             operators.erase(operators.begin() + subtree.begin, operators.begin() + subtree.end);
         }
 
-        auto postorder()
+        [[nodiscard]] auto postorder()
         {
             return postorder_t{*this};
         }
 
-        auto postorder() const
+        [[nodiscard]] auto postorder() const
         {
             return postorder_t{*this};
         }
 
     protected:
         /**
-         * Returns the number of bytes of ephemeral values before the start of the subtree according to standard order.
+         * Returns the number of ephemeral values before the start of the subtree according to standard order.
          * @param end_index: the index corresponding to the start of the subtree. Not included in the calculation.
          */
         [[nodiscard]] size_t leading_ephemeral_size(size_t end_index) const
@@ -331,13 +337,13 @@ namespace blt::gp
             for (auto it = operators.begin(); it != operators.begin() + end_index; ++it)
             {
                 if (it->stores_in_stack)
-                    prev_ephem += it->return_type.aligned_size;
+                    prev_ephem += 1;
             }
             return prev_ephem;
         }
 
         /**
-         * Returns the number of bytes of ephemeral values after the end of the subtree according to standard order.
+         * Returns the number of ephemeral values after the end of the subtree according to standard order.
          * @param begin_index: The index one past the last operator in the subtree. Is included as part of the calculation.
          */
         [[nodiscard]] size_t trailing_ephemeral_size(size_t begin_index) const
@@ -346,26 +352,26 @@ namespace blt::gp
             for (auto it = operators.begin() + begin_index; it != operators.end(); ++it)
             {
                 if (it->stores_in_stack)
-                    post_ephem += it->return_type.aligned_size;
+                    post_ephem += 1;
             }
             return post_ephem;
         }
 
         friend postorder_t<tree_t>;
         friend postorder_t<tree_t const>;
-        friend tree_builder_t<Vec>;
-        friend generative_tree_builder_t<Vec>;
+        friend tree_builder_t<Type, Alloc>;
+        friend generative_tree_builder_t<Type, Alloc>;
         friend subtree_span_t;
         // operators are stored in post order
-        Vec<function_info_t<Vec>> operators;
-        byte_stack_t<Vec> ephemeral_stack;
+        std::vector<function_info_t, Alloc<function_info_t>> operators;
+        std::vector<Type> ephemeral_stack;
     };
 
-    template <template<typename...> typename Vec>
+    template <typename Type, template<typename> typename Alloc>
     class tree_builder_t
     {
     public:
-        explicit tree_builder_t(function_resolver_t<Vec>& resolver) : resolver(&resolver)
+        explicit tree_builder_t(function_resolver_t<Type, Alloc>& resolver) : resolver(&resolver)
         {
         }
 
@@ -386,7 +392,7 @@ namespace blt::gp
             return *this;
         }
 
-        tree_t<Vec> build()
+        tree_t<Type, Alloc> build()
         {
             return std::move(tree);
         }
@@ -404,7 +410,7 @@ namespace blt::gp
                 if (!parent.resolver->get(id).is_terminal())
                 {
                     throw std::runtime_error(string::format("Function with id: {} is not a terminal and requires {} arguments", id.get(),
-                                                            parent.resolver->get(id).argument_types.size()));
+                                                            parent.resolver->get(id).argument_count));
                 }
                 if (parent.resolver->stores_in_stack(id))
                 {
@@ -421,7 +427,7 @@ namespace blt::gp
                 node_builder_t node{parent};
                 children(node);
 
-                const auto expected = parent.resolver->get(id).argument_types.size();
+                const auto expected = parent.resolver->get(id).argument_count;
                 const auto actual = node.child_count;
 
                 if (expected != actual)
@@ -461,16 +467,16 @@ namespace blt::gp
         }
 
     private:
-        function_resolver_t<Vec>* resolver;
-        tree_t<Vec> tree;
+        function_resolver_t<Type, Alloc>* resolver;
+        tree_t<Type, Alloc> tree;
         bool has_root = false;
     };
 
-    template <template<typename...> typename Vec>
+    template <typename Type, template<typename> typename Alloc>
     class generative_tree_builder_t
     {
     public:
-        explicit generative_tree_builder_t(function_resolver_t<Vec>& resolver) : resolver(&resolver)
+        explicit generative_tree_builder_t(function_resolver_t<Type, Alloc>& resolver) : resolver(&resolver)
         {
         }
 
@@ -500,7 +506,7 @@ namespace blt::gp
             if (!info.is_terminal())
             {
                 throw std::runtime_error(string::format(
-                    "Function with id: {} is not a terminal and requires {} arguments.", id.get(), info.argument_types.size()));
+                    "Function with id: {} is not a terminal and requires {} arguments.", id.get(), info.argument_count));
             }
 
             if (resolver->stores_in_stack(id))
@@ -519,7 +525,7 @@ namespace blt::gp
             if (!info.is_terminal())
             {
                 throw std::runtime_error(string::format(
-                    "Ephemeral function with id: {} must be terminal, but requires {} arguments.", id.get(), info.argument_types.size()));
+                    "Ephemeral function with id: {} must be terminal, but requires {} arguments.", id.get(), info.argument_count));
             }
 
             if (!resolver->stores_in_stack(id))
@@ -543,7 +549,7 @@ namespace blt::gp
             pending.pop_back();
 
             const auto& info = resolver->get(node.id);
-            const auto expected = info.argument_types.size();
+            const auto expected = info.argument_count;
 
             if (node.emitted_children != expected)
             {
@@ -569,7 +575,7 @@ namespace blt::gp
             return *this;
         }
 
-        tree_t<Vec> build()
+        tree_t<Type, Alloc> build()
         {
             if (!pending.empty())
             {
@@ -618,7 +624,7 @@ namespace blt::gp
             auto& parent = pending.back();
             ++parent.emitted_children;
 
-            const auto expected = resolver->get(parent.id).argument_types.size();
+            const auto expected = resolver->get(parent.id).argument_count;
 
             if (parent.emitted_children > expected)
             {
@@ -640,11 +646,20 @@ namespace blt::gp
         }
 
     private:
-        function_resolver_t<Vec>* resolver;
-        tree_t<Vec> tree;
-        Vec<pending_node_t> pending;
+        function_resolver_t<Type, Alloc>* resolver;
+        tree_t<Type, Alloc> tree;
+        std::vector<pending_node_t, Alloc<pending_node_t>> pending;
         bool root_emitted = false;
     };
+
+    extern template struct tree_t<float>;
+    extern template struct tree_t<double>;
+    extern template struct tree_t<i8>;
+    extern template struct tree_t<u8>;
+    extern template struct tree_t<u32>;
+    extern template struct tree_t<i32>;
+    extern template struct tree_t<i64>;
+    extern template struct tree_t<u64>;
 
     // TODO: layer based approach.
 }
