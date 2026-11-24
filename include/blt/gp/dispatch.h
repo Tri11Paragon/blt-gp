@@ -22,6 +22,7 @@
 #include <blt/std/types.h>
 #include <blt/gp/util/traits.h>
 #include <utility>
+#include <functional>
 
 #include "blt/std/utility.h"
 
@@ -30,6 +31,8 @@ namespace blt::gp
     template <typename Dispatch>
     struct dispatch_caller_t
     {
+        static size_t constexpr Size = Dispatch::Index + 1;
+
         explicit dispatch_caller_t(const Dispatch& dispatch) : dispatcher(dispatch)
         {
         }
@@ -39,26 +42,26 @@ namespace blt::gp
         }
 
         template <typename... Args>
-        void dispatch(const size_t index, Args&&... args) const
+        decltype(auto) dispatch(const size_t index, Args&&... args) const
         {
             if (index > Dispatch::Index)
                 throw std::out_of_range("dispatch index out of range: " + std::to_string(index));
-            dispatcher._dispatch(index, std::forward<Args>(args)...);
+            return dispatcher._dispatch(index, std::forward<Args>(args)...);
         }
 
         template <typename... Args>
-        void operator()(const size_t index, Args&&... args) const
+        decltype(auto) operator()(const size_t index, Args&&... args) const
         {
-            dispatch(index, std::forward<Args>(args)...);
+            return dispatch(index, std::forward<Args>(args)...);
         }
 
         Dispatch dispatcher;
     };
 
-    template<typename T>
+    template <typename T>
     struct out_variable_t
     {
-        explicit out_variable_t(T& t): t(&t)
+        explicit out_variable_t(T& t) : t(&t)
         {
         }
 
@@ -78,11 +81,28 @@ namespace blt::gp
     // DO NOT DIRECTLY INTERFACE WITH THESE
     namespace detail
     {
+        template <typename F>
+        struct callable_holder
+        {
+            std::decay_t<F> func;
+
+            explicit callable_holder(F&& f) : func(std::forward<F>(f))
+            {
+            }
+
+            template<typename... Args>
+            decltype(auto) operator()(Args&&... args) const
+            {
+                return std::invoke(func, std::forward<Args>(args)...);
+            }
+        };
+
         struct base_t
         {
             template <typename... Args>
-            void _dispatch(size_t, Args&&...) const
+            void _dispatch(const size_t, Args&&...) const
             {
+
             }
         };
 
@@ -93,18 +113,15 @@ namespace blt::gp
 
             static size_t constexpr Index = I;
 
-            explicit dispatch_t(Func& func) : base(base_t{}), func(&func)
-            {
-            }
-
-            explicit dispatch_t(Func& func, Base base) : base(base), func(&func)
+            template<typename GFunc>
+            explicit dispatch_t(GFunc&& func, Base base) : base(base), func(std::forward<Func>(func))
             {
             }
 
             template <typename Func2>
-            auto add(Func2& func2) const
+            auto add(Func2&& func2) const
             {
-                return dispatch_t<I + 1, Func2, dispatch_t>(func2, *this);
+                return dispatch_t<I + 1, Func2, dispatch_t>(std::forward<Func2>(func2), *this);
             }
 
             template <typename Func2>
@@ -121,27 +138,28 @@ namespace blt::gp
 
         public:
             template <typename... Args>
-            void _dispatch(const size_t index, Args&&... args) const
+            std::invoke_result_t<Func, Args...> _dispatch(const size_t index, Args&&... args) const
             {
-                util::assert_tuple_contains<typename util::function_traits<Func>::args_tuple, Args...>();
                 if (index == I)
                 {
-                    (*func)(std::forward<Args>(args)...);
-                    return;
+                    return func(std::forward<Args>(args)...);
                 }
-                base._dispatch(index, std::forward<Args>(args)...);
+                if constexpr (!std::is_same_v<Base, base_t>)
+                    return base._dispatch(index, std::forward<Args>(args)...);
+                else
+                    BLT_UNREACHABLE;
             }
 
             Base base;
-            Func* func;
+            callable_holder<Func> func;
         };
     }
 
 
     template <typename Func>
-    auto make_dispatcher(Func& base_func)
+    auto make_dispatcher(Func&& base_func)
     {
-        return detail::dispatch_t<0, Func, detail::base_t>{base_func};
+        return detail::dispatch_t<0, Func, detail::base_t>{std::forward<Func>(base_func), detail::base_t{}};
     }
 }
 

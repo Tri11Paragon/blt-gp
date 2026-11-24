@@ -25,87 +25,85 @@ using namespace blt::gp;
 
 namespace
 {
-    auto func0 = [](float& o, float a, float b)
+    auto func0 = [](const float a, const float b)
     {
-        o = a * b - b;
+        return a * b - b;
     };
 
-    auto func1 = [](float& o, float a, float b)
+    auto func1 = [](const float a, const float b)
     {
-        o = a + b;
+        return a + b;
     };
 
-    auto func2 = [](float& o, float a, float b)
+    auto func2 = [](const float a, const float b)
     {
-        o = a - b;
+        return a - b;
     };
 
-    auto func3 = [](float& o, float a, float b)
+    auto func3 = [](const float a, const float b)
     {
-        o = a * b;
+        return a * b;
     };
 
-    auto func4 = [](float& o, float a, float b)
+    auto func4 = [](const float a, const float b)
     {
-        o = a / (b == 0 ? 1.0f : b);
+        return a / (b == 0 ? 1.0f : b);
     };
 
-    auto func5 = [](float& o, float a, float b)
+    auto func5 = [](const float a, const float b)
     {
-        o = a + b / ((a * b) == 0 ? 1.0f : (a * b));
+        return a + b / ((a * b) == 0 ? 1.0f : (a * b));
     };
 
-    auto func6 = [](float& o, float a, float b)
+    auto func6 = [](const float a, const float b)
     {
-        o = a + a + b * b;
+        return a + a + b * b;
     };
 
-    auto func7 = [](float& o, float a, float b)
+    auto func7 = [](const float a, const float b)
     {
-        o = std::sqrt(a * a + b * b);
+        return std::sqrt(a * a + b * b);
     };
 
-    auto func8 = [](float& o, float a, float b)
-    {
-        const float fa = a - b;
-        o = std::sqrt(fa * fa);
-    };
-
-    auto func9 = [](float& o, float a, float b)
+    auto func8 = [](const float a, const float b)
     {
         const float fa = a - b;
-        o = std::cbrt(fa * fa * fa);
+        return std::sqrt(fa * fa);
     };
 
-    auto func10 = [](float& o, float a, float b)
+    auto func9 = [](const float a, const float b)
+    {
+        const float fa = a - b;
+        return std::cbrt(fa * fa * fa);
+    };
+
+    auto func10 = [](const float a, const float b)
     {
         const float fa = a + b;
-        o = std::cbrt(fa * fa * fa);
+        return std::cbrt(fa * fa * fa);
     };
 
-    auto func11 = [](float& o, float a, float b)
+    auto func11 = [](const float a, const float b)
     {
         const float fa = std::sqrt(a * b);
-        o = std::cbrt(fa * fa * fa);
+        return std::cbrt(fa * fa * fa);
     };
-}
-
-BLT_ATTRIB_NO_INLINE static void dispatch(const size_t index, float& o, float a, float b)
-{
-    static auto dispatch = make_dispatcher(func0).add(func1)
-                    .add(func2).add(func3).add(func4)
-                    .add(func5).add(func6).add(func7).add(func8).add(func9).add(func10).add(func11).build();
-    dispatch.dispatch(index, o, a, b);
 }
 
 int main()
 {
+    static auto dispatch = make_dispatcher(func0).add(func1).add(func2).add(func3)
+                                                 .add(func4).add(func5).add(func6).add(func7)
+                                                 .add(func8).add(func9).add(func10).add(func11).add(
+                                                     [](const float a, const float b)
+                                                     {
+                                                         return (a * b) / (a * a + b * b);
+                                                     }).build();
     for (float i = 0; i < 1000; i++)
     {
-        float a = i * 4123, b = (i * 33);
-        const auto func = blt::black_box_ret(static_cast<blt::u32>(i) % 12);
-        float o = 0;
-        dispatch(func, o, a, b);
+        const float a = i * 4123, b = (i * 33);
+        const auto func = blt::black_box_ret(static_cast<blt::u32>(i) % decltype(dispatch)::Size);
+        float o = dispatch.dispatch(func, a, b);
         BLT_TRACE("Result: {} || Func {}", o, func);
     }
 }
